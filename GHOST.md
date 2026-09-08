@@ -2,11 +2,10 @@
 
 MOTOKO's instruments are shells. The ghost is not in any of them.
 
-This is a citation of a problem, in the same sense that
-[RASHOMON](https://github.com/eric-stone-plus/RASHOMON) cites Kurosawa: a named
-work is used as an epistemological anchor, not as a character to play and not
-as artwork to copy. The works: Shirow Masamune《攻殻機動隊》, Oshii Mamoru
-*Ghost in the Shell* (1995), *Innocence* (2004), *Stand Alone Complex*.
+This is a citation of a problem: a named work is used as an epistemological
+anchor, not as a character to play and not as artwork to copy. The works:
+Shirow Masamune《攻殻機動隊》, Oshii Mamoru *Ghost in the Shell* (1995),
+*Innocence* (2004), *Stand Alone Complex*.
 
 ## The ghost problem
 
@@ -28,29 +27,28 @@ cosplay.
    find it in `vendor/`. You will not find it in a skill file. It is the
    remainder after every replaceable part has been named.
 
-RASHOMON's residual is the error one perspective cannot see in itself.
 MOTOKO's ghost is the remainder no instrument repo can hold: scope, interrupt,
 evidence, and the human on IM.
 
 ## Shells (prosthetic repos)
 
 Each cited repository is a shell. Shells are replaceable. Authority stays in
-the shell's own license and release cycle. See [INSTRUMENTS.md](INSTRUMENTS.md).
+the shell's own license and release cycle. Citations point at **upstream**.
+See [INSTRUMENTS.md](INSTRUMENTS.md).
 
 | Shell | What it is in the body |
 |---|---|
-| `hermes-agent` | Operator-facing body. IM in, tools out. Not the ghost. |
-| `hermes-penetrate` | Operational profile: scope templates, discipline, skills. A shell. |
-| `strix` | Offensive cognition that insists on proof. A specialist organ. |
-| `nuclei` | Reflex scan: templates against a surface. |
-| `firecrawl` | Sense-making of pages (readable body of a target). |
-| Kali playbooks | Hands: CLI over a controlled environment. Live inside the profile shell. |
-| `langgraph` | Connective tissue. Organization of the prostheses. Still not the ghost. |
+| Hermes Agent | Operator-facing body. IM in, tools out. Not the ghost. |
+| Strix | Offensive cognition that insists on proof. A specialist organ. |
+| Nuclei | Reflex scan: templates against a surface. |
+| Firecrawl | Sense-making of pages (readable body of a target). |
+| Kali playbooks | Hands: CLI over a controlled environment. |
+| LangGraph | Connective tissue. Organization of the prostheses. Still not the ghost. |
 
 A "complete Motoko agent" is therefore **not a merge**. It is this citation
 graph plus the run-time graph in [GRAPH.md](GRAPH.md). Every part lives in a
-different repo on purpose. This repository holds the ontology and the
-contract. It does not hold the prostheses. The work is orchestration.
+different upstream repo on purpose. This repository holds the ontology and
+the contract. It does not hold the prostheses. The work is orchestration.
 
 ## Where the ghost is allowed to appear
 

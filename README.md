@@ -8,9 +8,8 @@ single-host, IM-commanded pentest composition. It asks the prior question:
 *why does assembling every scanner still fail to produce an agent, and what
 kind of remainder appears when the parts are bound as a graph?*
 
-It is a concept in the same sense as [RASHOMON](https://github.com/eric-stone-plus/RASHOMON).
-It does not prescribe a merged tree. Each shell keeps its own repository.
-The name is a callsign, not a character.
+It does not prescribe a merged tree. Each shell keeps its own upstream
+repository. The name is a callsign, not a character.
 
 The one engineering claim is **agent re-orchestration**: existing agents and
 scanners, bound as a graph, with interrupts where a human or a scope gate
@@ -21,10 +20,8 @@ The ghost, if the question is even well-posed, is not in any shell.
 - [GRAPH.md](GRAPH.md) — re-orchestration contract (nodes, edges, interrupts)
 - [INSTRUMENTS.md](INSTRUMENTS.md) — citation map; each shell is a different repo
 
-The operational Hermes profile (persona, templates, skills) is **not** this
-repository. It lives in the private profile
-[eric-stone-plus/hermes-penetrate](https://github.com/eric-stone-plus/hermes-penetrate).
-This repo names the composition. That repo is one shell among others.
+This repository is ontology and contract only. An operator-side Hermes
+profile (persona, templates, skills) is a separate shell. It is not this tree.
 
 ## The Theseus problem
 
@@ -40,13 +37,14 @@ is that kind of pattern — nodes firing in a graph — not a binary named Motok
 
 MOTOKO names the problem and the graph. It does not merge the instruments:
 
-- **Runtime shell** — Hermes Agent: IM in, tools out. Invoker of the graph,
-  not a node inside it.
-- **Offensive cognition** — Strix: proof-seeking pentest agent.
-- **Reflex and sense** — Nuclei, Firecrawl, Kali playbooks.
-- **Connective tissue** — LangGraph: nodes, edges, interrupts, reducers.
-- **Operational profile** — hermes-penetrate: scope templates, discipline,
-  skill set. A shell, not this ontology.
+- **Runtime shell** — [Hermes Agent](https://github.com/NousResearch/hermes-agent):
+  IM in, tools out. Invoker of the graph, not a node inside it.
+- **Offensive cognition** — [Strix](https://github.com/usestrix/strix):
+  proof-seeking pentest agent.
+- **Reflex and sense** — [Nuclei](https://github.com/projectdiscovery/nuclei),
+  [Firecrawl](https://github.com/firecrawl/firecrawl), Kali playbooks.
+- **Connective tissue** — [LangGraph](https://github.com/langchain-ai/langgraph):
+  nodes, edges, interrupts, reducers.
 
 The instruments may be composed on one host. Their licenses and release
 cycles remain separate. See [INSTRUMENTS.md](INSTRUMENTS.md) and [NOTICE](NOTICE).
@@ -57,8 +55,8 @@ cycles remain separate. See [INSTRUMENTS.md](INSTRUMENTS.md) and [NOTICE](NOTICE
 - Not a new scanner and not a new agent runtime.
 - Not a copyrighted character, voice, likeness, or mark. Visual identity
   (logo) is original work, later.
-- Not a license to copy Shirow/Oshii. Citation of a named work's *problem*
-  is the same move RASHOMON makes with Kurosawa.
+- Not a license to copy Shirow/Oshii. Named works are cited as a problem,
+  the way one cites a film for a question it poses, not as a character to play.
 
 ## Layout
 
@@ -66,7 +64,7 @@ cycles remain separate. See [INSTRUMENTS.md](INSTRUMENTS.md) and [NOTICE](NOTICE
 |---|---|
 | `GHOST.md` | Ghost/shell ontology; why the agent is an orchestration |
 | `GRAPH.md` | LangGraph contract: state, nodes, interrupts |
-| `INSTRUMENTS.md` | Pinned citations; license of each shell |
+| `INSTRUMENTS.md` | Upstream citations; license of each shell |
 | `NOTICE` | This work vs cited instruments |
 | `AGENTS.md` | Contributor rules |
 
@@ -79,7 +77,7 @@ See `LICENSE` and `NOTICE`.
 Permitted: personal study, hobby, research, and use by charitable /
 educational / public-research / government institutions. **Commercial use
 is not permitted.** This is source-available, not OSI Open Source, and not
-a GNU license. RASHOMON and HIGHBALL remain Apache-2.0; this repo does not.
+a GNU license.
 
 **Cannot be done to instruments:** this ontology cannot relicense Hermes Agent
 (MIT), Nuclei (MIT), Strix (Apache-2.0), Firecrawl (AGPL-3.0), or LangGraph
@@ -91,5 +89,3 @@ Those instruments still allow commercial use under *their* terms.
 - Shirow Masamune《攻殻機動隊》— prosthetic body, cyberbrain, the ghost question
 - Oshii Mamoru *Ghost in the Shell* (1995), *Innocence* (2004)
 - *Stand Alone Complex* — copies without an original
-- [RASHOMON](https://github.com/eric-stone-plus/RASHOMON) — residual ontology;
-  MOTOKO's ghost is the remainder no instrument repo can hold

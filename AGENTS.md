@@ -14,7 +14,8 @@ personal machine paths, private endpoints, or host-specific infrastructure.
 - Do not relicense cited instruments. License changes, if any, apply only to
   original files in this repository.
 - Do not add an operational Hermes profile (SOUL.md, skills, live config) here.
-  That shell is `eric-stone-plus/hermes-penetrate`.
+  That is a separate shell, not this ontology.
+- Cite upstream repositories only. Do not cite operator forks.
 - Preserve contributor identity. Agent-authored commits use the agent's
   GitHub-linked Git author identity rather than the human operator or only a
   co-author trailer; human-authored commits retain the human author.

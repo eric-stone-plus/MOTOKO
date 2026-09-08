@@ -120,6 +120,6 @@ Exact numeric caps live with the operational profile, not here.
 
 ## License
 
-LangGraph is MIT (LangChain, Inc.). A private mirror does not change that.
+LangGraph is MIT (LangChain, Inc.), upstream `langchain-ai/langgraph`.
 This graph contract is original MOTOKO text (PolyForm Noncommercial 1.0.0).
 Citing LangGraph is not combining it into Firecrawl's AGPL surface.

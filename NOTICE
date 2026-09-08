@@ -9,20 +9,19 @@ You may obtain a copy of the License in the LICENSE file or at
 https://polyformproject.org/licenses/noncommercial/1.0.0
 
 This NOTICE covers original MOTOKO files in this repository (ontology,
-graph contract, citation map). It does not cover operational profile
-files, and it does not relicense cited instruments.
+graph contract, citation map). It does not relicense cited instruments.
 
 Cited instruments retain their own licenses and copyright holders.
 Citing a repository is not combining it into one work.
+Citations point at upstream.
 
-Instrument          License      Copyright / upstream
+Instrument          License      Upstream
 ------------------  -----------  ----------------------------------------------
-Hermes Agent        MIT          Nous Research; fork eric-stone-plus/hermes-agent
-hermes-penetrate    MIT          operational profile (separate repo)
-Strix               Apache-2.0   usestrix/strix; mirror eric-stone-plus/strix
-Nuclei              MIT          ProjectDiscovery, Inc.; mirror eric-stone-plus/nuclei
-Firecrawl           AGPL-3.0     firecrawl/firecrawl; tracking eric-stone-plus/firecrawl
-LangGraph           MIT          LangChain, Inc.; mirror eric-stone-plus/langgraph
+Hermes Agent        MIT          NousResearch/hermes-agent
+Strix               Apache-2.0   usestrix/strix
+Nuclei              MIT          projectdiscovery/nuclei
+Firecrawl           AGPL-3.0     firecrawl/firecrawl
+LangGraph           MIT          langchain-ai/langgraph
 
 AGPL-3.0 on Firecrawl applies to Firecrawl (and to a combined network
 service that includes Firecrawl source). It does not convert this ontology
