@@ -101,6 +101,10 @@ the operator on IM. Resume is explicit. There is no default-yes.
 Out-of-scope asset discovered mid-recon: conditional edge to `halt`, not a
 pivot.
 
+A name from recon is not an asset until it matches signed scope
+(registrant / ASN / explicit seed). Sibling names on the same parent TLD
+that belong to other tenants (cloud customers of a seed) stay out.
+
 ## Verify edges
 
 These are graph facts, not host folklore:
@@ -109,6 +113,8 @@ These are graph facts, not host folklore:
   It is not a generic URL probe. No candidate → skip the node.
 - `searchsploit` consumes whatweb fingerprints. No fingerprint → skip.
 - Directory bust is one node per asset: gobuster *or* ffuf, not both.
+- `subfinder` takes DNS names, not IPv4.
+- `uncover` is optional intel. No provider output → skip, do not fail.
 
 ## Host bounds as graph config, not folklore
 
