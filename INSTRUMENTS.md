@@ -15,15 +15,20 @@ Citations are **upstream**. Operator forks, if any, are out of scope here.
 | Hermes Agent | Runtime, IM gateway, graph invoker | [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) | MIT |
 | Strix | Autonomous pentest; PoC-validated findings | [usestrix/strix](https://github.com/usestrix/strix) | Apache-2.0 |
 | Nuclei | Template CVE / misconfig scanner | [projectdiscovery/nuclei](https://github.com/projectdiscovery/nuclei) | MIT |
-| Firecrawl | Self-host crawl → markdown for in-scope recon | [firecrawl/firecrawl](https://github.com/firecrawl/firecrawl) | AGPL-3.0 |
-| LangGraph | Graph runtime for this contract | [langchain-ai/langgraph](https://github.com/langchain-ai/langgraph) | MIT |
+| Firecrawl | Optional self-host crawl → markdown (not on the default path) | [firecrawl/firecrawl](https://github.com/firecrawl/firecrawl) | AGPL-3.0 |
+| LangGraph | Graph *contract* runtime, if compiled | [langchain-ai/langgraph](https://github.com/langchain-ai/langgraph) | MIT |
 | Kali Linux | CLI pentest environment / playbook surface | [kali.org](https://www.kali.org/) | Distro; packages keep their own licenses |
 
-Related ProjectDiscovery tools used as recon nodes, not forked here:
+Related recon/verify tools used as graph nodes, not forked here:
 [katana](https://github.com/projectdiscovery/katana),
 [subfinder](https://github.com/projectdiscovery/subfinder),
 [httpx](https://github.com/projectdiscovery/httpx),
-[naabu](https://github.com/projectdiscovery/naabu).
+[naabu](https://github.com/projectdiscovery/naabu),
+[uncover](https://github.com/projectdiscovery/uncover),
+[dalfox](https://github.com/hahwul/dalfox),
+[gowitness](https://github.com/sensepost/gowitness),
+[arjun](https://github.com/s0md3v/Arjun),
+[trufflehog](https://github.com/trufflesecurity/trufflehog).
 
 ## How they compose on one host
 
@@ -31,13 +36,15 @@ The control flow is the graph in [GRAPH.md](GRAPH.md). Short form:
 
 1. IM → Hermes gateway invokes the graph (Hermes is outside the graph).
 2. `scope` → signed authorization. Empty scope → END.
-3. `recon` fan-out → Firecrawl + Katana + subdomain/HTTP probe.
-4. `scan` fan-out → Nuclei + port scan. Kali playbooks for the rest.
+3. `recon` → fingerprint (whatweb), OSINT (uncover), crawl (katana),
+   names (subfinder / httpx). Optional: Firecrawl for readable page body.
+4. `scan` → Nuclei + evidence (gowitness, trufflehog) + verify (arjun,
+   dalfox). Kali playbooks serial for the rest.
 5. Conditional: proof needed → Strix; else → report.
 6. `report` → hashed evidence. Destructive edges `interrupt` for IM confirmation.
 
-Firecrawl is recon content, not a vulnerability scanner. Katana is the
-security crawler; Firecrawl is the readable-page crawler.
+Firecrawl is optional recon content, not a vulnerability scanner, and
+not on the default live path. Katana is the security crawler.
 
 ## License boundary
 

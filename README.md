@@ -21,14 +21,18 @@ The ghost, if the question is even well-posed, is not in any shell.
 - [INSTRUMENTS.md](INSTRUMENTS.md) — citation map; each shell is a different repo
 
 This repository is ontology and contract only. An operator-side Hermes
-profile (persona, templates, skills) is a separate shell. It is not this tree.
+profile (persona, templates, skills, including the motoko scheduler
+skill) is a separate shell. It is not this tree. The IM display name
+may wear the callsign; that still does not put a ghost in this repo.
 
 ## The Theseus problem
 
-Replace the body, keep the question. Hermes, Strix, Nuclei, Firecrawl, Kali,
-LangGraph — that is inventory. Inventory does not authorize itself, does not
-refuse a destructive edge, and does not hash evidence. Those remainders are
-the only places a ghost is even allowed to appear.
+Replace the body, keep the question. Hermes, Strix, Nuclei, Kali,
+ProjectDiscovery recon, LangGraph — that is inventory. Firecrawl remains
+an optional sense shell, not the default recon path. Inventory does not
+authorize itself, does not refuse a destructive edge, and does not hash
+evidence. Those remainders are the only places a ghost is even allowed
+to appear.
 
 Stand Alone Complex: a pattern can act without a master copy. A MOTOKO run
 is that kind of pattern — nodes firing in a graph — not a binary named Motoko.
@@ -42,9 +46,13 @@ MOTOKO names the problem and the graph. It does not merge the instruments:
 - **Offensive cognition** — [Strix](https://github.com/usestrix/strix):
   proof-seeking pentest agent.
 - **Reflex and sense** — [Nuclei](https://github.com/projectdiscovery/nuclei),
-  [Firecrawl](https://github.com/firecrawl/firecrawl), Kali playbooks.
-- **Connective tissue** — [LangGraph](https://github.com/langchain-ai/langgraph):
-  nodes, edges, interrupts, reducers.
+  ProjectDiscovery recon (katana, subfinder, httpx, and kin), Kali playbooks.
+  [Firecrawl](https://github.com/firecrawl/firecrawl) is optional page-body
+  recon, not a required node.
+- **Connective tissue** — [LangGraph](https://github.com/langchain-ai/langgraph)
+  names nodes, edges, and interrupts so the composition is inspectable.
+  Live scheduling today is the operator-profile motoko skill; this repo
+  does not ship a compiled graph.
 
 The instruments may be composed on one host. Their licenses and release
 cycles remain separate. See [INSTRUMENTS.md](INSTRUMENTS.md) and [NOTICE](NOTICE).

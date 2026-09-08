@@ -18,8 +18,8 @@ cosplay.
 
 1. **A complete set of parts is not a person.** Replacing every prosthesis
    still leaves the Theseus question. Assembling Hermes, Strix, Nuclei,
-   Firecrawl, and Kali in one directory does not produce an agent. It produces
-   inventory.
+   Kali, and recon scanners in one directory does not produce an agent. It
+   produces inventory. Naming the IM surface Motoko does not either.
 2. **Copies without an original still cohere.** Stand Alone Complex: a pattern
    can act without a master copy. A MOTOKO run is that kind of pattern — nodes
    firing in a graph — not a single canonical binary named Motoko.
@@ -39,11 +39,13 @@ See [INSTRUMENTS.md](INSTRUMENTS.md).
 | Shell | What it is in the body |
 |---|---|
 | Hermes Agent | Operator-facing body. IM in, tools out. Not the ghost. |
+| Operator profile | Persona, templates, motoko scheduler skill. Still a shell. |
 | Strix | Offensive cognition that insists on proof. A specialist organ. |
 | Nuclei | Reflex scan: templates against a surface. |
-| Firecrawl | Sense-making of pages (readable body of a target). |
+| ProjectDiscovery recon | Name/URL surface (subfinder, katana, httpx, and kin). |
+| Firecrawl | Optional readable page body. Not on the default path. |
 | Kali playbooks | Hands: CLI over a controlled environment. |
-| LangGraph | Connective tissue. Organization of the prostheses. Still not the ghost. |
+| LangGraph | Connective-tissue *contract*. Organization of the prostheses. Still not the ghost. |
 
 A "complete Motoko agent" is therefore **not a merge**. It is this citation
 graph plus the run-time graph in [GRAPH.md](GRAPH.md). Every part lives in a

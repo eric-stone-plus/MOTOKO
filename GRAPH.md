@@ -7,9 +7,12 @@ is present once every prosthesis is named — is [GHOST.md](GHOST.md). This file
 is only the connective tissue.
 
 This is not a new scanner and not a new agent runtime. Hermes remains the
-operator-facing agent. Strix remains the proof-seeking pentest agent. Nuclei,
-Firecrawl, and Kali remain tools. LangGraph is the instrument that names
-nodes, edges, and interrupts so the composition is inspectable.
+operator-facing invoker. Strix remains the proof-seeking pentest agent.
+Nuclei and Kali remain tools. LangGraph is the instrument that *names*
+nodes, edges, and interrupts so the composition is inspectable. Live
+scheduling on the operator host is the motoko skill in the Hermes
+profile shell; this file is still the contract, not a shipped
+`StateGraph` app.
 
 The implementing library is cited in [INSTRUMENTS.md](INSTRUMENTS.md)
 (LangGraph, MIT). This file is the contract. It does not vendor that tree.
@@ -66,16 +69,16 @@ No scope in state → the graph may not call a probe node.
                                │
               ┌────────────────┼────────────────┐
               ▼                ▼                ▼
-         firecrawl          katana         pd-recon
-         (page body)     (URL surface)   (subfinder /
-                                          httpx / dnsx)
+          whatweb           katana         pd-recon
+         (fingerprint)   (URL / JS)    (subfinder /
+                         uncover          httpx)
               └────────────────┬────────────────┘
                                ▼
                              scan
               ┌────────────────┼────────────────┐
               ▼                ▼                ▼
-            nuclei           naabu/nmap        trivy
-                             (ports)         (fs/container)
+            nuclei         gowitness /      arjun /
+                           trufflehog       dalfox
               └────────────────┬────────────────┘
                                ▼
                         needs proof?
@@ -86,7 +89,7 @@ No scope in state → the graph may not call a probe node.
                          │         │
                          └────┬────┘
                               ▼
-                           report
+                     kali (serial) → report
                               ▼
                              END
 ```
@@ -100,13 +103,14 @@ pivot.
 
 ## Host bounds as graph config, not folklore
 
-These are compile-time limits on the graph (32G workstation class):
+These are compile-time *kinds* of limit, not folklore:
 
-- Strix node: max 3 in flight
-- Nuclei node: low concurrency / rate limit
-- Firecrawl node: loopback self-host only
-- Memory floor: if the floor is breached, the graph interrupts instead of
-  starting another heavy node
+- Strix node: small parallel budget, shared with any other consumer of
+  the same LLM key
+- Nuclei node: moderate CPU-bound concurrency
+- Kali node: serial on host networking
+- Memory / load floor: if the floor is breached, the graph interrupts
+  instead of starting another heavy node
 
 Exact numeric caps live with the operational profile, not here.
 
