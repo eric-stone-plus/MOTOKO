@@ -1,0 +1,30 @@
+MOTOKO
+Copyright (c) 2026 the MOTOKO contributors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this repository except in compliance with the License.
+You may obtain a copy of the License in the LICENSE file or at
+http://www.apache.org/licenses/LICENSE-2.0
+
+This NOTICE covers original MOTOKO files in this repository (ontology,
+graph contract, citation map). It does not cover operational profile
+files, and it does not relicense cited instruments.
+
+Cited instruments retain their own licenses and copyright holders.
+Citing a repository is not combining it into one work.
+
+Instrument          License      Copyright / upstream
+------------------  -----------  ----------------------------------------------
+Hermes Agent        MIT          Nous Research; fork eric-stone-plus/hermes-agent
+hermes-penetrate    MIT          operational profile (separate repo)
+Strix               Apache-2.0   usestrix/strix; mirror eric-stone-plus/strix
+Nuclei              MIT          ProjectDiscovery, Inc.; mirror eric-stone-plus/nuclei
+Firecrawl           AGPL-3.0     firecrawl/firecrawl; tracking eric-stone-plus/firecrawl
+LangGraph           MIT          LangChain, Inc.; mirror eric-stone-plus/langgraph
+
+AGPL-3.0 on Firecrawl applies to Firecrawl (and to a combined network
+service that includes Firecrawl source). It does not convert this ontology
+or the other instruments into AGPL.
+
+A GNU or non-commercial overlay cannot be applied to third-party MIT,
+Apache-2.0, or AGPL-3.0 code. See README § License.
