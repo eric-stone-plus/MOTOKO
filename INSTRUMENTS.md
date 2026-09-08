@@ -12,7 +12,7 @@ prostheses need not be.
 
 | Instrument | Role | Repo | License |
 |---|---|---|---|
-| MOTOKO (this repo) | Ontology + graph contract | [eric-stone-plus/MOTOKO](https://github.com/eric-stone-plus/MOTOKO) | Apache-2.0 |
+| MOTOKO (this repo) | Ontology + graph contract | [eric-stone-plus/MOTOKO](https://github.com/eric-stone-plus/MOTOKO) | PolyForm Noncommercial 1.0.0 |
 | Hermes Agent | Runtime, IM gateway, graph invoker | [eric-stone-plus/hermes-agent](https://github.com/eric-stone-plus/hermes-agent) | MIT (Nous Research) |
 | hermes-penetrate | Operational profile: persona, templates, skills | [eric-stone-plus/hermes-penetrate](https://github.com/eric-stone-plus/hermes-penetrate) | MIT |
 | Strix | Autonomous pentest; PoC-validated findings | [eric-stone-plus/strix](https://github.com/eric-stone-plus/strix) | Apache-2.0 |

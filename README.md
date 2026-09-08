@@ -72,24 +72,19 @@ cycles remain separate. See [INSTRUMENTS.md](INSTRUMENTS.md) and [NOTICE](NOTICE
 
 ## License
 
-Original files in this repository are under the Apache License 2.0 — the same
-family license as RASHOMON and HIGHBALL. See `LICENSE` and `NOTICE`.
+Original files in this repository are under the
+[PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0).
+See `LICENSE` and `NOTICE`.
 
-That is **not** a GNU license, and it is **not** a non-profit license.
-
-| Want | Actual license | Commercial use | Notes |
-|---|---|---|---|
-| GNU copyleft, network service | [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html) | Allowed | Strongest GNU fit for an IM gateway. Still not "non-profit". |
-| GNU copyleft, distribution | [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.html) | Allowed | Does not reach network-only use. Still not "non-profit". |
-| Concept-family default | Apache-2.0 (this repo) | Allowed | Matches RASHOMON / HIGHBALL. |
-| Strictly non-commercial | PolyForm Noncommercial 1.0.0 | Forbidden | **Not GNU.** |
-
-**Cannot be done:** "GNU but non-profit." GPL/AGPL freedom 0 includes
-commercial use. Adding a non-commercial clause makes the text *not* GPL/AGPL.
+Permitted: personal study, hobby, research, and use by charitable /
+educational / public-research / government institutions. **Commercial use
+is not permitted.** This is source-available, not OSI Open Source, and not
+a GNU license. RASHOMON and HIGHBALL remain Apache-2.0; this repo does not.
 
 **Cannot be done to instruments:** this ontology cannot relicense Hermes Agent
 (MIT), Nuclei (MIT), Strix (Apache-2.0), Firecrawl (AGPL-3.0), or LangGraph
 (MIT). Citing a shell is not combining it. Firecrawl's AGPL stays on Firecrawl.
+Those instruments still allow commercial use under *their* terms.
 
 ## Cultural anchors
 

@@ -1,10 +1,12 @@
 MOTOKO
 Copyright (c) 2026 the MOTOKO contributors.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this repository except in compliance with the License.
+Required Notice: Copyright (c) 2026 the MOTOKO contributors.
+https://github.com/eric-stone-plus/MOTOKO
+
+Licensed under the PolyForm Noncommercial License 1.0.0.
 You may obtain a copy of the License in the LICENSE file or at
-http://www.apache.org/licenses/LICENSE-2.0
+https://polyformproject.org/licenses/noncommercial/1.0.0
 
 This NOTICE covers original MOTOKO files in this repository (ontology,
 graph contract, citation map). It does not cover operational profile
@@ -24,7 +26,7 @@ LangGraph           MIT          LangChain, Inc.; mirror eric-stone-plus/langgra
 
 AGPL-3.0 on Firecrawl applies to Firecrawl (and to a combined network
 service that includes Firecrawl source). It does not convert this ontology
-or the other instruments into AGPL.
+or the other instruments into AGPL or into PolyForm Noncommercial.
 
-A GNU or non-commercial overlay cannot be applied to third-party MIT,
+A non-commercial overlay cannot be applied to third-party MIT,
 Apache-2.0, or AGPL-3.0 code. See README § License.
