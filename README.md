@@ -28,8 +28,7 @@ may wear the callsign; that still does not put a ghost in this repo.
 ## The Theseus problem
 
 Replace the body, keep the question. Hermes, Strix, Nuclei, Kali,
-ProjectDiscovery recon, LangGraph — that is inventory. Firecrawl remains
-an optional sense shell, not the default recon path. Inventory does not
+ProjectDiscovery recon, LangGraph — that is inventory. Inventory does not
 authorize itself, does not refuse a destructive edge, and does not hash
 evidence. Those remainders are the only places a ghost is even allowed
 to appear.
@@ -47,8 +46,6 @@ MOTOKO names the problem and the graph. It does not merge the instruments:
   proof-seeking pentest agent.
 - **Reflex and sense** — [Nuclei](https://github.com/projectdiscovery/nuclei),
   ProjectDiscovery recon (katana, subfinder, httpx, and kin), Kali playbooks.
-  [Firecrawl](https://github.com/firecrawl/firecrawl) is optional page-body
-  recon, not a required node.
 - **Connective tissue** — [LangGraph](https://github.com/langchain-ai/langgraph)
   names nodes, edges, and interrupts so the composition is inspectable.
   Live scheduling today is the operator-profile motoko skill; this repo
@@ -88,9 +85,9 @@ is not permitted.** This is source-available, not OSI Open Source, and not
 a GNU license.
 
 **Cannot be done to instruments:** this ontology cannot relicense Hermes Agent
-(MIT), Nuclei (MIT), Strix (Apache-2.0), Firecrawl (AGPL-3.0), or LangGraph
-(MIT). Citing a shell is not combining it. Firecrawl's AGPL stays on Firecrawl.
-Those instruments still allow commercial use under *their* terms.
+(MIT), Nuclei (MIT), Strix (Apache-2.0), or LangGraph (MIT). Citing a shell
+is not combining it. Those instruments still allow commercial use under
+*their* terms.
 
 ## Cultural anchors
 

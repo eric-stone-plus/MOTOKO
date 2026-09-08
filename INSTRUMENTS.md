@@ -15,7 +15,6 @@ Citations are **upstream**. Operator forks, if any, are out of scope here.
 | Hermes Agent | Runtime, IM gateway, graph invoker | [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) | MIT |
 | Strix | Autonomous pentest; PoC-validated findings | [usestrix/strix](https://github.com/usestrix/strix) | Apache-2.0 |
 | Nuclei | Template CVE / misconfig scanner | [projectdiscovery/nuclei](https://github.com/projectdiscovery/nuclei) | MIT |
-| Firecrawl | Optional self-host crawl → markdown (not on the default path) | [firecrawl/firecrawl](https://github.com/firecrawl/firecrawl) | AGPL-3.0 |
 | LangGraph | Graph *contract* runtime, if compiled | [langchain-ai/langgraph](https://github.com/langchain-ai/langgraph) | MIT |
 | Kali Linux | CLI pentest environment / playbook surface | [kali.org](https://www.kali.org/) | Distro; packages keep their own licenses |
 
@@ -37,17 +36,16 @@ The control flow is the graph in [GRAPH.md](GRAPH.md). Short form:
 1. IM → Hermes gateway invokes the graph (Hermes is outside the graph).
 2. `scope` → signed authorization. Empty scope → END.
 3. `recon` → fingerprint (whatweb), OSINT (uncover), crawl (katana),
-   names (subfinder / httpx). Optional: Firecrawl for readable page body.
+   names (subfinder / httpx).
 4. `scan` → Nuclei + evidence (gowitness, trufflehog) + verify (arjun,
    dalfox). Kali playbooks serial for the rest.
 5. Conditional: proof needed → Strix; else → report.
 6. `report` → hashed evidence. Destructive edges `interrupt` for IM confirmation.
 
-Firecrawl is optional recon content, not a vulnerability scanner, and
-not on the default live path. Katana is the security crawler.
+Katana is the security crawler. MOTOKO does not invoke Firecrawl and
+does not start Firecrawl services.
 
 ## License boundary
 
-Citation is not combination. See `NOTICE`. Firecrawl's AGPL-3.0 stays on
-Firecrawl. Hermes Agent, Nuclei, Strix, and LangGraph stay on their own
-licenses. This repository does not relicense them.
+Citation is not combination. See `NOTICE`. Hermes Agent, Nuclei, Strix, and
+LangGraph stay on their own licenses. This repository does not relicense them.

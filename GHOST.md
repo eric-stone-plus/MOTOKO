@@ -43,7 +43,6 @@ See [INSTRUMENTS.md](INSTRUMENTS.md).
 | Strix | Offensive cognition that insists on proof. A specialist organ. |
 | Nuclei | Reflex scan: templates against a surface. |
 | ProjectDiscovery recon | Name/URL surface (subfinder, katana, httpx, and kin). |
-| Firecrawl | Optional readable page body. Not on the default path. |
 | Kali playbooks | Hands: CLI over a controlled environment. |
 | LangGraph | Connective-tissue *contract*. Organization of the prostheses. Still not the ghost. |
 

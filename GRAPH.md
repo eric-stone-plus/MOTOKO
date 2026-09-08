@@ -126,4 +126,4 @@ Exact numeric caps live with the operational profile, not here.
 
 LangGraph is MIT (LangChain, Inc.), upstream `langchain-ai/langgraph`.
 This graph contract is original MOTOKO text (PolyForm Noncommercial 1.0.0).
-Citing LangGraph is not combining it into Firecrawl's AGPL surface.
+Citing LangGraph is not combining it into this ontology's license.

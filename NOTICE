@@ -20,12 +20,7 @@ Instrument          License      Upstream
 Hermes Agent        MIT          NousResearch/hermes-agent
 Strix               Apache-2.0   usestrix/strix
 Nuclei              MIT          projectdiscovery/nuclei
-Firecrawl           AGPL-3.0     firecrawl/firecrawl
 LangGraph           MIT          langchain-ai/langgraph
 
-AGPL-3.0 on Firecrawl applies to Firecrawl (and to a combined network
-service that includes Firecrawl source). It does not convert this ontology
-or the other instruments into AGPL or into PolyForm Noncommercial.
-
-A non-commercial overlay cannot be applied to third-party MIT,
-Apache-2.0, or AGPL-3.0 code. See README § License.
+A non-commercial overlay cannot be applied to third-party MIT or
+Apache-2.0 code. See README § License.
