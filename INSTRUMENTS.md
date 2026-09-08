@@ -42,8 +42,7 @@ The control flow is the graph in [GRAPH.md](GRAPH.md). Short form:
 5. Conditional: proof needed → Strix; else → report.
 6. `report` → hashed evidence. Destructive edges `interrupt` for IM confirmation.
 
-Katana is the security crawler. MOTOKO does not invoke Firecrawl and
-does not start Firecrawl services.
+Katana is the security crawler.
 
 ## License boundary
 
