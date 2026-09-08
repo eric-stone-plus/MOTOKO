@@ -101,6 +101,15 @@ the operator on IM. Resume is explicit. There is no default-yes.
 Out-of-scope asset discovered mid-recon: conditional edge to `halt`, not a
 pivot.
 
+## Verify edges
+
+These are graph facts, not host folklore:
+
+- `dalfox` consumes XSS candidates (CWE-79 / titled XSS) from scan or Strix.
+  It is not a generic URL probe. No candidate → skip the node.
+- `searchsploit` consumes whatweb fingerprints. No fingerprint → skip.
+- Directory bust is one node per asset: gobuster *or* ffuf, not both.
+
 ## Host bounds as graph config, not folklore
 
 These are compile-time *kinds* of limit, not folklore:
