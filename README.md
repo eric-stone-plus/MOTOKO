@@ -72,6 +72,7 @@ cycles remain separate. See [INSTRUMENTS.md](INSTRUMENTS.md) and [NOTICE](NOTICE
 | `INSTRUMENTS.md` | Upstream citations; license of each shell |
 | `NOTICE` | This work vs cited instruments |
 | `AGENTS.md` | Contributor rules |
+| `logo/` | Wordmark (SVG). Master: `motoko-wordmark.svg` (transparent). |
 
 ## License
 
