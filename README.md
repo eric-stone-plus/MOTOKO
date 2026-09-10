@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo/motoko-wordmark.svg" alt="MOTOKO" width="680">
+</p>
+
 # MOTOKO
 
 > Shirow Masamune《攻殻機動隊》, Oshii Mamoru *Ghost in the Shell* (1995) —
@@ -58,8 +62,8 @@ cycles remain separate. See [INSTRUMENTS.md](INSTRUMENTS.md) and [NOTICE](NOTICE
 
 - Not a monorepo of those source trees.
 - Not a new scanner and not a new agent runtime.
-- Not a copyrighted character, voice, likeness, or mark. Visual identity
-  (logo) is original work, later.
+- Not a copyrighted character, voice, likeness, or mark. The wordmark in
+  `logo/` is original lettering.
 - Not a license to copy Shirow/Oshii. Named works are cited as a problem,
   the way one cites a film for a question it poses, not as a character to play.
 
@@ -72,7 +76,7 @@ cycles remain separate. See [INSTRUMENTS.md](INSTRUMENTS.md) and [NOTICE](NOTICE
 | `INSTRUMENTS.md` | Upstream citations; license of each shell |
 | `NOTICE` | This work vs cited instruments |
 | `AGENTS.md` | Contributor rules |
-| `logo/` | Wordmark (SVG). Master: `motoko-wordmark.svg` (transparent). |
+| `logo/` | Project wordmark. Master: `motoko-wordmark.svg` (transparent). |
 
 ## License
 
