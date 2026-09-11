@@ -22,6 +22,7 @@ The ghost, if the question is even well-posed, is not in any shell.
 
 - [GHOST.md](GHOST.md) — prosthetic shells vs ghost
 - [GRAPH.md](GRAPH.md) — re-orchestration contract (nodes, edges, interrupts)
+- [IMPLEMENTATION.md](IMPLEMENTATION.md) — contract vs private-engine status matrix
 - [INSTRUMENTS.md](INSTRUMENTS.md) — citation map; each shell is a different repo
 
 This repository is ontology and contract only. An operator-side Hermes
@@ -73,6 +74,7 @@ cycles remain separate. See [INSTRUMENTS.md](INSTRUMENTS.md) and [NOTICE](NOTICE
 |---|---|
 | `GHOST.md` | Ghost/shell ontology; why the agent is an orchestration |
 | `GRAPH.md` | LangGraph contract: state, nodes, interrupts |
+| `IMPLEMENTATION.md` | Contract primitives vs implementation status |
 | `INSTRUMENTS.md` | Upstream citations; license of each shell |
 | `NOTICE` | This work vs cited instruments |
 | `AGENTS.md` | Contributor rules |
