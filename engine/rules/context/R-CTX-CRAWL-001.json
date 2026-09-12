@@ -1,0 +1,38 @@
+{
+  "id": "R-CTX-CRAWL-001",
+  "name": "爬取存活 Web 资产发现端点",
+  "category": "context",
+  "when": {
+    "all": [
+      {
+        "fact": "url",
+        "op": "matches",
+        "value": "^https?://"
+      },
+      {
+        "fact": "status",
+        "op": "in",
+        "value": [200, 201, 204]
+      },
+      {
+        "fact": "host_crawled",
+        "op": "eq",
+        "value": false
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "katana 爬取发现隐藏端点和参数面",
+    "actions": [
+      {
+        "tool": "katana",
+        "cmd": "katana -u {url} -silent -d 3 -jc"
+      }
+    ],
+    "on_hit_class": null,
+    "priority": {
+      "impact": 0.5,
+      "cost": 0.4
+    }
+  }
+}

@@ -1,0 +1,9 @@
+source_repo: agent-design/projects/motoko (private)
+source_commit: 5a399034313a6afa5ed832d43f91c07da8b8c503
+published_at: 2026-09-12T21:06:38+00:00
+note: one-way export; do not edit here and expect it to survive
+# docs excluded from the export on purpose: loop-runbook.md and
+# llm-legs-runbook.md (operator legs/quotas), PITFALLS.md (campaign
+# forensics), hermes-skill.md (operator shell), agent-scaling and
+# graph-structure snapshots (third-party paper renders),
+# audit-loop-README.md (internal lineage notes).

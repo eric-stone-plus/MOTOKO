@@ -1,0 +1,28 @@
+{
+  "id": "R-CTX-SMB-001",
+  "name": "SMB 服务",
+  "category": "context",
+  "when": {
+    "all": [
+      {
+        "fact": "service",
+        "op": "contains",
+        "value": "smb"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "SMB 枚举共享",
+    "actions": [
+      {
+        "tool": "enum4linux",
+        "cmd": "enum4linux -a {ip}"
+      }
+    ],
+    "on_hit_class": "info_disclosure.smb",
+    "priority": {
+      "impact": 0.55,
+      "cost": 0.3
+    }
+  }
+}

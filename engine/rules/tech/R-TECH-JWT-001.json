@@ -1,0 +1,40 @@
+{
+  "id": "R-TECH-JWT-001",
+  "name": "JWT 令牌发现",
+  "category": "tech",
+  "when": {
+    "any": [
+      {
+        "fact": "tech",
+        "op": "contains",
+        "value": "jwt"
+      },
+      {
+        "fact": "class",
+        "op": "contains",
+        "value": "auth.jwt"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "测试 JWT alg=none / kid 注入",
+    "actions": [
+      {
+        "tool": "jwt_tool",
+        "cmd": "jwt_tool {token} -M at -X i"
+      },
+      {
+        "tool": "nuclei",
+        "cmd": "nuclei -jsonl -u {url} -tags jwt"
+      }
+    ],
+    "on_hit_class": "auth.jwt_bypass",
+    "chain_hint": [
+      "R-CHAIN-JWT-ALG-NONE"
+    ],
+    "priority": {
+      "impact": 0.8,
+      "cost": 0.2
+    }
+  }
+}

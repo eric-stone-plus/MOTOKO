@@ -1,0 +1,37 @@
+{
+  "id": "R-RECON-SUB-001",
+  "name": "子域枚举（subfinder + amass passive）",
+  "category": "context",
+  "when": {
+    "all": [
+      {
+        "fact": "url",
+        "op": "matches",
+        "value": "^https?://"
+      },
+      {
+        "fact": "domain_enumerated",
+        "op": "eq",
+        "value": false
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "子域枚举扩大攻击面",
+    "actions": [
+      {
+        "tool": "subfinder",
+        "cmd": "subfinder -d {domain} -silent"
+      },
+      {
+        "tool": "amass",
+        "cmd": "amass enum -passive -timeout 3 -d {domain}"
+      }
+    ],
+    "on_hit_class": null,
+    "priority": {
+      "impact": 0.45,
+      "cost": 0.35
+    }
+  }
+}

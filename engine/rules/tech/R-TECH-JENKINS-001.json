@@ -1,0 +1,28 @@
+{
+  "id": "R-TECH-JENKINS-001",
+  "name": "Jenkins 指纹",
+  "category": "tech",
+  "when": {
+    "all": [
+      {
+        "fact": "tech",
+        "op": "contains",
+        "value": "jenkins"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "Jenkins 未授权 script console",
+    "actions": [
+      {
+        "tool": "nuclei",
+        "cmd": "nuclei -jsonl -u {url} -tags jenkins"
+      }
+    ],
+    "on_hit_class": "rce",
+    "priority": {
+      "impact": 0.9,
+      "cost": 0.15
+    }
+  }
+}

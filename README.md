@@ -25,10 +25,12 @@ The ghost, if the question is even well-posed, is not in any shell.
 - [IMPLEMENTATION.md](IMPLEMENTATION.md) — contract vs private-engine status matrix
 - [INSTRUMENTS.md](INSTRUMENTS.md) — citation map; each shell is a different repo
 
-This repository is ontology and contract only. An operator-side Hermes
-profile (persona, templates, skills, including the motoko scheduler
-skill) is a separate shell. It is not this tree. The IM display name
-may wear the callsign; that still does not put a ghost in this repo.
+This repository carries the ontology, the re-orchestration contract,
+and the engine that implements the contract's core — exported one-way
+from the upstream private runtime. The engine is stdlib-only Python;
+live scheduling state, operator profiles, campaign data, and tool
+binaries are not part of this tree. The IM display name may wear the
+callsign; that still does not put a ghost in this repo.
 
 ## The Theseus problem
 
@@ -74,11 +76,31 @@ cycles remain separate. See [INSTRUMENTS.md](INSTRUMENTS.md) and [NOTICE](NOTICE
 |---|---|
 | `GHOST.md` | Ghost/shell ontology; why the agent is an orchestration |
 | `GRAPH.md` | LangGraph contract: state, nodes, interrupts |
-| `IMPLEMENTATION.md` | Contract primitives vs implementation status |
+| `IMPLEMENTATION.md` | Contract primitives vs shipped-engine status |
 | `INSTRUMENTS.md` | Upstream citations; license of each shell |
+| `engine/` | The orchestration engine (see `engine/` quickstart below) |
 | `NOTICE` | This work vs cited instruments |
 | `AGENTS.md` | Contributor rules |
 | `logo/` | Project wordmark. Master: `motoko-wordmark.svg` (transparent). |
+
+## Engine quickstart
+
+```bash
+cd engine
+make test        # 420+ tests, stdlib-only, Python >= 3.11
+uv pip install -e .   # or: pip install . — provides the `motoko` CLI
+
+motoko init demo-1 --scope example.com --seed https://example.com
+motoko run demo-1 --max-cycles 3
+motoko digest demo-1
+motoko seal demo-1    # WAL checkpoint + integrity gates + manifest
+```
+
+Endpoints for the optional LLM reflector and wave-loop arrive via
+environment variables and a config file (`docs/loop.yaml.example`);
+keys are referenced by variable name, never stored. Tool resolution
+follows `MOTOKO_TOOLS` → package-adjacent `tools/` → `~/.local/bin`
+→ `PATH`.
 
 ## License
 

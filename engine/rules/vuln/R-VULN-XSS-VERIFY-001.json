@@ -1,0 +1,28 @@
+{
+  "id": "R-VULN-XSS-VERIFY-001",
+  "name": "XSS 候选 DOM 确认",
+  "category": "vuln",
+  "when": {
+    "all": [
+      {
+        "fact": "class",
+        "op": "contains",
+        "value": "xss"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "dalfox + Playwright DOM 确认",
+    "actions": [
+      {
+        "tool": "dalfox",
+        "cmd": "dalfox url {url} --no-spinner"
+      }
+    ],
+    "on_hit_class": "xss.confirmed",
+    "priority": {
+      "impact": 0.5,
+      "cost": 0.2
+    }
+  }
+}

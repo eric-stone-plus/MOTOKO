@@ -1,0 +1,28 @@
+{
+  "id": "R-TECH-PARAM-001",
+  "name": "有参数面",
+  "category": "tech",
+  "when": {
+    "all": [
+      {
+        "fact": "has_param",
+        "op": "eq",
+        "value": true
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "隐藏参数挖掘",
+    "actions": [
+      {
+        "tool": "arjun",
+        "cmd": "arjun -u {url}"
+      }
+    ],
+    "on_hit_class": "info_disclosure.hidden_param",
+    "priority": {
+      "impact": 0.4,
+      "cost": 0.3
+    }
+  }
+}

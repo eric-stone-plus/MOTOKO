@@ -1,0 +1,28 @@
+{
+  "id": "R-TECH-HTTP2-001",
+  "name": "HTTP/2 支持",
+  "category": "tech",
+  "when": {
+    "all": [
+      {
+        "fact": "http2",
+        "op": "eq",
+        "value": true
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "HTTP/2 请求走私探测",
+    "actions": [
+      {
+        "tool": "h2csmuggler",
+        "cmd": "h2csmuggler -x GET {url}"
+      }
+    ],
+    "on_hit_class": "smuggling.h2",
+    "priority": {
+      "impact": 0.7,
+      "cost": 0.2
+    }
+  }
+}

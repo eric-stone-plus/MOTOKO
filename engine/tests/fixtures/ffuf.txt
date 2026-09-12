@@ -1,0 +1,13 @@
+ :: Method           : GET
+ :: URL              : https://example.com/FUZZ
+ :: Wordlist         : FUZZ: /usr/share/seclists/Discovery/Web-Content/common.txt
+ :: Output file      : /work/ffuf.json
+ :: Follow redirects : false
+ :: Calibration      : false
+ :: Timeout          : 10
+ :: Threads          : 40
+ :: Matcher          : Response status: 200-299,301,302,307,401,403,405,500
+ :: Progress: [3/3] :: Job [1/1] :: 25 req/sec :: Duration: [0:00:01] :: Errors: 0 ::
+admin                   [Status: 200, Size: 1234, Words: 50, Lines: 20, Duration: 120ms]
+.env                    [Status: 200, Size: 100, Words: 5, Lines: 3, Duration: 10ms]
+nonexistent             [Status: 404, Size: 0, Words: 0, Lines: 0, Duration: 5ms]

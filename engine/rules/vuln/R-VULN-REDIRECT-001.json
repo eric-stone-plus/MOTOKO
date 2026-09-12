@@ -1,0 +1,28 @@
+{
+  "id": "R-VULN-REDIRECT-001",
+  "name": "开放重定向",
+  "category": "vuln",
+  "when": {
+    "all": [
+      {
+        "fact": "class",
+        "op": "contains",
+        "value": "open_redirect"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "链到 OAuth token 泄露",
+    "actions": [
+      {
+        "tool": "curl",
+        "cmd": "curl -L {url}?redirect={oob}"
+      }
+    ],
+    "on_hit_class": "auth.token_leak",
+    "priority": {
+      "impact": 0.5,
+      "cost": 0.2
+    }
+  }
+}

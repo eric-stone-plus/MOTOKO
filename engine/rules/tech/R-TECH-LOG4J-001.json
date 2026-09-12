@@ -1,0 +1,28 @@
+{
+  "id": "R-TECH-LOG4J-001",
+  "name": "Java 技术栈",
+  "category": "tech",
+  "when": {
+    "all": [
+      {
+        "fact": "tech",
+        "op": "contains",
+        "value": "java"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "Log4Shell 定向检测",
+    "actions": [
+      {
+        "tool": "nuclei",
+        "cmd": "nuclei -jsonl -u {url} -tags log4j,rce -severity critical"
+      }
+    ],
+    "on_hit_class": "cve",
+    "priority": {
+      "impact": 0.95,
+      "cost": 0.1
+    }
+  }
+}

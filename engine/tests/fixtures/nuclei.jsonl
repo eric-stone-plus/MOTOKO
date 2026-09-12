@@ -1,0 +1,3 @@
+{"template-id":"xss-reflected","info":{"name":"Reflected XSS","severity":"medium"},"matched-at":"https://example.com/search?q=1","type":"http","host":"example.com"}
+{"template-id":"springboot-actuator","info":{"name":"Spring Boot Actuator Exposure","severity":"medium"},"matched-at":"https://example.com/actuator","type":"http","host":"example.com"}
+{"template-id":"CVE-2021-44228","info":{"name":"Apache Log4j2 RCE","severity":"critical"},"matched-at":"https://example.com/","type":"http","host":"example.com"}

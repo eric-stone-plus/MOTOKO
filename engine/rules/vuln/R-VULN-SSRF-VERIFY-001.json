@@ -1,0 +1,28 @@
+{
+  "id": "R-VULN-SSRF-VERIFY-001",
+  "name": "SSRF 疑似点 OOB 定性",
+  "category": "vuln",
+  "when": {
+    "all": [
+      {
+        "fact": "class",
+        "op": "contains",
+        "value": "ssrf"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "SSRF OOB canary 验证",
+    "actions": [
+      {
+        "tool": "interactsh",
+        "cmd": "interactsh-client -v -token {canary}"
+      }
+    ],
+    "on_hit_class": "ssrf.confirmed",
+    "priority": {
+      "impact": 0.7,
+      "cost": 0.2
+    }
+  }
+}

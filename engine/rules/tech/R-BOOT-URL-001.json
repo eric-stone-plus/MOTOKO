@@ -1,0 +1,32 @@
+{
+  "id": "R-BOOT-URL-001",
+  "name": "裸 URL / 裸主机存活探测（bootstrap）",
+  "category": "tech",
+  "when": {
+    "any": [
+      {
+        "fact": "url",
+        "op": "matches",
+        "value": "^https?://"
+      },
+      {
+        "fact": "type",
+        "op": "eq",
+        "value": "host"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "httpx 存活探测 + 技术指纹，为后续规则生成事实",
+    "actions": [
+      {
+        "tool": "httpx",
+        "cmd": "httpx -silent -status-code -tech-detect -json -u {url}"
+      }
+    ],
+    "priority": {
+      "impact": 0.3,
+      "cost": 0.3
+    }
+  }
+}

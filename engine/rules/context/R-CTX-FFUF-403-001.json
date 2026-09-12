@@ -1,0 +1,36 @@
+{
+  "id": "R-CTX-FFUF-403-001",
+  "name": "403/401 端点路径爆破找隐藏面",
+  "category": "context",
+  "when": {
+    "all": [
+      {
+        "fact": "url",
+        "op": "matches",
+        "value": "^https?://"
+      },
+      {
+        "fact": "status",
+        "op": "in",
+        "value": [
+          401,
+          403
+        ]
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "ffuf 路径爆破绕过访问控制找到隐藏端点",
+    "actions": [
+      {
+        "tool": "ffuf",
+        "cmd": "ffuf -u {url}/FUZZ -w {wordlist_dir}/common-paths.txt -mc 200,201,204,301,302 -s"
+      }
+    ],
+    "on_hit_class": null,
+    "priority": {
+      "impact": 0.5,
+      "cost": 0.5
+    }
+  }
+}

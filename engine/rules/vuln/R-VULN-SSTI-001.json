@@ -1,0 +1,28 @@
+{
+  "id": "R-VULN-SSTI-001",
+  "name": "SSTI 疑似点",
+  "category": "vuln",
+  "when": {
+    "all": [
+      {
+        "fact": "class",
+        "op": "contains",
+        "value": "ssti"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "tplmap 引擎指纹 + OOB 定性",
+    "actions": [
+      {
+        "tool": "tplmap",
+        "cmd": "tplmap -u {url}"
+      }
+    ],
+    "on_hit_class": "ssti.confirmed",
+    "priority": {
+      "impact": 0.85,
+      "cost": 0.25
+    }
+  }
+}

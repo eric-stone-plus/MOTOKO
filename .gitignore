@@ -3,3 +3,8 @@
 *~
 .idea/
 .vscode/
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+*.egg-info/

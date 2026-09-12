@@ -1,0 +1,28 @@
+{
+  "id": "R-CTX-WAF-001",
+  "name": "WAF 检测",
+  "category": "context",
+  "when": {
+    "all": [
+      {
+        "fact": "waf",
+        "op": "eq",
+        "value": true
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "WAF 存在，降速换编码",
+    "actions": [
+      {
+        "tool": "nuclei",
+        "cmd": "nuclei -jsonl -u {url} -rl 10"
+      }
+    ],
+    "on_hit_class": null,
+    "priority": {
+      "impact": 0.3,
+      "cost": 0.3
+    }
+  }
+}
