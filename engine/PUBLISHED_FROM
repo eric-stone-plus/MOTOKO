@@ -1,6 +1,6 @@
 source_repo: agent-design/projects/motoko (private)
-source_commit: c2676f0c64b83d3c769d44b3e9bc69c8929da0f4
-published_at: 2026-09-12T21:23:04+00:00
+source_commit: cd12f1373f124a13cae44fff5925456f83b119af
+published_at: 2026-09-12T21:25:17+00:00
 note: one-way export; do not edit here and expect it to survive
 # docs excluded from the export on purpose: loop-runbook.md and
 # llm-legs-runbook.md (operator legs/quotas), PITFALLS.md (campaign
