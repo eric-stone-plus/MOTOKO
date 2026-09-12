@@ -127,8 +127,8 @@ These are compile-time *kinds* of limit, not folklore:
 - Memory / load floor: if the floor is breached, the graph interrupts
   instead of starting another heavy node
 - Fan-out groups by registrable origin (one in-flight probe per origin).
-  A two-label suffix is not an origin: `a.example.com.cn` and
-  `b.other.com.cn` must not share a bucket.
+  A two-label suffix is not an origin: `a.site.co.uk` and
+  `b.other.co.uk` must not share a bucket.
 
 Exact numeric caps live with the operational profile, not here.
 

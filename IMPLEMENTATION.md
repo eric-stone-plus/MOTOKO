@@ -3,8 +3,7 @@
 GRAPH.md is the orchestration contract. This file states, per contract
 primitive, what the shipped engine (`engine/`) actually provides. The
 engine is a real, working code tree: stdlib-only Python (>= 3.11), zero
-runtime dependencies, 420+ unit tests, an executable test entry
-(`make test`), and a packaging manifest (`pyproject.toml` with a
+runtime dependencies, and a packaging manifest (`pyproject.toml` with a
 `motoko` console script).
 
 ## Status
@@ -23,11 +22,12 @@ runtime dependencies, 420+ unit tests, an executable test entry
 
 ## What ships beyond the contract
 
-- **Wave-loop** (`motoko/loop.py`): N rounds of multi-auditor →
-  adjudicator → deterministic evaluation, with executable
-  ROLLBACK/STOP verdicts. Protocol adapters only (openai-chat /
-  anthropic-messages / cli-subprocess); endpoints, keys-by-env-name,
-  and `${VAR}`/`~` expansion live in a config file, never in code.
+- **Feedback loop** (`motoko/loop.py`): a config-driven cycle of
+  independent audit legs → adjudication → deterministic evaluation,
+  with executable ROLLBACK/STOP verdicts. Protocol adapters only
+  (openai-chat / anthropic-messages / cli-subprocess); endpoints,
+  keys-by-env-name, and `${VAR}`/`~` expansion live in a config file,
+  never in code.
 - **Seal** (`motoko seal`): turns a finished engagement into a
   product unit — engine commit + checkpointed graph.db +
   `engagement.manifest.json` (sha256, schema version, full census,

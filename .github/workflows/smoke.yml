@@ -1,0 +1,26 @@
+name: smoke
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install engine and smoke-check
+        working-directory: engine
+        run: |
+          uv venv
+          uv pip install .
+          ./.venv/bin/motoko --help
+          ./.venv/bin/motoko doctor

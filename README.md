@@ -78,29 +78,28 @@ cycles remain separate. See [INSTRUMENTS.md](INSTRUMENTS.md) and [NOTICE](NOTICE
 | `GRAPH.md` | LangGraph contract: state, nodes, interrupts |
 | `IMPLEMENTATION.md` | Contract primitives vs shipped-engine status |
 | `INSTRUMENTS.md` | Upstream citations; license of each shell |
-| `engine/` | The orchestration engine (see `engine/` quickstart below) |
+| `engine/` | The orchestration engine: code + rule packs (see below) |
 | `NOTICE` | This work vs cited instruments |
 | `AGENTS.md` | Contributor rules |
 | `logo/` | Project wordmark. Master: `motoko-wordmark.svg` (transparent). |
 
-## Engine quickstart
+## The tool
 
 ```bash
-cd engine
-make test        # 420+ tests, stdlib-only, Python >= 3.11
-uv pip install -e .   # or: pip install . — provides the `motoko` CLI
-
-motoko init demo-1 --scope example.com --seed https://example.com
-motoko run demo-1 --max-cycles 3
-motoko digest demo-1
-motoko seal demo-1    # WAL checkpoint + integrity gates + manifest
+pip install ./engine     # stdlib-only, Python >= 3.11; provides `motoko`
+motoko --help
+motoko doctor            # environment self-check
 ```
 
-Endpoints for the optional LLM reflector and wave-loop arrive via
-environment variables and a config file (`docs/loop.yaml.example`);
-keys are referenced by variable name, never stored. Tool resolution
-follows `MOTOKO_TOOLS` → package-adjacent `tools/` → `~/.local/bin`
-→ `PATH`.
+Command surface: `init · run · digest · query · events · loop ·
+ingest-strix · health · seal · recover · doctor · kali · strix`.
+
+State lives in per-engagement SQLite graphs under `MOTOKO_HOME`.
+Configuration arrives exclusively through environment variables
+(`MOTOKO_HOME`, `MOTOKO_TOOLS`, `MOTOKO_WORDLIST_DIR`, `MOTOKO_CONFIG`)
+and, for loop endpoints, a config file in which credentials are
+referenced by variable name and never stored. Tool resolution:
+`MOTOKO_TOOLS` → package-adjacent `tools/` → `~/.local/bin` → `PATH`.
 
 ## License
 
