@@ -535,6 +535,12 @@ def cmd_seal(args) -> int:
     return _cmd_seal(args)
 
 
+def cmd_doctor(args) -> int:
+    from .doctor import cmd_doctor as _cmd_doctor
+
+    return _cmd_doctor(args)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="motoko", description="MOTOKO attack-graph orchestrator")
     sub = p.add_subparsers(dest="command", required=True)
@@ -621,7 +627,15 @@ def build_parser() -> argparse.ArgumentParser:
     pseal.add_argument("--root", default=None,
                        help="engagements root override "
                             "(default MOTOKO_HOME or package-relative)")
+    pseal.add_argument("--verify", action="store_true",
+                       help="check graph.db against the existing manifest "
+                            "instead of sealing")
     pseal.set_defaults(func=cmd_seal)
+
+    pdoc = sub.add_parser(
+        "doctor", help="read-only environment self-check "
+                       "(python, root, tools, config, key envs)")
+    pdoc.set_defaults(func=cmd_doctor)
 
     return p
 

@@ -208,10 +208,62 @@ def seal_engagement(engagement_id: str, root: Path | None = None) -> dict:
     return manifest
 
 
-def cmd_seal(args) -> int:
+def verify_seal(engagement_id: str, root: Path | None = None) -> tuple[bool, str]:
+    """Re-derive the artifact and check it against its manifest.
+
+    Verifies: manifest exists, graph.db sha256 matches, byte size matches,
+    schema version unchanged. This is the consumption side of the product
+    unit — anyone with the engagement dir can confirm the artifact is the
+    one the seal signed, without trusting the disk's history.
+    """
+    root = root or db.default_root()
+    edir = db.engagement_dir(root, engagement_id)
+    graph = edir / "graph.db"
+    manifest_path = edir / "engagement.manifest.json"
+    if not graph.exists():
+        return False, f"no graph.db at {edir}"
+    if not manifest_path.exists():
+        return False, "never sealed (no engagement.manifest.json)"
     try:
-        manifest = seal_engagement(args.engagement_id,
-                                   root=Path(args.root) if args.root else None)
+        m = json.loads(manifest_path.read_text())
+    except ValueError as e:
+        return False, f"manifest unreadable: {e}"
+    actual = _sha256_file(graph)
+    if actual != m.get("graph_db", {}).get("sha256"):
+        return False, ("sha256 MISMATCH — graph.db changed after sealing "
+                       "(run `motoko seal` again to re-sign)")
+    size = graph.stat().st_size
+    if size != m.get("graph_db", {}).get("bytes"):
+        return False, "byte size mismatch vs manifest"
+    ver = None
+    try:
+        con = sqlite3.connect(f"file:{graph}?mode=ro&immutable=1", uri=True)
+        try:
+            row = con.execute(
+                "SELECT value FROM schema_meta WHERE key = 'schema_version'"
+            ).fetchone()
+            ver = row[0] if row else None
+        finally:
+            con.close()
+    except sqlite3.Error as e:
+        return False, f"db unreadable: {e}"
+    if ver != m.get("schema_version"):
+        return False, (f"schema version drifted: manifest {m.get('schema_version')}"
+                       f" vs db {ver}")
+    sealed_at = m.get("sealed_at", "?")
+    commit = (m.get("engine_commit") or "?")[:9]
+    return True, f"manifest match (sealed {sealed_at} @ engine {commit})"
+
+
+def cmd_seal(args) -> int:
+    root = Path(args.root) if getattr(args, "root", None) else None
+    if getattr(args, "verify", False):
+        ok, detail = verify_seal(args.engagement_id, root=root)
+        mark = "verify OK  " if ok else "verify FAIL"
+        print(f"{mark} {args.engagement_id}: {detail}")
+        return 0 if ok else 1
+    try:
+        manifest = seal_engagement(args.engagement_id, root=root)
     except SealError as e:
         print(f"seal refused: {e}", file=sys.stderr)
         return 2

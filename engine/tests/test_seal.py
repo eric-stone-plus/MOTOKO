@@ -156,5 +156,51 @@ class TestSealCLI(unittest.TestCase):
         self.assertIn("seal refused", err.getvalue())
 
 
+class TestSealVerify(unittest.TestCase):
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp(prefix="motoko-sealverify-"))
+        db.init_engagement(self.root, ENG, name="verify", in_scope=["example.com"])
+        self.edir = self.root / ENG
+
+    def tearDown(self):
+        shutil.rmtree(self.root, ignore_errors=True)
+
+    def test_verify_passes_right_after_seal(self):
+        seal.seal_engagement(ENG, root=self.root)
+        ok, detail = seal.verify_seal(ENG, root=self.root)
+        self.assertTrue(ok, detail)
+        self.assertIn("manifest match", detail)
+
+    def test_verify_fails_after_post_seal_write(self):
+        seal.seal_engagement(ENG, root=self.root)
+        w = db.Database(self.edir / "graph.db")
+        try:
+            w.append_event("post.seal.tamper", None, {"note": "drift"})
+        finally:
+            w.close()
+        ok, detail = seal.verify_seal(ENG, root=self.root)
+        self.assertFalse(ok)
+        self.assertIn("MISMATCH", detail)
+
+    def test_verify_never_sealed(self):
+        ok, detail = seal.verify_seal(ENG, root=self.root)
+        self.assertFalse(ok)
+        self.assertIn("never sealed", detail)
+
+    def test_cli_verify_exit_codes(self):
+        from motoko import cli
+
+        seal.seal_engagement(ENG, root=self.root)
+        self.assertEqual(cli.main(["seal", ENG, "--verify",
+                                   "--root", str(self.root)]), 0)
+        w = db.Database(self.edir / "graph.db")
+        try:
+            w.append_event("drift", None, None)
+        finally:
+            w.close()
+        self.assertEqual(cli.main(["seal", ENG, "--verify",
+                                   "--root", str(self.root)]), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -340,7 +340,18 @@ class TestAgainstRealEngagementSchema(unittest.TestCase):
                 if not g.is_file():
                     continue
                 try:
-                    con = sqlite3.connect(f"file:{g}?mode=ro", uri=True)
+                    # A mode=ro connection CREATES empty -wal/-shm sidecars
+                    # and cannot remove them on close (removal needs the
+                    # exclusive lock ro connections never get) — probing a
+                    # sealed engagement must therefore use immutable=1,
+                    # which skips WAL handling entirely. Safe by the seal
+                    # contract: a sealed graph.db has zero uncheckpointed
+                    # frames, so the main file IS the whole state.
+                    if Path(str(g) + "-wal").exists():
+                        uri = f"file:{g}?mode=ro"
+                    else:
+                        uri = f"file:{g}?mode=ro&immutable=1"
+                    con = sqlite3.connect(uri, uri=True)
                     n = con.execute("SELECT COUNT(*) FROM entities "
                                     "WHERE kind='hypothesis' AND state='testing'"
                                     ).fetchone()[0]
