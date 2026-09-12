@@ -141,7 +141,14 @@ def _check_engagements() -> list[tuple[str, str]]:
         return out
     dirs = [d for d in root.iterdir() if d.is_dir() and (d / "graph.db").exists()]
     sealed = sum(1 for d in dirs if (d / "engagement.manifest.json").exists())
-    out.append((OK, f"engagements: {len(dirs)} on disk, {sealed} sealed"))
+    archived = 0
+    arch_root = root / "archive"
+    if arch_root.is_dir():
+        archived = sum(1 for d in arch_root.iterdir()
+                       if d.is_dir() and (d / "graph.db").exists())
+    suffix = f", {archived} archived" if archived else ""
+    out.append((OK, f"engagements: {len(dirs)} on disk, {sealed} sealed"
+                    f"{suffix}"))
     stale = []
     for d in dirs:
         # only WAL frames count as dirt. A 0-byte -wal next to a sealed db

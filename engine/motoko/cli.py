@@ -541,6 +541,46 @@ def cmd_doctor(args) -> int:
     return _cmd_doctor(args)
 
 
+def cmd_recover(args) -> int:
+    """One-shot recovery sweep: stranded 'testing' hypotheses get their
+    forward path back — recycled to 'proposed' (plannable again) or
+    'rejected' (attempts exhausted). Never touches in-flight runs.
+
+    Reopening a sealed engagement is expected here: the write drifts the
+    artifact from its manifest, so the printed note says to re-seal.
+    """
+    import json as _json
+
+    from . import failure
+
+    edir = db.engagement_dir(db.default_root(), args.engagement_id)
+    graph = edir / "graph.db"
+    if not graph.exists():
+        print(f"engagement {args.engagement_id!r} not found: no graph.db at "
+              f"{edir}", file=sys.stderr)
+        return 2
+    sealed = (edir / "engagement.manifest.json").exists()
+    w = db.Database(graph)
+    try:
+        recycled, abandoned = failure.recycle_stuck_hypotheses(
+            w, args.engagement_id)
+        stuck_after = sum(
+            1 for h in w.query_entities(kind="hypothesis",
+                                        state="testing",
+                                        engagement_id=args.engagement_id))
+    finally:
+        w.close()
+    print(_json.dumps({
+        "engagement": args.engagement_id,
+        "recycled": recycled,
+        "abandoned": abandoned,
+        "testing_remaining": stuck_after,
+        "sealed_reopened": sealed,
+        "re_seal": sealed,
+    }, ensure_ascii=False))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="motoko", description="MOTOKO attack-graph orchestrator")
     sub = p.add_subparsers(dest="command", required=True)
@@ -636,6 +676,13 @@ def build_parser() -> argparse.ArgumentParser:
         "doctor", help="read-only environment self-check "
                        "(python, root, tools, config, key envs)")
     pdoc.set_defaults(func=cmd_doctor)
+
+    prev = sub.add_parser(
+        "recover", help="one-shot sweep: give stranded 'testing' hypotheses "
+                        "a forward path (recycle or reject; never touches "
+                        "in-flight runs)")
+    prev.add_argument("engagement_id")
+    prev.set_defaults(func=cmd_recover)
 
     return p
 
