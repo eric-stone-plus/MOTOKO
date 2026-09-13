@@ -444,9 +444,11 @@ class LoopRunner:
         lines: list[str] = []
         try:
             lines.append("entities:")
-            for kind, n in con.execute(
+            # Row rows must be indexed, not unpacked — unpacking yields the
+            # row's VALUES (this loop used to subscript the count int).
+            for r in con.execute(
                     "SELECT kind, COUNT(*) n FROM entities GROUP BY kind"):
-                lines.append(f"  {kind}: {n['n']}")
+                lines.append(f"  {r['kind']}: {r['n']}")
             lines.append("tool_run:")
             for r in con.execute(
                     "SELECT tool, status, COUNT(*) n FROM tool_run GROUP BY tool, status"):
