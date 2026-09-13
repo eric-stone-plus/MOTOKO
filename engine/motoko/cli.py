@@ -342,7 +342,13 @@ def cmd_loop(args) -> int:
     extra = Path(args.extra).read_text() if args.extra else ""
     summaries = []
     stopped = False
-    for n in range(1, rounds + 1):
+    # Round numbering RESUMES from the wave dir (round-2 audit finding: a
+    # fresh `--rounds 1` launch used to stamp "round-1" again and reuse an
+    # existing round's directory).
+    existing = sorted(int(m.group(1)) for d in wave.iterdir()
+                      if (m := re.fullmatch(r"round-(\d+)", d.name)))
+    start = (existing[-1] + 1) if existing else 1
+    for n in range(start, start + rounds):
         round_dir = wave / f"round-{n}"
         t0 = time.monotonic()
         try:
@@ -360,7 +366,13 @@ def cmd_loop(args) -> int:
 
         # -- verdict execution ------------------------------------------
         if action == "ROLLBACK":
-            rb = runner.apply_verdict(vj, round_dir=round_dir)
+            try:
+                rb = runner.apply_verdict(vj, round_dir=round_dir)
+            except loop.LoopRollbackError as e:
+                # P0-4: apply_verdict archives the refusal itself; this is
+                # belt and braces so the driver never dies mid-wave.
+                rb = {"action": "ROLLBACK", "executed": False,
+                      "degraded_to": "STOP", "reason": str(e)}
             entry["rollback"] = rb
             # after a rollback the round is spent; next round re-audits
         elif action == "STOP":

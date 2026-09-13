@@ -582,6 +582,13 @@ class LoopRunner:
             prev = (history["rounds"][-1].get("metrics")
                     if history.get("rounds") else None)
             findings = self._round_findings(metrics)
+            # P0-5 (round-2 audit): a no_go with zero confirmed findings is
+            # a scoring failure (usually the verdict-parse loss this guard
+            # was written after), never convergence. Only meaningful when
+            # an adjudicator actually ran — without one, verdict="no_go"
+            # and empty findings are the structural default.
+            if self.adjudicator is not None:
+                self._guard_no_go(verdict, fixes, findings)
             ev = _evaluate(round_num, prev, metrics, findings,
                            history.get("rounds") or [], None)
             payload = asdict(ev)
@@ -627,7 +634,24 @@ class LoopRunner:
             return {"action": action, "executed": False}
 
         if action == "ROLLBACK":
-            return self._apply_rollback(verdict, round_dir)
+            try:
+                return self._apply_rollback(verdict, round_dir)
+            except LoopRollbackError as e:
+                # P0-4 (round-2 audit): a refused rollback used to raise
+                # straight through the driver (cmd_loop only caught
+                # LoopEvaluationError), leaving the round dir and
+                # rollback.json half-written. Degrade to STOP: git state is
+                # untouched, the refusal is archived, the driver moves on.
+                if round_dir is not None:
+                    try:
+                        (round_dir / "rollback.json").write_text(json.dumps(
+                            {"action": "ROLLBACK", "executed": False,
+                             "degraded_to": "STOP", "reason": str(e)},
+                            ensure_ascii=False, indent=2))
+                    except OSError:
+                        pass
+                return {"action": "ROLLBACK", "executed": False,
+                        "degraded_to": "STOP", "reason": str(e)}
         return self._apply_stop(verdict, round_dir)
 
     # -- rollback --------------------------------------------------------
@@ -873,17 +897,39 @@ class LoopRunner:
         """Map the adjudicated fix list onto loop_evaluate findings.
 
         MECHANISM.md §4/§7: only independently confirmed findings score in
-        the evaluator. An adjudicated fix is treated as verified_true (the
-        two legs found it independently and the adjudicator confirmed it);
-        the fix itself has not landed yet, so it is NOT fix_confirmed.
+        the evaluator. Two filters apply (P0-5, round-2 audit): the fix
+        must carry ``consensus in {both, multi}`` — a single leg's claim
+        does not move the convergence needle — and a no_go verdict whose
+        confirmed set comes out EMPTY is a scoring failure, not convergence
+        (guarded in run_round; the round-2 STOP was exactly this hole).
         """
         sev = {"p0": "CRITICAL", "high": "HIGH",
                "medium": "MEDIUM", "low": "LOW"}
+        # Tolerant match: adjudicators write "both", "both legs", "multi"…
+        # "grok only"/"qwen only" carry neither token and stay excluded.
+        def _confirmed(f: dict) -> bool:
+            c = str(f.get("consensus", "")).lower()
+            return "both" in c or "multi" in c
+
+        confirmed = [f for f in (metrics.get("_fixes") or []) if _confirmed(f)]
         return [{"id": str(f.get("id", i)),
                  "severity": sev.get(str(f.get("severity", "")).lower(),
                                      "MEDIUM"),
                  "status": "verified_true"}
-                for i, f in enumerate(metrics.get("_fixes") or [])]
+                for i, f in enumerate(confirmed)]
+
+    @staticmethod
+    def _guard_no_go(verdict: str, fixes: list[dict],
+                     findings: list[dict]) -> None:
+        """P0-5: no_go with an empty confirmed finding set is a scoring
+        failure (usually a verdict-parse loss), never convergence. Raises
+        so the round is archived as ERROR instead of STOP CONVERGED."""
+        if str(verdict).lower() != "no_go" or findings:
+            return
+        raise LoopEvaluationError(
+            f"no_go adjudication but 0 of {len(fixes)} fix(es) carry "
+            "independent confirmation (consensus both/multi) — refusing "
+            "to score an empty finding set as converged")
 
     def _load_history(self, out_dir: Path) -> dict:
         hp = out_dir.parent / "loop-history.json"
@@ -902,14 +948,27 @@ def _parse_verdict(text: str) -> tuple[str, list[dict]]:
     fields are passed through untouched so _collect_metrics counts p0/high
     from the adjudicator's real severity ratings (missing severity counts
     as MEDIUM — visible in fix_count, invisible to the p0/high gates).
+
+    Extraction takes the LAST balanced JSON object containing a "verdict"
+    key (json.raw_decode per candidate brace — P0-5, round-2 audit). The
+    old greedy span (first "{" through LAST "}") broke on any brace after
+    the block, failed json.loads, and silently returned no fixes — which
+    the evaluator then scored as an empty finding set and a false
+    STOP CONVERGED on exactly the round that carried five real P0s.
     """
-    m = re.search(r"\{[\s\S]*\"verdict\"[\s\S]*\}", text)
-    if not m:
+    decoder = json.JSONDecoder()
+    best: dict | None = None
+    for idx, ch in enumerate(text or ""):
+        if ch != "{":
+            continue
+        try:
+            obj, _end = decoder.raw_decode(text, idx)
+        except ValueError:
+            continue
+        if isinstance(obj, dict) and "verdict" in obj:
+            best = obj                 # keep scanning — the LAST block wins
+    if best is None:
         return "no_go", []
-    try:
-        data = json.loads(m.group(0))
-    except json.JSONDecodeError:
-        return "no_go", []
-    verdict = str(data.get("verdict", "no_go"))
-    fixes = [f for f in (data.get("fixes") or []) if isinstance(f, dict)]
+    verdict = str(best.get("verdict", "no_go"))
+    fixes = [f for f in (best.get("fixes") or []) if isinstance(f, dict)]
     return verdict, fixes

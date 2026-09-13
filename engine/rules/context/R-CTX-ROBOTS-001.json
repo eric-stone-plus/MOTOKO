@@ -27,7 +27,8 @@
       {
         "tool": "curl",
         "cmd": "curl -sS -m 8 -H 'User-Agent: {ua}' {url}/robots.txt",
-        "cmd_stealth": "curl -sS -m 15 -H 'User-Agent: {ua}' {url}/robots.txt"
+        "cmd_stealth": "curl -sS -m 15 -H 'User-Agent: {ua}' {url}/robots.txt",
+        "obs_url": "{url}/robots.txt"
       }
     ],
     "on_hit_class": null,

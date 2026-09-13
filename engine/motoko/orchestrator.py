@@ -20,6 +20,7 @@ import hashlib
 import http.client
 import inspect
 import os
+import re
 import socket
 import ssl
 from collections import deque
@@ -644,6 +645,12 @@ class Orchestrator:
                     elif a.get("value") and a.get("type") == "host":
                         hyp.setdefault("host", a["value"])
                         hyp.setdefault("domain", util.registrable_domain(a["value"]))
+                        # P0-3 (round-2 audit): host assets carry no url, so
+                        # any rule cmd with {url} rendered a LITERAL "{url}"
+                        # into argv (unknown placeholders stay verbatim) and
+                        # the tool attacked the string "{url}". Mint the
+                        # canonical https URL so every placeholder resolves.
+                        hyp.setdefault("url", f"https://{a['value']}")
                     self.writer.upsert_entity(hyp)
                 budget -= 1
                 if minted_any:
@@ -780,6 +787,7 @@ class Orchestrator:
         # lives for ONE _act call (per cycle) only, so the next cycle's
         # legitimate re-run of a still-proposed hypothesis is not blocked.
         seen_commands: set[tuple] = set()
+        opsec_skipped = 0        # P0-2: transient skips vote differently
         for hyp in batch:
             # P-030-R (grok adjudication): testing BEFORE the action loop.
             # Writing it after the loop meant the executor-side retirement
@@ -814,6 +822,7 @@ class Orchestrator:
                         or self._robots_canary_hit(
                             self._origin_of("url", value), value)
                     if tok:
+                        opsec_skipped += 1
                         self.writer.append_event("opsec_canary_skip",
                                                  hyp["id"], {
                              "tool": action.get("tool"), "url": value,
@@ -821,8 +830,14 @@ class Orchestrator:
                         continue
                 # OPSEC gate 2 — origin under cooldown (WAF active / a run
                 # classified `detected`): skip, don't provoke the wall.
+                # Exemption: the WAF confirm probe (R-CTX-WAF-001) must be
+                # able to run once against the very origin it cooled down —
+                # otherwise the rule mints and instantly self-blocks
+                # (P0-2, round-2 audit).
                 origin = self._origin_of(kind, value)
-                if self._cooldowns.blocked(origin):
+                if self._cooldowns.blocked(origin) and \
+                        hyp.get("rule_id") != "R-CTX-WAF-001":
+                    opsec_skipped += 1
                     self.writer.append_event("opsec_cooldown_skip",
                                              hyp["id"], {
                          "tool": action.get("tool"), "origin": origin,
@@ -880,19 +895,35 @@ class Orchestrator:
                 # executor runs the tool; skeleton records an observation.
                 # R5 M6: the tool_run id travels with the action so the
                 # executor can close the row (done/error/timeout).
-                self.executor(hyp, {**action, "command": rendered.summary,
-                                    "argv": rendered.argv, "env": rendered.env,
-                                    "bind_ip": recheck.detail.get("bind_ip"),
-                                    "_tool_run_id": run_id})
+                payload = {**action, "command": rendered.summary,
+                           "argv": rendered.argv, "env": rendered.env,
+                           "bind_ip": recheck.detail.get("bind_ip"),
+                           "_tool_run_id": run_id}
+                # P0-1 (round-2 audit): a rule may need the OBSERVATION to
+                # carry the real request URL — the robots probe fetches
+                # {url}/robots.txt while its guard target stays the base
+                # URL, and the curl parser dispatches on that suffix.
+                # obs_url renders with the same ctx, never feeds the guard.
+                if action.get("obs_url"):
+                    r_obs = cmd.render_command(str(action["obs_url"]),
+                                               self._command_ctx(hyp, action))
+                    if r_obs.argv and r_obs.argv[0]:
+                        # collapse "//" in the path: a seed value with a
+                        # trailing slash must not mint ...com//robots.txt
+                        payload["url"] = re.sub(r"(?<!:)/{2,}", "/",
+                                                r_obs.argv[0])
+                self.executor(hyp, payload)
             # P-030-R2: AGGREGATED retirement after the action loop, counting
             # only the runs THIS loop actually started. Blocked actions
             # (scope refusal / no target) never produce a run row and must
             # not vote; expected==0 (all blocked) retires as done — the
             # scope_blocked events are already on the log per-action.
-            self._retire_hypothesis_if_complete(hyp, expected=started)
+            self._retire_hypothesis_if_complete(hyp, expected=started,
+                                                opsec_blocked=opsec_skipped)
 
     def _retire_hypothesis_if_complete(self, hyp: dict, *,
-                                       expected: int | None = None) -> None:
+                                       expected: int | None = None,
+                                       opsec_blocked: int = 0) -> None:
         """Move a testing hypothesis to a terminal state when every run the
         last _act loop STARTED for it is terminal. Never raises.
 
@@ -902,6 +933,12 @@ class Orchestrator:
         start one); expected==0 means every action was blocked — retire as
         'done' (NOT error/timeout: those re-mint via P-015 and would churn
         forever against a scope that will keep refusing).
+
+        P0-2 (round-2 audit): opsec blocks are TRANSIENT (a 30-min cooldown
+        expires; a canary stays untouchable but the rest of the rule set
+        may still apply). Terminal `done` would freeze the (rule, asset)
+        pair into the seen-set forever, so an opsec-blocked-only loop goes
+        back to `proposed` instead — the next cycle re-acts it.
         """
         try:
             rows = self.writer.conn.execute(
@@ -909,12 +946,16 @@ class Orchestrator:
                 (hyp["id"],)).fetchall()
             started = expected if expected is not None else len(rows)
             if not rows and started == 0:
-                # all-blocked: no run ever started, scope_blocked events
-                # already recorded per action — retire as done.
+                # all-blocked: no run ever started, events already recorded
+                # per action (scope_blocked / opsec_*_skip).
                 cur = self.writer.get_entity(hyp["id"])
                 if cur and cur.get("kind") == "hypothesis" and \
                         cur.get("state") == "testing":
-                    cur["state"] = "done"
+                    if opsec_blocked:
+                        cur["state"] = "proposed"
+                        cur["opsec_blocked"] = opsec_blocked
+                    else:
+                        cur["state"] = "done"
                     cur["finished_at"] = util.now_iso()
                     self.writer.upsert_entity(cur)
                 return
