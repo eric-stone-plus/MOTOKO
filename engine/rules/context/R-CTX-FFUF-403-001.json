@@ -16,15 +16,26 @@
           401,
           403
         ]
+      },
+      {
+        "fact": "waf",
+        "op": "eq",
+        "value": false
+      },
+      {
+        "fact": "robots_checked",
+        "op": "eq",
+        "value": true
       }
     ]
   },
   "then": {
-    "hypothesis": "ffuf 路径爆破绕过访问控制找到隐藏端点",
+    "hypothesis": "ffuf 低线程路径爆破绕过访问控制找到隐藏端点（WAF 资产与未摸底 host 不点火）",
     "actions": [
       {
         "tool": "ffuf",
-        "cmd": "ffuf -u {url}/FUZZ -w {wordlist_dir}/common-paths.txt -mc 200,201,204,301,302 -s"
+        "cmd": "ffuf -u {url}/FUZZ -w {wordlist_dir}/common-paths.txt -mc 200,201,204,301,302 -t 2 -p 0.5-2.0 -timeout 10 -H 'User-Agent: {ua}' -s",
+        "cmd_stealth": "ffuf -u {url}/FUZZ -w {wordlist_dir}/common-paths.txt -mc 200,201,204,301,302 -t 1 -p 1.0-3.0 -rate 10 -timeout 10 -H 'User-Agent: {ua}' -s"
       }
     ],
     "on_hit_class": null,

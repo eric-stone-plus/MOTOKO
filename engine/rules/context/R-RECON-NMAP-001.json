@@ -22,12 +22,13 @@
     ]
   },
   "then": {
-    "hypothesis": "nmap -sV 端口服务枚举（容器执行）",
+    "hypothesis": "nmap -sV 低速端口服务枚举（容器执行；T4 教科书签名已降档）",
     "actions": [
       {
         "tool": "nmap",
         "runtime": "container",
-        "cmd": "nmap -sT -sV -T4 -Pn --top-ports 100 -oX - {host}"
+        "cmd": "nmap -sT -sV --version-intensity 2 -T2 -Pn --top-ports 100 --max-rate 30 --scan-delay 500ms -oX - {host}",
+        "cmd_stealth": "nmap -sT -sV --version-intensity 1 -T1 -Pn --top-ports 100 --max-rate 10 --scan-delay 2s -oX - {host}"
       }
     ],
     "on_hit_class": null,

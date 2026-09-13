@@ -117,7 +117,7 @@ def parse_tool(tool: str, stdout: str, stderr: str = "",
 
 
 # Import parser modules so they self-register.
-from . import arjun, dalfox, ffuf, httpx, jsluice, katana, lines, nmap, nuclei, sqlmap, strix  # noqa: E402,F401
+from . import arjun, curl, dalfox, ffuf, httpx, jsluice, katana, lines, nmap, nuclei, sqlmap, strix  # noqa: E402,F401
 
 __all__ = [
     "ParsedObservation", "Parser", "register", "get_parser", "parse_tool",

@@ -1,0 +1,34 @@
+{
+  "id": "R-BOOT-SCAN-001",
+  "name": "通用 nuclei 基线扫描（存活 2xx/3xx 资产）",
+  "category": "scan",
+  "when": {
+    "all": [
+      {
+        "fact": "url",
+        "op": "matches",
+        "value": "^https?://"
+      },
+      {
+        "fact": "status",
+        "op": "in",
+        "value": [200, 201, 204, 301, 302, 307]
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "存活端点 nuclei 基线扫描（high/critical，限速执行）",
+    "actions": [
+      {
+        "tool": "nuclei",
+        "cmd": "nuclei -u {url} -jsonl -severity high,critical -rl 5 -c 2 -bs 5 -timeout 10 -H 'User-Agent: {ua}'",
+        "cmd_stealth": "nuclei -u {url} -jsonl -severity high,critical -rl 2 -c 1 -bs 2 -timeout 10 -H 'User-Agent: {ua}'"
+      }
+    ],
+    "on_hit_class": null,
+    "priority": {
+      "impact": 0.4,
+      "cost": 0.5
+    }
+  }
+}

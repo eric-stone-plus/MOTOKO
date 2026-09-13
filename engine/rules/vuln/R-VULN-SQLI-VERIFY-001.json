@@ -12,11 +12,12 @@
     ]
   },
   "then": {
-    "hypothesis": "sqlmap 精确验证注入",
+    "hypothesis": "sqlmap 精确验证注入（单线程 + 延迟，sqlmap 默认签名极响）",
     "actions": [
       {
         "tool": "sqlmap",
-        "cmd": "sqlmap -u {url} --batch --level=2 --risk=1 --technique=BE"
+        "cmd": "sqlmap -u {url} --batch --level=2 --risk=1 --technique=BE --threads=1 --delay=1 --random-agent",
+        "cmd_stealth": "sqlmap -u {url} --batch --level=1 --risk=1 --technique=BE --threads=1 --delay=3 --random-agent"
       }
     ],
     "on_hit_class": "sqli.confirmed",

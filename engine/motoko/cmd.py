@@ -36,12 +36,13 @@ _PLACEHOLDER = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
 # Context keys the orchestrator may pass for a rule action's placeholders.
 # wordlist_dir is engine-injected (_command_ctx): rules reference
-# {wordlist_dir}/<file> instead of absolute home paths.
+# {wordlist_dir}/<file> instead of absolute home paths. ua is engine-injected
+# too (opsec.DEFAULT_UA / MOTOKO_UA): rules never hardcode a User-Agent.
 CTX_KEYS = (
     "url", "host", "ip", "domain", "dc", "wordlist", "wordlist_dir",
     "out", "oob",
     "ssrf_url", "tampered", "canary", "user", "username", "ak", "sk",
-    "token", "password", "port",
+    "token", "password", "port", "ua",
 )
 
 

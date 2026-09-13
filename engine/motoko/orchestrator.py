@@ -26,10 +26,11 @@ from collections import deque
 from pathlib import Path
 from urllib.parse import urlparse
 
-from . import cmd, db, digest, util, writer_views
+from . import cmd, db, digest, opsec, util, writer_views
 from . import asset_link
 from .dedup import compute_dedup_key
 from .hypothesis_engine import HypothesisEngine
+from .opsec import CooldownBoard
 from .parsers import parse_tool
 from .scope import ScopeDecision, ScopeGuard
 from .verification import Verdict, dom, oob, pick_validator, replay
@@ -121,7 +122,7 @@ def default_fetcher(url: str, bind_ip: str | None = None):
             sock.sendall(
                 (f"GET {target} HTTP/1.1\r\n"
                  f"Host: {host_header}\r\n"
-                 f"User-Agent: MOTOKO/0.1\r\n"
+                 f"User-Agent: {os.environ.get('MOTOKO_UA', opsec.DEFAULT_UA)}\r\n"
                  f"Connection: close\r\n\r\n").encode("ascii", "replace"))
             resp = http.client.HTTPResponse(sock)
             resp.begin()
@@ -140,7 +141,8 @@ def default_fetcher(url: str, bind_ip: str | None = None):
 class Orchestrator:
     def __init__(self, engagement_id: str, *, root=None,
                  rules_dir=None, executor=None, reflector=None,
-                 resolver=None, fetcher=None, browser=None, canary=None):
+                 resolver=None, fetcher=None, browser=None, canary=None,
+                 intensity: str | None = None):
         self.engagement_id = engagement_id
         self.root = root or db.default_root()
         self.edir = db.engagement_dir(self.root, engagement_id)
@@ -181,24 +183,44 @@ class Orchestrator:
         self._failure_digest = None
         self._reflector_takes_failures = _accepts_failure_lines(reflector)
 
+        # OPSEC (2026-09-13 P0): per-origin cooldowns + canary accounting.
+        # A WAF fact landing on an asset (httpx/nuclei parser sensor) cools
+        # the whole origin down; ACT skips cooled origins and planted
+        # canary paths with events instead of hammering the wall.
+        self._cooldowns = CooldownBoard()
+        self._waf_noted: set[tuple[str, str]] = set()
+        # intensity=stealth selects a rule's stricter cmd_<intensity>
+        # variant when present (was a dead init parameter until now). The
+        # explicit argument wins; otherwise the engagement's scope row.
+        self.intensity = intensity or str(scope.get("intensity") or "normal")
+
     # -- main loop -----------------------------------------------------
     def run(self, max_cycles: int = 20, max_depth: int = 3) -> dict:
-        for _ in range(max_cycles):
-            self.cycle += 1
-            self._sync()
-            self._validate()
-            self._recover_failures()
-            self._expand()
-            batch = self._prioritize()
-            if not batch:
-                self._reflect_if_needed(force=True)
-                if not self.writer.query_entities(kind="hypothesis", engagement_id=self.engagement_id):
-                    break
-                continue
-            self._act(batch)
-            if self.cycle % 5 == 0:
-                self._reflect_if_needed(force=True)
-            self.writer.commit()
+        try:
+            for _ in range(max_cycles):
+                self.cycle += 1
+                self._sync()
+                self._validate()
+                self._recover_failures()
+                self._expand()
+                batch = self._prioritize()
+                if not batch:
+                    self._reflect_if_needed(force=True)
+                    if not self.writer.query_entities(
+                            kind="hypothesis",
+                            engagement_id=self.engagement_id):
+                        break
+                    continue
+                self._act(batch)
+                if self.cycle % 5 == 0:
+                    self._reflect_if_needed(force=True)
+                self.writer.commit()
+        finally:
+            # P-031: whatever happens inside the loop (exception, interrupt,
+            # operator TERM), no scan this run spawned may outlive it.
+            reap = getattr(self.executor, "reap", None)
+            if callable(reap):
+                reap()
         self._checkpoint()
         # Graph self-perception: after every run, sweep for broken links.
         # Issues land as graph_health events and feed the wave-loop bundle.
@@ -275,7 +297,10 @@ class Orchestrator:
                  "dead_letter": parsed.dead_letter[:50]})
         for a in parsed.assets:
             a.setdefault("engagement_id", self.engagement_id)
-            self._merge_asset(a)
+            aid = self._merge_asset(a)
+            if a.get("waf"):
+                self._note_waf(aid, str(a["waf"]),
+                               source=str(a.get("source") or parsed.tool))
         # R7-3: enum tools stamp the SOURCE asset too, so the parent-domain
         # gate closes even when the tool output doesn't contain the apex
         # host (grok adjudication: keep self-stamp, ADD source stamp).
@@ -296,6 +321,9 @@ class Orchestrator:
         for f in parsed.findings:
             f.setdefault("engagement_id", self.engagement_id)
             self._ingest_finding(f)
+            if f.get("waf") and f.get("asset_id"):
+                self._note_waf(str(f["asset_id"]), str(f["waf"]),
+                               source=str(f.get("detector") or parsed.tool))
         # R7-5: nmap services land in the services table, keyed to the target
         # asset, so _fact_view can surface them (SMB chain input).
         if parsed.services:
@@ -352,6 +380,59 @@ class Orchestrator:
             return e["id"]
         self.writer.upsert_entity(a)
         return a["id"]
+
+    def _note_waf(self, asset_id: str, vendor: str, *, source: str) -> None:
+        """React to a WAF fact landing on an asset.
+
+        The ``waf`` vendor is already merged onto the asset row by
+        ``_merge_asset`` (that's what activates R-CTX-WAF-001 in _fact_view);
+        this is the reaction half: cool the whole origin down and log one
+        ``waf_detected`` event per (asset, vendor). Re-observations extend
+        the cooldown silently instead of spamming the event log.
+        """
+        ent = self.writer.get_entity(asset_id)
+        host = ""
+        if ent:
+            val = str(ent.get("value", ""))
+            host = (val.split("://", 1)[1].split("/", 1)[0].split(":", 1)[0]
+                    if "://" in val else val)
+        self._cooldowns.trigger(host, f"waf:{vendor}")
+        key = (asset_id, vendor)
+        if key in self._waf_noted:
+            return
+        self._waf_noted.add(key)
+        self.writer.append_event("waf_detected", asset_id, {
+            "vendor": vendor, "host": host, "source": source,
+            "origin": CooldownBoard.normalize(host),
+            "cooldown_s": self._cooldowns.cooldown_s,
+        })
+
+    @staticmethod
+    def _origin_of(kind: str, value: str) -> str:
+        """Cooldown key for a structured target (host, port-stripped)."""
+        if kind == "url":
+            host = (value.split("://", 1)[1].split("/", 1)[0]
+                    if "://" in value else value)
+            return CooldownBoard.normalize(host)
+        return CooldownBoard.normalize(value)
+
+    def _robots_canary_hit(self, origin: str, url: str) -> str | None:
+        """robots.txt Disallow prefix match for this origin's known traps.
+
+        R-CTX-ROBOTS-001 stamps ``canary_paths`` on the base asset; a
+        target URL whose path falls under one of them is a planted tripwire
+        (robots semantics are prefix-based, so the comparison is too).
+        """
+        path = urlparse(url).path or "/"
+        for e in self.writer.query_entities(kind="asset",
+                                            engagement_id=self.engagement_id):
+            if e.get("robots_host") != origin:
+                continue
+            for p in e.get("canary_paths") or []:
+                p = str(p)
+                if p and p != "/" and (path == p or path.startswith(p)):
+                    return p
+        return None
 
     def _ingest_finding(self, f: dict) -> str:
         """Create one finding, or link it to the surviving duplicate.
@@ -614,6 +695,12 @@ class Orchestrator:
         facts["host_nmapped"] = bool(
             host and assets and any(
                 e.get("nmap_host") == host for e in assets))
+        # OPSEC (2026-09-13): the robots probe stamps robots_host; fuzz and
+        # crawl rules gate on it so a target's Disallow traps are known
+        # before the first burst goes out.
+        facts["robots_checked"] = bool(
+            host and assets and any(
+                e.get("robots_host") == host for e in assets))
         tech = asset.get("tech") or []
         facts["tech"] = tech
         facts["waf"] = bool(asset.get("waf"))
@@ -680,6 +767,11 @@ class Orchestrator:
         return batch[:_ACT_K]
 
     def _act(self, batch: list[dict]) -> None:
+        # OPSEC state is lazily built: legacy tests construct bare
+        # Orchestrators via __new__ and call _act directly.
+        if getattr(self, "_cooldowns", None) is None:
+            self._cooldowns = CooldownBoard()
+            self._waf_noted = set()
         # G9: per-cycle dedup of identical commands. A cold-start graph
         # carries many hypotheses whose rules render the SAME command for
         # the SAME target (bootstrap + tech + context firing on one host);
@@ -711,6 +803,33 @@ class Orchestrator:
                     })
                     continue
                 kind, value = target
+                # OPSEC gate 1 — defender-planted canary paths: never touch.
+                # Two sources: builtin honeypot-shaped path tokens, and the
+                # robots.txt Disallow list fetched by R-CTX-ROBOTS-001
+                # (a target's robots.txt disallowing /honeypot.html is the
+                # observed pattern; a fuzz hit there is an instant, deserved
+                # flag).
+                if kind == "url":
+                    tok = opsec.canary_hit(value) \
+                        or self._robots_canary_hit(
+                            self._origin_of("url", value), value)
+                    if tok:
+                        self.writer.append_event("opsec_canary_skip",
+                                                 hyp["id"], {
+                             "tool": action.get("tool"), "url": value,
+                             "canary": tok})
+                        continue
+                # OPSEC gate 2 — origin under cooldown (WAF active / a run
+                # classified `detected`): skip, don't provoke the wall.
+                origin = self._origin_of(kind, value)
+                if self._cooldowns.blocked(origin):
+                    self.writer.append_event("opsec_cooldown_skip",
+                                             hyp["id"], {
+                         "tool": action.get("tool"), "origin": origin,
+                         "reason": self._cooldowns.reason(origin),
+                         "remaining_s": round(
+                             self._cooldowns.remaining(origin), 1)})
+                    continue
                 decision = self._guard_target(kind, value)
                 if not decision.allowed:
                     self.writer.append_event("scope_blocked", hyp["id"],
@@ -732,7 +851,13 @@ class Orchestrator:
                     continue
                 # F09: argv rendering — no shell, credentials to the env, and
                 # only the masked summary is persisted in tool_run.command.
-                rendered = cmd.render_command(action.get("cmd", ""),
+                # intensity profile: a stricter cmd_<intensity> variant wins
+                # when the rule carries one (stealth is the live case).
+                template = action.get("cmd", "")
+                if getattr(self, "intensity", "normal") not in ("", "normal"):
+                    template = action.get(
+                        f"cmd_{self.intensity}") or template
+                rendered = cmd.render_command(template,
                                               self._command_ctx(hyp, action))
                 # G9: dedup AFTER the guard passes but BEFORE start_tool_run —
                 # a repeated identical command is recorded as an act.dedup
@@ -836,6 +961,10 @@ class Orchestrator:
         if "wordlist_dir" not in ctx:
             wl = os.environ.get("MOTOKO_WORDLIST_DIR", "~/.motoko/wordlists")
             ctx["wordlist_dir"] = str(Path(wl).expanduser())
+        # OPSEC: one UA per engagement (MOTOKO_UA overrides). Rules render
+        # {ua} — no tool ships its default scanner fingerprint.
+        if "ua" not in ctx:
+            ctx["ua"] = os.environ.get("MOTOKO_UA", opsec.DEFAULT_UA)
         return ctx
 
     def _action_target(self, hyp: dict, action: dict) -> tuple[str, str] | None:
@@ -935,6 +1064,9 @@ class Orchestrator:
         )
 
     def close(self) -> None:
+        reap = getattr(self.executor, "reap", None)
+        if callable(reap):
+            reap()                       # P-031: no scan outlives the engine
         self.writer.close()
 
 

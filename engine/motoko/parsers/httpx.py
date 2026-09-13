@@ -2,12 +2,19 @@
 
 Supports ``httpx -json`` (object per line, or a JSON array) and the default
 text format ``URL [status] [title] [tech1,tech2]``.
+
+OPSEC: this parser is the engine's WAF sensor. Block pages surface here as
+the asset's ``title``/``webserver``/``tech``; a signature hit stamps the
+``waf`` vendor onto the asset, which activates R-CTX-WAF-001 (dead code
+until 2026-09-13 — the fact was read but never written) and the
+orchestrator's per-origin cooldown.
 """
 
 from __future__ import annotations
 
 import json
 
+from .. import opsec
 from . import Parser, register
 
 
@@ -18,6 +25,7 @@ class HttpxParser(Parser):
     def parse(self, stdout, stderr="", action=None):
         assets: list[dict] = []
         dead: list[str] = []
+        waf_hits = 0
         text = stdout.strip()
 
         if text.startswith("["):
@@ -31,7 +39,12 @@ class HttpxParser(Parser):
                     a = self._asset_from_json(d)
                     if a:
                         assets.append(a)
-                return self._result(summary=f"httpx: {len(assets)} alive (json)", assets=assets)
+                        if a.get("waf"):
+                            waf_hits += 1
+                summary = f"httpx: {len(assets)} alive (json)"
+                if waf_hits:
+                    summary += f", {waf_hits} behind a WAF"
+                return self._result(summary=summary, assets=assets)
 
         # JSONL form (one object per line) or text form
         for line in stdout.splitlines():
@@ -46,14 +59,21 @@ class HttpxParser(Parser):
                     continue
                 if a:
                     assets.append(a)
+                    if a.get("waf"):
+                        waf_hits += 1
             else:
                 a = self._asset_from_text(line)
                 if a:
                     assets.append(a)
+                    if a.get("waf"):
+                        waf_hits += 1
                 else:
                     dead.append(line[:500])
+        summary = f"httpx: {len(assets)} alive, {len(dead)} unparseable"
+        if waf_hits:
+            summary += f", {waf_hits} behind a WAF"
         return self._result(
-            summary=f"httpx: {len(assets)} alive, {len(dead)} unparseable",
+            summary=summary,
             assets=assets,
             dead_letter=dead,
         )
@@ -62,16 +82,21 @@ class HttpxParser(Parser):
         url = d.get("url") or d.get("host") or d.get("input")
         if not url:
             return None
-        return self._asset(
-            type_="url",
-            value=url,
-            extra={
-                "status_code": d.get("status_code"),
-                "title": d.get("title"),
-                "tech": d.get("tech") or d.get("tech_stack") or [],
-                "webserver": d.get("webserver"),
-            },
-        )
+        tech = d.get("tech") or d.get("tech_stack") or []
+        extra = {
+            "status_code": d.get("status_code"),
+            "title": d.get("title"),
+            "tech": tech,
+            "webserver": d.get("webserver"),
+        }
+        vendor = opsec.detect_waf(title=d.get("title") or "",
+                                  webserver=d.get("webserver") or "",
+                                  tech=tech,
+                                  headers=d.get("header") if isinstance(
+                                      d.get("header"), dict) else None)
+        if vendor:
+            extra["waf"] = vendor
+        return self._asset(type_="url", value=url, extra=extra)
 
     def _asset_from_text(self, line: str) -> dict | None:
         # https://shop.invalid [200] [Page Title] [nginx,react]
@@ -91,7 +116,8 @@ class HttpxParser(Parser):
                     tech = [t.strip() for t in inner.split(",") if t.strip()]
                 else:
                     title = inner
-        return self._asset(
-            type_="url", value=url,
-            extra={"status_code": status, "title": title, "tech": tech},
-        )
+        extra = {"status_code": status, "title": title, "tech": tech}
+        vendor = opsec.detect_waf(title=title or "", tech=tech)
+        if vendor:
+            extra["waf"] = vendor
+        return self._asset(type_="url", value=url, extra=extra)

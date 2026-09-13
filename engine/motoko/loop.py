@@ -23,6 +23,7 @@ import re
 import shlex
 import subprocess
 import sys
+import tempfile
 import urllib.error
 import urllib.request
 from dataclasses import asdict, dataclass, field
@@ -31,6 +32,17 @@ from pathlib import Path
 from . import db, util
 
 DEFAULT_CONFIG = Path.home() / ".motoko" / "loop.yaml"
+
+# E2BIG lesson (round 1, 2026-09-13): a CLI leg takes the prompt as ONE argv
+# value, and Linux caps a single argument at ~128 KB — the engine bundle grew
+# past that and the kimi leg died before spawning. CLIs that offer a
+# --prompt-file flag (grok) get file transport; the rest get a loud
+# truncation marker so an auditor never mistakes a cut bundle for the whole.
+_CLI_ARGV_LIMIT = 100_000
+_TRUNCATION_MARKER = (
+    "\n\n[...BUNDLE TRUNCATED: {cut} bytes removed to fit the CLI argv "
+    "limit. This is a PREFIX of the bundle — audit what is visible and say "
+    "so explicitly in your report...]\n")
 
 
 def default_config_path() -> Path:
@@ -140,6 +152,10 @@ class LLMEndpoint:
     base_url: str = ""
     api_key_env: str = ""              # env var holding the key
     command: list[str] = field(default_factory=list)   # protocol=cli
+    # cli legs: flag that accepts a prompt FILE path (e.g. --prompt-file).
+    # Empty = the CLI only takes the prompt as an argv value, so oversized
+    # bundles are truncated loudly instead of dying with E2BIG.
+    prompt_file_flag: str = ""
     timeout: int = 1800
 
     def resolve_key(self) -> str:
@@ -156,6 +172,7 @@ class LLMEndpoint:
             base_url=str(d.get("base_url", "")),
             api_key_env=str(d.get("api_key_env", "")),
             command=[str(c) for c in (d.get("command") or [])],
+            prompt_file_flag=str(d.get("prompt_file_flag", "")),
             timeout=int(d.get("timeout", 1800)),
         )
 
@@ -332,11 +349,40 @@ def _call_anthropic(ep: LLMEndpoint, prompt: str) -> str:
 
 def _call_cli(ep: LLMEndpoint, prompt: str) -> dict:
     """Run a cli-protocol leg. Returns the transcript plus meta (exit code,
-    stderr) so a failed leg is archived instead of silently half-reported."""
+    stderr) so a failed leg is archived instead of silently half-reported.
+
+    Prompt transport: a ``prompt_file_flag`` leg receives the bundle via a
+    temp file (round-1 E2BIG fix — a 200+ KB bundle cannot ride one argv
+    value); a bare-argv leg gets a loudly truncated prefix at
+    ``_CLI_ARGV_LIMIT`` instead of an E2BIG spawn failure.
+    """
     if not ep.command:
         raise ValueError("cli endpoint needs a command list")
+    if ep.prompt_file_flag:
+        fd, ppath = tempfile.mkstemp(prefix="motoko-prompt-",
+                                     suffix=".txt")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(prompt)
+            proc = subprocess.run(
+                [*ep.command, ep.prompt_file_flag, ppath],
+                capture_output=True, text=True, timeout=ep.timeout)
+        finally:
+            try:
+                os.unlink(ppath)
+            except OSError:
+                pass
+        return {"text": proc.stdout or proc.stderr,
+                "exit_code": proc.returncode, "stderr": proc.stderr}
+    sent = prompt
+    size = len(prompt.encode("utf-8", "replace"))
+    if size > _CLI_ARGV_LIMIT:
+        cut = size - _CLI_ARGV_LIMIT
+        sent = (prompt.encode("utf-8", "replace")[:_CLI_ARGV_LIMIT]
+                .decode("utf-8", "ignore")
+                + _TRUNCATION_MARKER.format(cut=cut))
     proc = subprocess.run(
-        [*ep.command, prompt], capture_output=True, text=True,
+        [*ep.command, sent], capture_output=True, text=True,
         timeout=ep.timeout)
     return {"text": proc.stdout or proc.stderr,
             "exit_code": proc.returncode, "stderr": proc.stderr}

@@ -24,6 +24,11 @@ So: classify, then dispatch per class.
 
   scope_blocked   authorization boundary. NEVER retry, never plan around it.
                   Retrying a scope block is a compliance incident, not a retry.
+  detected        the TARGET is actively blocking us (WAF page in stderr,
+                  captcha, access denied). NEVER retry: the target has
+                  noticed the traffic and every retry deepens the signature.
+                  The orchestrator cools the origin down (opsec.CooldownBoard)
+                  when this class appears.
   tool_missing    binary absent from PATH / tool_dirs. Deterministic.
   spawn_error     exit -1/-2/126 — bad action shape, non-str argv, spawn
                   OSError, or podman missing for a container action. A rule
@@ -81,7 +86,8 @@ _TIMEOUT_CODES = frozenset({124, -15, -9})
 EXPENSIVE_TIMEOUT_S = 1800.0
 
 # Classes that must never be retried, whatever the attempt count.
-NEVER_RETRY = frozenset({"scope_blocked", "tool_missing", "spawn_error"})
+NEVER_RETRY = frozenset({"scope_blocked", "detected", "tool_missing",
+                         "spawn_error"})
 
 # Hypotheses in flight occupy these tool_run statuses; only terminal ones may
 # be recycled, or a live strix session would be re-planned underneath itself.
@@ -91,6 +97,15 @@ _TRANSIENT_MARKERS = (
     "rate limit", "429", "too many requests", "connection reset", "timed out",
     "timeout", "temporarily", "econn", "503", "502", "broken pipe", "tls",
     "ssl", "eof occurred", "connection refused",
+)
+
+# The target itself pushing back (distinct from a protocol-level 429, which
+# stays transient): WAF pages, captchas, denial phrasing. Checked BEFORE the
+# transient markers — "blocked" outranks "connection reset" on the same
+# stderr, because the former means the target is steering.
+_DETECTED_MARKERS = (
+    "waf", "web application firewall", "captcha", "access denied",
+    "blocked", "forbidden",
 )
 
 
@@ -166,9 +181,16 @@ class FailureDigest:
         if self.read_errors:
             lines.append(f"Failure-scan read errors: {self.read_errors} "
                          "(digest is partial)")
+        if self.by_class.get("detected"):
+            lines.append(
+                f"Targets actively blocking us (class=detected): "
+                f"{self.by_class['detected']} run(s). Do NOT re-propose "
+                "actions against those origins — the OPSEC cooldown owns "
+                "them; retrying sharpens the target's signature.")
         lines.append(
-            "Do not re-propose a step whose tool is scope_blocked, tool_missing "
-            "or spawn_error: those are deterministic, retrying cannot succeed.")
+            "Do not re-propose a step whose tool is scope_blocked, "
+            "tool_missing, spawn_error or detected: those are deterministic "
+            "or defender-driven, retrying cannot succeed.")
         return lines
 
 
@@ -210,6 +232,15 @@ def classify(*, status: str | None, exit_code: int | None = None,
                        max_attempts=0 if expensive else 1, tool=tool)
 
     if status == "error" or (exit_code not in (0, None)):
+        # detected outranks transient: WAF/captcha/denial phrasing on a
+        # failing run means the target is steering, and retrying only
+        # sharpens the signature (2026-09-13 P0 — the 429-was-transient
+        # classification used to swallow these).
+        if any(m in err for m in _DETECTED_MARKERS):
+            return Failure("detected",
+                           "target-side blocking observed (WAF/captcha/"
+                           "denial) — origin should cool down, not retry",
+                           retryable=False, max_attempts=0, tool=tool)
         transient = any(m in err for m in _TRANSIENT_MARKERS)
         return Failure("tool_error",
                        "transient-looking tool failure" if transient

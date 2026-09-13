@@ -18,15 +18,21 @@
         "fact": "host_crawled",
         "op": "eq",
         "value": false
+      },
+      {
+        "fact": "robots_checked",
+        "op": "eq",
+        "value": true
       }
     ]
   },
   "then": {
-    "hypothesis": "katana 爬取发现隐藏端点和参数面",
+    "hypothesis": "katana 低速爬取发现隐藏端点和参数面（robots 摸底完成后才点火）",
     "actions": [
       {
         "tool": "katana",
-        "cmd": "katana -u {url} -silent -d 3 -jc"
+        "cmd": "katana -u {url} -silent -d 3 -jc -c 2 -rl 2 -rlm 60 -iqp -fsu -timeout 10 -H 'User-Agent: {ua}'",
+        "cmd_stealth": "katana -u {url} -silent -d 2 -jc -c 1 -rl 1 -rlm 30 -iqp -fsu -timeout 10 -H 'User-Agent: {ua}'"
       }
     ],
     "on_hit_class": null,

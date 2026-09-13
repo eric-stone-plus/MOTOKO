@@ -1,6 +1,6 @@
 {
   "id": "R-CTX-WAF-001",
-  "name": "WAF 检测",
+  "name": "WAF 在挡确认（单请求，不施压）",
   "category": "context",
   "when": {
     "all": [
@@ -12,17 +12,18 @@
     ]
   },
   "then": {
-    "hypothesis": "WAF 存在，降速换编码",
+    "hypothesis": "WAF 已在挡（httpx/nuclei 感知到挡板）：单请求确认响应头后收手，origin 已进冷却，不得加压",
     "actions": [
       {
-        "tool": "nuclei",
-        "cmd": "nuclei -jsonl -u {url} -rl 10"
+        "tool": "curl",
+        "cmd": "curl -m 8 -sS -D - -o /dev/null -H 'User-Agent: {ua}' {url}",
+        "cmd_stealth": "curl -m 15 -sS -D - -o /dev/null -H 'User-Agent: {ua}' {url}"
       }
     ],
     "on_hit_class": null,
     "priority": {
-      "impact": 0.3,
-      "cost": 0.3
+      "impact": 0.2,
+      "cost": 0.1
     }
   }
 }

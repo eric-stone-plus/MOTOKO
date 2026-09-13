@@ -1,0 +1,39 @@
+{
+  "id": "R-CTX-ROBOTS-001",
+  "name": "robots.txt 摸底（每 host 一次，先于一切爆破/爬取）",
+  "category": "context",
+  "when": {
+    "all": [
+      {
+        "fact": "url",
+        "op": "matches",
+        "value": "^https?://"
+      },
+      {
+        "fact": "status",
+        "op": "in",
+        "value": [200, 201, 204, 301, 302]
+      },
+      {
+        "fact": "robots_checked",
+        "op": "eq",
+        "value": false
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "取 robots.txt 的 Disallow 陷阱与 Crawl-delay 入图（canary 禁访表的数据源）",
+    "actions": [
+      {
+        "tool": "curl",
+        "cmd": "curl -sS -m 8 -H 'User-Agent: {ua}' {url}/robots.txt",
+        "cmd_stealth": "curl -sS -m 15 -H 'User-Agent: {ua}' {url}/robots.txt"
+      }
+    ],
+    "on_hit_class": null,
+    "priority": {
+      "impact": 0.2,
+      "cost": 0.1
+    }
+  }
+}

@@ -20,6 +20,7 @@ import re
 import shutil
 import signal
 import subprocess
+import time
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -59,7 +60,20 @@ _KILL_GRACE_S = 5
 # P-030: tools whose data sources live OUTSIDE the GFW (wayback/Common
 # Crawl for gau) and therefore must run through the inherited proxy.
 # Everything else runs DIRECT (proxy vars stripped) — see __call__.
-_PROXY_TOOLS = frozenset({"gau"})
+# 2026-09-13 P1: the set is extensible via MOTOKO_EGRESS_PROXY_TOOLS
+# (comma-separated tool names, merged with the default) so a deployment can
+# name per-tool egress policy without a code change. Egress policy belongs
+# in configuration, not in operator discipline (P-023/P-030's lesson).
+_DEFAULT_PROXY_TOOLS = frozenset({"gau"})
+_PROXY_TOOLS_ENV = "MOTOKO_EGRESS_PROXY_TOOLS"
+
+
+def _proxy_tools() -> frozenset:
+    extra = os.environ.get(_PROXY_TOOLS_ENV, "")
+    if not extra.strip():
+        return _DEFAULT_PROXY_TOOLS
+    names = {n.strip() for n in extra.split(",") if n.strip()}
+    return _DEFAULT_PROXY_TOOLS | names
 
 
 def resolve_tool(tool: str, extra_dirs: tuple[Path, ...] = ()) -> str | None:
@@ -95,6 +109,13 @@ class SubprocessExecutor:
         self.tool_timeout = tool_timeout
         self.kill_grace = kill_grace
         self.tool_dirs = tool_dirs
+        # P-031 (2026-09-13): live in-flight processes, {pid: run_id}.
+        # An engine that dies must not leave scans running on the wire —
+        # the escaped amass kept hitting an authorized domain for 3 hours
+        # after its engine was gone. Registration also lands in the
+        # tool_run row (db.set_tool_run_pid) for post-mortems; reap() is
+        # the shutdown path (orchestrator.run finally + close()).
+        self._live: dict[int, str] = {}
 
     def __call__(self, hyp: dict, action: dict) -> None:
         """Run one rendered action and record its raw output (never raises)."""
@@ -181,10 +202,10 @@ class SubprocessExecutor:
             # the container only via explicit -e; a persistent container
             # started under the host proxy keeps those vars at STARTUP.
             # Either way, an in-container tool hitting a domestic target
-            # must not traverse the GFW proxy. Non-_PROXY_TOOLS get the
+            # must not traverse the GFW proxy. Non-proxy-tools get the
             # -e blanking set (same discipline as AGENTS.md podman exec).
             env_clears: list[str] = []
-            if tool not in _PROXY_TOOLS:
+            if tool not in _proxy_tools():
                 for v in ("http_proxy", "https_proxy", "HTTP_PROXY",
                           "HTTPS_PROXY", "all_proxy", "ALL_PROXY"):
                     env_clears += ["--env", f"{v}="]
@@ -225,9 +246,9 @@ class SubprocessExecutor:
         # wayback-consuming gau must go THROUGH it. Until now this was pure
         # operator discipline on the launch env — one wrong `env -u` and
         # either gau returns 0 bytes 30 times or every domestic tool dies.
-        # Default is DIRECT (proxy vars stripped); tools on _PROXY_TOOLS
+        # Default is DIRECT (proxy vars stripped); tools in _proxy_tools()
         # keep the inherited proxy vars so gau can reach wayback.
-        if tool not in _PROXY_TOOLS:
+        if tool not in _proxy_tools():
             for k in list(env):
                 if k.lower() in ("http_proxy", "https_proxy", "all_proxy"):
                     del env[k]
@@ -249,6 +270,8 @@ class SubprocessExecutor:
                     argv, stdout=out_f, stderr=err_f, env=env,
                     stdin=subprocess.DEVNULL, start_new_session=True,
                 )
+                self._register(str(action.get("_tool_run_id") or run_id),
+                               proc.pid)
                 try:
                     _, _ = proc.communicate(timeout=effective_timeout)
                 except subprocess.TimeoutExpired:
@@ -272,6 +295,7 @@ class SubprocessExecutor:
             exit_code = proc.returncode
             status = "timeout" if exit_code in (-15, -9) or exit_code == 124 else \
                 ("done" if exit_code == 0 else "error")
+            self._unregister(proc.pid)
         except (OSError, TypeError, ValueError) as e:
             exit_code, status = 126, "error"
             # R5 H2: the error path itself can fail (obs dir gone/unwritable);
@@ -297,6 +321,67 @@ class SubprocessExecutor:
         # R5 M6: success, failure and timeout all close the tool_run row.
         self._finish_tool_run(action, status=status, exit_code=exit_code,
                               out_path=out_path, err_path=err_path)
+
+    def _register(self, run_id: str, pid: int) -> None:
+        """P-031: track a live scan (tool_run row + in-memory registry).
+
+        ``run_id`` here is the tool_run ROW id (``action['_tool_run_id']``) —
+        the internal observation stamp is a different namespace. Legacy tests
+        construct executors without ``__init__``, so the registry lazily
+        initializes.
+        """
+        if getattr(self, "_live", None) is None:
+            self._live = {}
+        self._live[pid] = run_id
+        try:
+            set_pid = getattr(self.writer, "set_tool_run_pid", None)
+            if callable(set_pid):
+                set_pid(run_id, pid)
+        except Exception:
+            pass
+
+    def _unregister(self, pid: int) -> None:
+        if getattr(self, "_live", None) is not None:
+            self._live.pop(pid, None)
+
+    def reap(self, *, grace: float = 2.0) -> list[int]:
+        """Kill every in-flight run this executor spawned. Never raises.
+
+        TERM each process group first, wait up to ``grace`` seconds for
+        /proc liveness to clear, then KILL the group AND the direct pid —
+        a setsid-escaping child (the P-031 amass) re-parents into a new
+        session and is invisible to killpg, so the direct pid is the only
+        handle left. Grandchildren of such an escapee are out of reach in
+        v1; the container route is the structural fix (kill the cgroup).
+
+        The registry is snapshotted FIRST: a child that dies during the
+        grace window lets its own executor thread unregister it, which
+        would otherwise make reap return nothing while scans still ran.
+        Returns the reaped pids.
+        """
+        targets: dict[int, str] = dict(getattr(self, "_live", {}) or {})
+        for pid in targets:
+            try:
+                os.killpg(pid, signal.SIGTERM)
+            except (ProcessLookupError, PermissionError):
+                pass
+        deadline = time.monotonic() + max(0.0, grace)
+        while time.monotonic() < deadline and any(
+                Path(f"/proc/{pid}").exists() for pid in targets):
+            time.sleep(0.1)
+        reaped: list[int] = []
+        for pid in targets:
+            try:
+                os.killpg(pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass
+            self._unregister(pid)
+            reaped.append(pid)
+        return reaped
 
     def _record_observation(self, **kw) -> None:
         """R5 H2: a database error while recording must not kill the loop."""

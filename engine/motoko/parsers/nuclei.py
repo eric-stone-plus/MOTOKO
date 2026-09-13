@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 
+from .. import opsec
 from . import Parser, register
 
 # template-id keyword -> finding class. Order matters (first match wins).
@@ -68,12 +69,20 @@ class NucleiParser(Parser):
             info = d.get("info") or {}
             severity = info.get("severity", "unknown")
             matched = d.get("matched-at") or d.get("matched_at") or d.get("host", "")
+            # OPSEC: tech-detect style templates can carry a WAF vendor in
+            # their tag list; stamp it so the orchestrator can cool the
+            # origin down (httpx remains the primary block-page sensor).
+            tags = [str(t) for t in (info.get("tags") or [])]
+            extra: dict = {"template_id": tid, "type": d.get("type", "")}
+            vendor = opsec.detect_waf(tech=tags)
+            if vendor:
+                extra["waf"] = vendor
             findings.append(self._finding(
                 class_=map_class(tid),
                 title=f"{tid}: {info.get('name', tid)}",
                 url=matched,
                 severity=severity,
-                extra={"template_id": tid, "type": d.get("type", "")},
+                extra=extra,
             ))
         return self._result(
             summary=f"nuclei: {len(findings)} matched, {len(dead)} unparseable",
