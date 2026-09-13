@@ -528,7 +528,15 @@ class LoopRunner:
         'fixes': [...], 'verdict': '...', 'verdict_json': {...}} and writes
         everything to out_dir."""
         out_dir.mkdir(parents=True, exist_ok=True)
-        bundle = self.build_bundle(extra)[:bundle_limit]
+        bundle = self.build_bundle(extra)
+        if len(bundle) > bundle_limit:
+            # HIGH-12 (round-3 audit): HTTP legs and CLI legs get the same
+            # standard — a cut bundle is loudly marked, never silent.
+            cut = len(bundle) - bundle_limit
+            bundle = bundle[:bundle_limit] + (
+                f"\n\n[...BUNDLE TRUNCATED AT {bundle_limit} BYTES: {cut} "
+                "bytes cut. This is a PREFIX of the bundle — audit what is "
+                "visible and say so explicitly in your report...]")
         (out_dir / "bundle.txt").write_text(bundle)
 
         audits, leg_meta = self._run_audit_legs(out_dir, bundle)

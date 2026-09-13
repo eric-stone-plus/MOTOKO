@@ -257,7 +257,10 @@ class Orchestrator:
     def _ingest_raw(self, obs_id: str, tool: str, raw_path: str,
                     context: dict | None = None) -> None:
         try:
-            raw = Path(raw_path).read_text()
+            # HIGH-10 (round-3 audit): tool output is NOT guaranteed UTF-8 —
+            # a dirty byte used to raise UnicodeDecodeError straight through
+            # (only OSError was caught) and permanently killed the run.
+            raw = Path(raw_path).read_text(errors="replace")
         except OSError as e:
             # Nothing to parse — record why and let the observation be marked
             # processed instead of retrying it forever.
@@ -274,7 +277,7 @@ class Orchestrator:
         err_text = ""
         err_path = Path(str(raw_path).replace(".out", ".err"))
         try:
-            err_text = err_path.read_text()
+            err_text = err_path.read_text(errors="replace")
         except OSError:
             err_text = ""
         try:
@@ -621,6 +624,14 @@ class Orchestrator:
                         continue
                     seen.add(key)
                     rid = hyp.get("rule_id") or ""
+                    # P0-2 (round-3 audit): a (rule, asset) pair that
+                    # already failed out three times stops re-minting.
+                    # Counted as a dup so an all-skipped pass still retires
+                    # the frontier instead of burning the expand budget.
+                    pair_attempts = (a.get("attempts_by_rule") or {}).get(rid)
+                    if isinstance(pair_attempts, int) and pair_attempts >= 3:
+                        dup_skips += 1
+                        continue
                     if proposed_by_rule.get(rid, 0) >= _MAX_PROPOSED_PER_RULE:
                         # R6-4: backlog cap — keep the frontier open and mint
                         # later, once ACT drains the queue.
@@ -799,6 +810,7 @@ class Orchestrator:
                 hyp["state"] = "testing"
                 self.writer.upsert_entity(hyp)
             started = 0          # P-030-R2: runs actually STARTED this loop
+            run_ids: list[str] = []
             for action in hyp.get("actions", []):
                 target = self._action_target(hyp, action)
                 if target is None:
@@ -892,6 +904,7 @@ class Orchestrator:
                                                     command=rendered.summary,
                                                     hypothesis_id=hyp["id"])
                 started += 1
+                run_ids.append(run_id)
                 # executor runs the tool; skeleton records an observation.
                 # R5 M6: the tool_run id travels with the action so the
                 # executor can close the row (done/error/timeout).
@@ -919,11 +932,13 @@ class Orchestrator:
             # not vote; expected==0 (all blocked) retires as done — the
             # scope_blocked events are already on the log per-action.
             self._retire_hypothesis_if_complete(hyp, expected=started,
-                                                opsec_blocked=opsec_skipped)
+                                                opsec_blocked=opsec_skipped,
+                                                run_ids=run_ids)
 
     def _retire_hypothesis_if_complete(self, hyp: dict, *,
                                        expected: int | None = None,
-                                       opsec_blocked: int = 0) -> None:
+                                       opsec_blocked: int = 0,
+                                       run_ids: list[str] | None = None) -> None:
         """Move a testing hypothesis to a terminal state when every run the
         last _act loop STARTED for it is terminal. Never raises.
 
@@ -939,11 +954,25 @@ class Orchestrator:
         may still apply). Terminal `done` would freeze the (rule, asset)
         pair into the seen-set forever, so an opsec-blocked-only loop goes
         back to `proposed` instead — the next cycle re-acts it.
+
+        P0-2 (round-3 audit): ``run_ids`` scopes the status query to the
+        rows THIS loop started — older rows from previous cycles of the
+        same hypothesis must not vote on this loop's outcome — and a
+        terminal error/timeout bumps the per-(rule, asset) attempt counter
+        on the ASSET so re-mints stop at three.
         """
         try:
-            rows = self.writer.conn.execute(
-                "SELECT status FROM tool_run WHERE hypothesis_id = ?",
-                (hyp["id"],)).fetchall()
+            if run_ids is None:
+                rows = self.writer.conn.execute(
+                    "SELECT status FROM tool_run WHERE hypothesis_id = ?",
+                    (hyp["id"],)).fetchall()
+            elif not run_ids:
+                rows = []            # loop started nothing (all blocked)
+            else:
+                marks = ",".join("?" * len(run_ids))
+                rows = self.writer.conn.execute(
+                    f"SELECT status FROM tool_run WHERE id IN ({marks})",
+                    tuple(run_ids)).fetchall()
             started = expected if expected is not None else len(rows)
             if not rows and started == 0:
                 # all-blocked: no run ever started, events already recorded
@@ -973,12 +1002,36 @@ class Orchestrator:
                 final = "timeout"
             else:
                 final = "done"
+            if final in ("error", "timeout"):
+                # P0-2 (round-3 audit): failed pairs accumulate attempts on
+                # the ASSET so the re-mint can stop at three.
+                self._bump_rule_attempts(hyp)
             cur = self.writer.get_entity(hyp["id"])
             if cur and cur.get("kind") == "hypothesis" and \
                     cur.get("state") == "testing":
                 cur["state"] = final
                 cur["finished_at"] = util.now_iso()
                 self.writer.upsert_entity(cur)
+        except Exception:
+            pass
+
+    def _bump_rule_attempts(self, hyp: dict) -> None:
+        """P0-2 (round-3 audit): attempts must accumulate per (rule, asset)
+        ACROSS re-mints — each mint is a fresh entity whose own counter
+        resets to zero, so a deterministically failing pair used to re-mint
+        forever. The counter lives on the asset (`attempts_by_rule`) and
+        _expand stops minting a pair at three. Never raises."""
+        try:
+            aid, rid = hyp.get("asset_id"), hyp.get("rule_id")
+            if not aid or not rid:
+                return
+            asset = self.writer.get_entity(aid)
+            if not asset or asset.get("kind") != "asset":
+                return
+            counts = dict(asset.get("attempts_by_rule") or {})
+            counts[rid] = int(counts.get(rid, 0)) + 1
+            asset["attempts_by_rule"] = counts
+            self.writer.upsert_entity(asset)
         except Exception:
             pass
 

@@ -86,8 +86,12 @@ _TIMEOUT_CODES = frozenset({124, -15, -9})
 EXPENSIVE_TIMEOUT_S = 1800.0
 
 # Classes that must never be retried, whatever the attempt count.
-NEVER_RETRY = frozenset({"scope_blocked", "detected", "tool_missing",
-                         "spawn_error"})
+# `detected` is deliberately NOT here (round-3 audit P0-2): a WAF block is
+# transient — the OPSEC cooldown owns the pacing, and a hard re-mint ban
+# would freeze the (rule, asset) pair forever. NOTE: this constant is
+# advisory today — no dispatcher reads it yet (grok H-7); the real gates
+# live in failure.classify retryable flags and the orchestrator.
+NEVER_RETRY = frozenset({"scope_blocked", "tool_missing", "spawn_error"})
 
 # Hypotheses in flight occupy these tool_run statuses; only terminal ones may
 # be recycled, or a live strix session would be re-planned underneath itself.
@@ -397,6 +401,19 @@ def recycle_stuck_hypotheses(writer, engagement_id: str, *,
                 f"abandoned after {attempts} attempts "
                 f"({r['bad']}/{r['total']} tool runs failed)")
             abandoned += 1
+            # P0-2 (round-3 audit): the attempt counter must survive the
+            # entity — a re-mint starts a fresh hypothesis with a fresh
+            # counter, so the (rule, asset) pair would churn forever. The
+            # asset carries the authoritative per-rule count.
+            aid = ent.get("asset_id")
+            rid = ent.get("rule_id")
+            if aid and rid:
+                asset = writer.get_entity(aid)
+                if asset and asset.get("kind") == "asset":
+                    counts = dict(asset.get("attempts_by_rule") or {})
+                    counts[rid] = int(counts.get(rid, 0)) + 1
+                    asset["attempts_by_rule"] = counts
+                    writer.upsert_entity(asset)
         else:
             prio = ent.get("priority")
             prio = float(prio) if isinstance(prio, (int, float)) else 50.0

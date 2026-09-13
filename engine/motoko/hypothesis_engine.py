@@ -23,11 +23,24 @@ class HypothesisEngine:
 
     def _load(self) -> list[dict]:
         rules: list[dict] = []
+        seen: set[str] = set()
         for path in sorted(self.rules_dir.rglob("*.json")):
             try:
-                rules.append(json.loads(path.read_text()))
+                rule = json.loads(path.read_text())
             except json.JSONDecodeError as e:
                 raise ValueError(f"bad rule file {path}: {e}") from e
+            # Round-3 audit P0-1: two files shipped the same rule id (the
+            # P-030 round left a tech/ copy next to the scan/ rewrite) and
+            # every asset silently got the baseline scan TWICE. A duplicate
+            # id is a rule-authoring defect: fail loudly at load time.
+            rid = rule.get("id")
+            if rid:
+                if rid in seen:
+                    raise ValueError(
+                        f"duplicate rule id {rid!r} in {path} — retire one "
+                        "copy (rules.retired/) before running")
+                seen.add(rid)
+            rules.append(rule)
         return rules
 
     def rule_count(self) -> int:
