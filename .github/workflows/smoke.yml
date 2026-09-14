@@ -17,32 +17,39 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ matrix.python }}
-          # setup-uv activates a workspace-root venv and exports VIRTUAL_ENV
-          # by default. That overrides the engine-local `uv venv` below, so
-          # `uv pip install .` lands in the root venv while the smoke-check
-          # invokes ./engine/.venv/bin/motoko -> exit 127. Keep the venv
-          # engine-local.
-          activate-environment: false
+      # setup-uv exports VIRTUAL_ENV pointing at a workspace-root virtualenv,
+      # and `uv pip install` honours it in preference to a `.venv` in the
+      # current directory. Under `working-directory: engine` that silently
+      # installs into the root venv while the checks below invoke
+      # ./engine/.venv/bin/motoko, so every leg fails with exit 127.
+      # Target the interpreter explicitly instead of relying on discovery.
       - name: Install engine and smoke-check
         working-directory: engine
         run: |
-          uv venv
-          uv pip install .
+          uv venv "$PWD/.venv"
+          uv pip install --python "$PWD/.venv/bin/python" .
           ./.venv/bin/motoko --help
           ./.venv/bin/motoko doctor
       # The rule packs are package data. If they ever stop shipping, the
       # engine still imports and `doctor` still passes while generating zero
       # hypotheses, so assert the count from the INSTALLED tree explicitly.
+      #
+      # `-P` matters: this step runs with working-directory `engine`, and
+      # without it Python prepends that cwd to sys.path, so `import core`
+      # would pick up the SOURCE tree and the assertion could not fail even
+      # if the wheel shipped no rules. The site-packages check below makes
+      # that self-enforcing.
       - name: Assert the rule packs are installed
         working-directory: engine
         run: |
-          ./.venv/bin/python -c "
+          ./.venv/bin/python -P -c "
           from core import util
           from core.hypothesis_engine import HypothesisEngine
           d = util.default_rules_dir()
           n = HypothesisEngine(d).rule_count()
           print('rules_dir:', d)
           print('rule_count:', n)
+          assert 'site-packages' in str(d), f'resolved the source tree, not the install: {d}'
           assert n >= 38, f'expected >=38 bundled rules, got {n}'
           "
       - name: Assert no build artifacts are tracked
