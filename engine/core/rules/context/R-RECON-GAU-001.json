@@ -1,0 +1,33 @@
+{
+  "id": "R-RECON-GAU-001",
+  "name": "历史 URL 收集（gau）",
+  "category": "context",
+  "when": {
+    "all": [
+      {
+        "fact": "url",
+        "op": "matches",
+        "value": "^https?://"
+      },
+      {
+        "fact": "domain_enumerated",
+        "op": "eq",
+        "value": false
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "wayback/OTX/URLScan 历史 URL 挖掘旧端点",
+    "actions": [
+      {
+        "tool": "gau",
+        "cmd": "gau --subs {domain}"
+      }
+    ],
+    "on_hit_class": null,
+    "priority": {
+      "impact": 0.4,
+      "cost": 0.4
+    }
+  }
+}

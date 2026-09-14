@@ -1,0 +1,28 @@
+{
+  "id": "R-ACC-KERB-001",
+  "name": "Kerberos 服务",
+  "category": "access",
+  "when": {
+    "all": [
+      {
+        "fact": "service",
+        "op": "contains",
+        "value": "kerberos"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "Kerberos 用户枚举 + AS-REP roast",
+    "actions": [
+      {
+        "tool": "kerbrute",
+        "cmd": "kerbrute userenum -d {domain} --dc {dc} {wordlist}"
+      }
+    ],
+    "on_hit_class": "ad.userenum",
+    "priority": {
+      "impact": 0.6,
+      "cost": 0.3
+    }
+  }
+}

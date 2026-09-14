@@ -1,0 +1,32 @@
+{
+  "id": "R-ACC-CLOUD-001",
+  "name": "云 IAM 角色凭据",
+  "category": "access",
+  "when": {
+    "all": [
+      {
+        "fact": "level",
+        "op": "eq",
+        "value": "cloud_iam_role"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "枚举 IAM 权限 + cloudfox",
+    "actions": [
+      {
+        "tool": "enumerate-iam",
+        "cmd": "enumerate-iam --access-key {ak} --secret-key {sk} --session-token {token}"
+      },
+      {
+        "tool": "cloudfox",
+        "cmd": "cloudfox aws"
+      }
+    ],
+    "on_hit_class": "cloud.privesc",
+    "priority": {
+      "impact": 0.9,
+      "cost": 0.3
+    }
+  }
+}

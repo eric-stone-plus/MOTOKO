@@ -1,0 +1,35 @@
+{
+  "id": "R-TECH-SPRING-001",
+  "name": "Spring Boot 指纹",
+  "category": "tech",
+  "when": {
+    "all": [
+      {
+        "fact": "tech",
+        "op": "contains",
+        "value": "spring"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "测试 Spring actuator 端点暴露",
+    "actions": [
+      {
+        "tool": "httpx",
+        "cmd": "GET {url}/actuator/env"
+      },
+      {
+        "tool": "nuclei",
+        "cmd": "nuclei -jsonl -u {url} -tags springboot,actuator"
+      }
+    ],
+    "on_hit_class": "exposure.actuator_env",
+    "chain_hint": [
+      "R-CHAIN-ACTUATOR-HEAPDUMP"
+    ],
+    "priority": {
+      "impact": 0.75,
+      "cost": 0.15
+    }
+  }
+}

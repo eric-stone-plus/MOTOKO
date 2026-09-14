@@ -1,0 +1,28 @@
+{
+  "id": "R-VULN-IDOR-001",
+  "name": "IDOR 越权",
+  "category": "vuln",
+  "when": {
+    "all": [
+      {
+        "fact": "class",
+        "op": "contains",
+        "value": "idor"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "双身份越权验证",
+    "actions": [
+      {
+        "tool": "curl",
+        "cmd": "curl -H 'Authorization: Bearer {token2}' {url}"
+      }
+    ],
+    "on_hit_class": "idor.confirmed",
+    "priority": {
+      "impact": 0.7,
+      "cost": 0.25
+    }
+  }
+}

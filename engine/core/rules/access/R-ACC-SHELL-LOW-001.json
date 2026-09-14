@@ -1,0 +1,28 @@
+{
+  "id": "R-ACC-SHELL-LOW-001",
+  "name": "低权限 shell",
+  "category": "access",
+  "when": {
+    "all": [
+      {
+        "fact": "level",
+        "op": "eq",
+        "value": "shell_user"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "Linux 本地提权枚举",
+    "actions": [
+      {
+        "tool": "linpeas",
+        "cmd": "linpeas.sh"
+      }
+    ],
+    "on_hit_class": "privesc.linux",
+    "priority": {
+      "impact": 0.8,
+      "cost": 0.3
+    }
+  }
+}

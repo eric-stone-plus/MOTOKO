@@ -1,0 +1,38 @@
+{
+  "id": "R-CTX-JS-001",
+  "name": "前端框架 SPA",
+  "category": "context",
+  "when": {
+    "any": [
+      {
+        "fact": "tech",
+        "op": "contains",
+        "value": "react"
+      },
+      {
+        "fact": "tech",
+        "op": "contains",
+        "value": "angular"
+      },
+      {
+        "fact": "tech",
+        "op": "contains",
+        "value": "vue"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "SPA 隐藏 API 挖掘",
+    "actions": [
+      {
+        "tool": "jsluice",
+        "cmd": "jsluice urls {url}"
+      }
+    ],
+    "on_hit_class": "api.hidden",
+    "priority": {
+      "impact": 0.5,
+      "cost": 0.25
+    }
+  }
+}

@@ -1,0 +1,44 @@
+name: smoke
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install engine and smoke-check
+        working-directory: engine
+        run: |
+          uv venv
+          uv pip install .
+          ./.venv/bin/motoko --help
+          ./.venv/bin/motoko doctor
+      # The rule packs are package data. If they ever stop shipping, the
+      # engine still imports and `doctor` still passes while generating zero
+      # hypotheses, so assert the count from the INSTALLED tree explicitly.
+      - name: Assert the rule packs are installed
+        working-directory: engine
+        run: |
+          ./.venv/bin/python -c "
+          from core import util
+          from core.hypothesis_engine import HypothesisEngine
+          d = util.default_rules_dir()
+          n = HypothesisEngine(d).rule_count()
+          print('rules_dir:', d)
+          print('rule_count:', n)
+          assert n >= 38, f'expected >=38 bundled rules, got {n}'
+          "
+      - name: Assert no build artifacts are tracked
+        run: |
+          ! git ls-files | grep -qE '(^|/)(build|dist)/'

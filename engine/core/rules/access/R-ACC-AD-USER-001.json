@@ -1,0 +1,32 @@
+{
+  "id": "R-ACC-AD-USER-001",
+  "name": "域用户凭据",
+  "category": "access",
+  "when": {
+    "all": [
+      {
+        "fact": "level",
+        "op": "eq",
+        "value": "ad_user"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "BloodHound 采集 + certipy ESC",
+    "actions": [
+      {
+        "tool": "bloodhound-python",
+        "cmd": "bloodhound-python -d {domain} -c All --zip"
+      },
+      {
+        "tool": "certipy",
+        "cmd": "certipy find -vulnerable"
+      }
+    ],
+    "on_hit_class": "ad.escalation",
+    "priority": {
+      "impact": 0.85,
+      "cost": 0.35
+    }
+  }
+}

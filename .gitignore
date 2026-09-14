@@ -1,0 +1,22 @@
+.DS_Store
+*.swp
+*~
+.idea/
+.vscode/
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+*.egg-info/
+build/
+dist/
+
+# Operator state: live loop endpoints, credentials, engagement graphs.
+.env
+.motoko/
+engine/loop/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3

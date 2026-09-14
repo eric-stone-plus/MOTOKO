@@ -1,0 +1,29 @@
+{
+  "id": "R-VULN-REDIRECT-001",
+  "name": "开放重定向",
+  "category": "vuln",
+  "when": {
+    "all": [
+      {
+        "fact": "class",
+        "op": "contains",
+        "value": "open_redirect"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "链到 OAuth token 泄露（观测 Location，不跟随出站）",
+    "actions": [
+      {
+        "tool": "curl",
+        "cmd": "curl -sSI -o /dev/null -w '%{redirect_url}' -H 'User-Agent: {ua}' {url}?redirect={oob}",
+        "cmd_stealth": "curl -sSI -m 15 -o /dev/null -w '%{redirect_url}' -H 'User-Agent: {ua}' {url}?redirect={oob}"
+      }
+    ],
+    "on_hit_class": "auth.token_leak",
+    "priority": {
+      "impact": 0.5,
+      "cost": 0.2
+    }
+  }
+}

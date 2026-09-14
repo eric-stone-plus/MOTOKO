@@ -1,0 +1,28 @@
+{
+  "id": "R-ACC-SHELL-ROOT-001",
+  "name": "root shell",
+  "category": "access",
+  "when": {
+    "all": [
+      {
+        "fact": "level",
+        "op": "eq",
+        "value": "shell_root"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "凭据收集 + 横向",
+    "actions": [
+      {
+        "tool": "shell",
+        "cmd": "cat /etc/shadow; cat ~/.ssh/id_rsa"
+      }
+    ],
+    "on_hit_class": "credential.dump",
+    "priority": {
+      "impact": 0.9,
+      "cost": 0.2
+    }
+  }
+}

@@ -1,0 +1,27 @@
+MOTOKO
+Copyright (c) 2026 the MOTOKO contributors.
+
+Required Notice: Copyright (c) 2026 the MOTOKO contributors.
+https://github.com/eric-stone-plus/MOTOKO
+
+Licensed under the GNU Affero General Public License v3.0 (AGPL-3.0-or-later).
+You may obtain a copy of the License in the LICENSE file or at
+https://www.gnu.org/licenses/agpl-3.0.txt
+
+This NOTICE covers original MOTOKO files in this repository (ontology,
+graph contract, citation map). It does not relicense cited instruments.
+
+Cited instruments retain their own licenses and copyright holders.
+Citing a repository is not combining it into one work.
+Citations point at upstream.
+
+Instrument          License      Upstream
+------------------  -----------  ----------------------------------------------
+Hermes Agent        MIT          NousResearch/hermes-agent
+Strix               Apache-2.0   usestrix/strix
+Nuclei              MIT          projectdiscovery/nuclei
+LangGraph           MIT          langchain-ai/langgraph
+
+This repository's AGPL-3.0-or-later terms cover original MOTOKO files only.
+They do not extend to the cited instruments, which keep their own MIT and
+Apache-2.0 terms. See README § License.
