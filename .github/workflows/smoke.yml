@@ -17,6 +17,12 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ matrix.python }}
+          # setup-uv activates a workspace-root venv and exports VIRTUAL_ENV
+          # by default. That overrides the engine-local `uv venv` below, so
+          # `uv pip install .` lands in the root venv while the smoke-check
+          # invokes ./engine/.venv/bin/motoko -> exit 127. Keep the venv
+          # engine-local.
+          activate-environment: false
       - name: Install engine and smoke-check
         working-directory: engine
         run: |
