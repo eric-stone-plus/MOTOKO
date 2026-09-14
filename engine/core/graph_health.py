@@ -42,7 +42,7 @@ class HealthReport:
     issues: list[HealthIssue] = field(default_factory=list)
 
     def markdown(self) -> str:
-        lines = [f"# 图健康报告 — {self.engagement_id}",
+        lines = [f"# Graph health report — {self.engagement_id}",
                  f"issues: {len(self.issues)}"]
         by_sev = {}
         for i in self.issues:
@@ -52,9 +52,9 @@ class HealthReport:
                 lines.append(f"\n## [{sev}] {i.kind}")
                 lines.append(f"- {i.message}")
                 if i.evidence:
-                    lines.append(f"- 证据: {i.evidence}")
+                    lines.append(f"- evidence: {i.evidence}")
                 if i.suggestion:
-                    lines.append(f"- 建议: {i.suggestion}")
+                    lines.append(f"- suggestion: {i.suggestion}")
         return "\n".join(lines)
 
     @property
