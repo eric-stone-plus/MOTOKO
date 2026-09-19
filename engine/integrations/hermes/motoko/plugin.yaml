@@ -1,0 +1,64 @@
+manifest_version: 2
+name: motoko
+version: 1.1.0
+description: Supervise local or SSH-reachable MOTOKO scan waves through a bounded stdio protocol.
+kind: standalone
+platforms: [linux]
+python_dependencies: ["motoko-host==1.0.0"]
+provides_tools: [motoko_status, motoko_run]
+config_schema:
+  transport:
+    type: string
+    enum: [local, ssh]
+    default: local
+    description: Local child process or SSH stdio transport.
+  executable:
+    type: string
+    description: Absolute path to the installed motoko CLI.
+  runtime_root:
+    type: string
+    required: true
+    description: Private local directory for host process records (mode 0700).
+  ssh_binary:
+    type: string
+    description: Absolute path to the SSH client when transport is ssh.
+  remote_host:
+    type: string
+    description: Fixed user@host or host token; shell syntax is rejected.
+  remote_executable:
+    type: string
+    description: Absolute path to motoko on the remote host.
+  remote_root:
+    type: string
+    description: Absolute MOTOKO_HOME on the remote host.
+  ssh_port:
+    type: integer
+    default: 22
+    description: SSH TCP port.
+  known_hosts:
+    type: string
+    required: false
+    description: Private, non-writable known_hosts file required for SSH transport.
+  identity_file:
+    type: string
+    description: Private SSH identity file; no ambient agent or default identities are used.
+  remote_tools_root:
+    type: string
+    description: Optional absolute MOTOKO_TOOLS path on the remote host.
+  remote_wordlist_dir:
+    type: string
+    description: Optional absolute MOTOKO_WORDLIST_DIR path on the remote host.
+  tools_root:
+    type: string
+    description: Optional absolute path to the deployment toolbox.
+  wordlist_dir:
+    type: string
+    description: Optional absolute path to wordlists.
+  egress_mode:
+    type: string
+    default: proxy
+    description: Engine egress policy, proxy or direct.
+  allow_direct_replay:
+    type: boolean
+    default: false
+    description: Assert that the deployment route permits the engine replay validator.

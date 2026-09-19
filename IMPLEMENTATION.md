@@ -26,11 +26,18 @@ runtime dependencies, and a packaging manifest (`pyproject.toml` with a
   discoveries and duration are persisted at wave boundaries. Discovery and
   failure rates adjust existing rule priorities within [-30, 15]; duration is
   measured but not scored. Duplicate entities do not earn discovery credit.
-  Completed policy resumes from disk; outcomes from an interrupted unfinished
-  wave remain in the graph but are outside the next feedback window. This is
+  Completed and interrupted wave policy resumes from disk. Cancellation closes
+  tool records and saves the partial wave before releasing its writer. This is
   bounded heuristic scheduling, without automatic rule generation or parallel
   resource allocation. Missing parser/producer support remains visible in
   `motoko rules --report`; installed binaries alone do not prove a working chain.
+- **Host adapters**: Hermes imports a standalone Python client; Pi invokes its
+  `motoko-host` CLI. Both use the same bounded `motoko/1` JSONL protocol over
+  local pipes or SSH. Hosts receive aggregate state and pseudonymous references,
+  never raw evidence or event payloads. Strict SSH host-key/identity settings,
+  finite deadlines and pipe-disconnect cancellation are implemented. Pi has
+  sequential run-tool dispatch; engine writer exclusion also spans hosts.
+  OpenClaw has no shipped adapter. Messaging gateways remain host components.
 - **Engineering audit loop** (`engine/core/loop.py`): a config-driven cycle of
   independent auditors → adjudication → deterministic evaluation,
   with executable ROLLBACK/STOP verdicts. Protocol adapters only

@@ -54,6 +54,11 @@ class ScanWaves:
             "WHERE t.rowid > ? AND e.engagement_id = ? ORDER BY t.rowid",
             (self.cursor, self.engagement_id)).fetchall()
         stats: dict[str, dict] = {}
+        # A producer rule may declare bounded successor rules in ``chain_hint``.
+        # Keep this feedback separate while collecting observations: a hint is
+        # useful only when this wave produced *new* graph evidence.  A clean
+        # exit, duplicate evidence, or a failed tool must not promote a chain.
+        chain_hits: dict[str, int] = {}
         credited: set[str] = set()
         for row in rows:
             rid = json.loads(row["data"]).get("rule_id") or "unbound"
@@ -66,13 +71,24 @@ class ScanWaves:
                 "SELECT new_asset_ids, new_finding_ids, duration_s FROM observations "
                 "WHERE action_id = ? AND engagement_id = ?",
                 (row["id"], self.engagement_id)).fetchall()
+            row_discoveries = 0
             for obs in observations:
                 for col in ("new_asset_ids", "new_finding_ids"):
                     ids = json.loads(obs[col] or "[]")
                     new = set(ids) - self.known_ids - credited
                     stat["discoveries"] += len(new)
+                    row_discoveries += len(new)
                     credited.update(new)
                 stat["duration_s"] += max(0.0, float(obs["duration_s"] or 0))
+            if row["status"] == "done" and row_discoveries:
+                try:
+                    hints = json.loads(row["data"]).get("chain_hint") or []
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    hints = []
+                if isinstance(hints, list):
+                    for successor in hints:
+                        if isinstance(successor, str) and successor:
+                            chain_hits[successor] = chain_hits.get(successor, 0) + 1
         for rid, stat in stats.items():
             n = stat["runs"]
             # Negative results still earn coverage; exploration loses at most
@@ -83,8 +99,20 @@ class ScanWaves:
             old = self.priority_offsets.get(rid, 0.0)
             self.priority_offsets[rid] = round(max(-30.0, min(15.0, (old + utility) / 2)), 2)
             stat["duration_s"] = round(stat["duration_s"], 3)
+        # A successor receives a small, persisted bonus when its producer
+        # delivered fresh evidence.  The cap is per successor and the global
+        # offset clamp prevents a chain from outranking every unrelated rule.
+        # Repeated successful waves converge at the same bounded ceiling.
+        chain_bonuses: dict[str, float] = {}
+        for successor, hits in chain_hits.items():
+            bonus = min(6.0, 3.0 * hits)
+            old = self.priority_offsets.get(successor, 0.0)
+            self.priority_offsets[successor] = round(
+                max(-30.0, min(15.0, old + bonus)), 2)
+            chain_bonuses[successor] = bonus
         result = {"wave": self.number, "cycles": self.cycles,
                   "stop_reason": stop_reason, "pending": pending, "rules": stats,
+                  "chain_bonuses": chain_bonuses,
                   "priority_offsets": dict(self.priority_offsets)}
         self.writer.append_event("scan.wave.completed", self.engagement_id, result)
         self.writer.commit()

@@ -27,8 +27,9 @@ jobs:
         working-directory: engine
         run: |
           uv venv "$PWD/.venv"
-          uv pip install --python "$PWD/.venv/bin/python" .
+          uv pip install --python "$PWD/.venv/bin/python" . ./integrations/host
           ./.venv/bin/motoko --help
+          ./.venv/bin/motoko-host --help
           ./.venv/bin/motoko doctor
       # The rule packs are package data. If they ever stop shipping, the
       # engine still imports and `doctor` still passes while generating zero
