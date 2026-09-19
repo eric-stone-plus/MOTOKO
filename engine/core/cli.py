@@ -3,6 +3,7 @@
 Commands:
     init      create an engagement (dir + graph.db + scope row)
     run       run the six-beat main loop with the real tool executor
+    adapter   dispatch one host-neutral, bounded JSON request
     digest    print the <=2KB context digest (read-only)
     query     list entities (read-only)
     events    tail the event log (read-only)
@@ -91,7 +92,6 @@ def cmd_run(args) -> int:
     import sys as _sys
 
     from . import orchestrator, reflector as reflector_mod
-    from .executor import SubprocessExecutor
 
     edir = db.engagement_dir(db.default_root(), args.engagement_id)
     if not (edir / "graph.db").exists():
@@ -108,18 +108,11 @@ def cmd_run(args) -> int:
                   "MOTOKO_REFLECTOR_BASE_URL or the key env is unset; "
                   "continuing without a reflector",
                   file=_sys.stderr)
-    orch = orchestrator.Orchestrator(
-        args.engagement_id, rules_dir=args.rules_dir or None,
-        reflector=reflector)
-    orch.executor = SubprocessExecutor(
-        orch.writer, orch.engagement_id, orch.artifacts,
-        tool_timeout=args.timeout)
-    try:
-        summary = orch.run(max_cycles=args.max_cycles,
-                           wave_cycles=getattr(args, "wave_cycles", 5),
-                           max_waves=getattr(args, "max_waves", None))
-    finally:
-        orch.close()
+    summary = orchestrator.run_engagement(
+        args.engagement_id, rules_dir=args.rules_dir or None, reflector=reflector,
+        timeout=args.timeout, max_cycles=args.max_cycles,
+        wave_cycles=getattr(args, "wave_cycles", 5),
+        max_waves=getattr(args, "max_waves", None))
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     return 0
 
@@ -696,6 +689,21 @@ def cmd_recover(args) -> int:
     return 0
 
 
+def cmd_adapter(args) -> int:
+    """Serve the local host protocol, or one legacy request envelope."""
+    from .adapter import handle_frame, serve_lines
+
+    if getattr(args, "stdio", False):
+        return serve_lines(disconnect_cancels=args.disconnect_cancels)
+
+    if args.disconnect_cancels:
+        raise ValueError("--disconnect-cancels requires --stdio")
+
+    result = handle_frame(args.request)
+    print(json.dumps(result, ensure_ascii=True, allow_nan=False))
+    return int(result.get("exit_code") or 0)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="motoko", description="MOTOKO attack-graph orchestrator")
     sub = p.add_subparsers(dest="command", required=True)
@@ -831,6 +839,19 @@ def build_parser() -> argparse.ArgumentParser:
                         "in-flight runs)")
     prev.add_argument("engagement_id")
     prev.set_defaults(func=cmd_recover)
+
+    pa = sub.add_parser(
+        "adapter", help="dispatch one bounded JSON request for a host adapter")
+    adapter_transport = pa.add_mutually_exclusive_group(required=True)
+    adapter_transport.add_argument(
+        "--request",
+        help="one JSON object: operation, optional engagement_id, and options")
+    adapter_transport.add_argument(
+        "--stdio", action="store_true",
+        help="serve newline-delimited JSON requests on stdin (local host protocol)")
+    pa.add_argument("--disconnect-cancels", action="store_true",
+                    help="cancel active work when stdin closes; host must keep stdin open until each response")
+    pa.set_defaults(func=cmd_adapter)
 
     return p
 

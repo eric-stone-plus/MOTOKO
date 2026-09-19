@@ -225,6 +225,14 @@ class Orchestrator:
                         break
                     self._reflect_if_needed(force=True)
                 self.writer.commit()
+        except BaseException:
+            # Keep completed work and cancellation failures in feedback. A
+            # host disconnect must not reset the policy to the last full
+            # wave and repeatedly promote the same failing scanner.
+            if self.scan_waves.cycles:
+                self.scan_waves.complete(stop_reason="interrupted",
+                                         pending=len(self._live_hypotheses()))
+            raise
         finally:
             reap = getattr(self.executor, "reap", None)
             if callable(reap):
@@ -1520,3 +1528,18 @@ class Orchestrator:
         if callable(reap):
             reap()
         self.writer.close()
+
+
+def run_engagement(engagement_id: str, *, max_cycles: int = 20,
+                   wave_cycles: int = 5, max_waves: int | None = None,
+                   timeout: float = 300, rules_dir=None, reflector=None) -> dict:
+    """Shared operator/adapter entry; one scheduler, executor and writer lease."""
+    from .executor import SubprocessExecutor
+
+    orch = Orchestrator(engagement_id, rules_dir=rules_dir, reflector=reflector)
+    try:
+        orch.executor = SubprocessExecutor(orch.writer, orch.engagement_id,
+                                          orch.artifacts, tool_timeout=timeout)
+        return orch.run(max_cycles=max_cycles, wave_cycles=wave_cycles, max_waves=max_waves)
+    finally:
+        orch.close()

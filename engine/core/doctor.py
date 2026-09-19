@@ -680,22 +680,21 @@ def _check_egress() -> list[tuple[str, str]]:
     return [first, second]
 
 
+def check_environment() -> list[tuple[str, list[tuple[str, str]]]]:
+    """Named sections let supervisors report status without diagnostic text."""
+    return [
+        ("python", [_check_python()]), ("storage", [_check_root(), *_check_disk()]),
+        ("temporary_storage", [_check_tmp_litter()]), ("tools", _check_tools()),
+        ("verification_backends", _check_backends()), ("container", _check_kali_container()),
+        ("audit_config", [_check_loop_config()]), ("linter", [_check_pyflakes()]),
+        ("credentials", _check_key_envs()), ("reflector", [_check_reflector()]),
+        ("wordlists", [_check_wordlists()]), ("engagements", _check_engagements()),
+        ("egress", _check_egress()),
+    ]
+
+
 def doctor() -> tuple[int, list[tuple[str, str]]]:
-    lines: list[tuple[str, str]] = []
-    lines.append(_check_python())
-    lines.append(_check_root())
-    lines.extend(_check_disk())
-    lines.append(_check_tmp_litter())
-    lines.extend(_check_tools())
-    lines.extend(_check_backends())
-    lines.extend(_check_kali_container())
-    lines.append(_check_loop_config())
-    lines.append(_check_pyflakes())
-    lines.extend(_check_key_envs())
-    lines.append(_check_reflector())
-    lines.append(_check_wordlists())
-    lines.extend(_check_engagements())
-    lines.extend(_check_egress())
+    lines = [line for _category, checks in check_environment() for line in checks]
     rc = 1 if any(level == FAIL for level, _ in lines) else 0
     return rc, lines
 

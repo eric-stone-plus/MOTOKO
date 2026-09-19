@@ -258,6 +258,19 @@ class SubprocessExecutor:
                     err_f.write(f"tool setup failed: {type(e).__name__}".encode())
             except OSError:
                 pass
+        except BaseException as stopped:
+            # Cancellation must close the durable run before unwinding. The
+            # finally block removes its process from the live registry, so a
+            # later reap cannot repair an otherwise stranded running row.
+            code = 124 if getattr(stopped, "code", None) == 124 else 130
+            self._record_observation(tool=tool, engagement_id=self.engagement_id,
+                raw_path=str(out_path) if out_path.exists() else None,
+                parsed_summary="tool interrupted", exit_code=code,
+                duration_s=round(time.monotonic() - started_at, 3),
+                action_id=action.get("_tool_run_id"), url=url, host=host)
+            self._finish_tool_run(action, status="timeout" if code == 124 else "error",
+                                  exit_code=code, out_path=out_path, err_path=err_path)
+            raise
         finally:
             if proc is not None:
                 # The leader may exit while a descendant keeps scanning.

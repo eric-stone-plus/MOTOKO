@@ -81,8 +81,12 @@ refuses anything on its own.
   discovered facts reopen relevant assets and activate matching rule chains.
   Each wave records rule outcomes and applies bounded priority offsets to
   the next wave. Failures reduce rank; duplicate evidence earns no discovery
-  credit. Completed policy persists across runs. Category reservations and
+  credit. Completed and interrupted wave policy persists across runs. Category reservations and
   serial batches bound dispatch; producer failures block dependent actions.
+- **Host adapters and remote operation**: Hermes and Pi share a standalone
+  `motoko-host` client. Typed status/run tools call the engine over local pipes
+  or encrypted SSH, with pinned host keys, bounded frames and disconnect
+  cancellation. Raw evidence stays on the engine host. See [HOSTS.md](HOSTS.md).
 - **Engineering audit loop** (`motoko loop`): a config-driven cycle of independent
   auditors → adjudication → deterministic evaluation, with executable
   ROLLBACK/STOP verdicts. Protocol adapters only (openai-chat /
@@ -129,6 +133,8 @@ parallel fan-out, and host-resource budgeting live in the operator shell.
 | `engine/core/parsers/` | Tool-output parsers (nuclei, httpx, katana, sqlmap, strix, …) |
 | `engine/core/verification/` | Deterministic validators (replay / dom / oob) |
 | `engine/pyproject.toml` | Packaging manifest; provides the `motoko` console script |
+| `engine/integrations/` | Standalone host client, Hermes plugin and Pi extension |
+| `HOSTS.md` | Host boundaries, remote protocol and installation contract |
 | `LICENSE` / `NOTICE` | AGPL-3.0-or-later for original files; instrument attribution |
 | `AGENTS.md` | Contributor rules |
 | `.github/workflows/smoke.yml` | CI: install + `--help` + `doctor` + rule-pack assertion |
