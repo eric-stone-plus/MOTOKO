@@ -1,0 +1,32 @@
+{
+  "id": "R-TECH-WORDPRESS-001",
+  "name": "WordPress 指纹",
+  "category": "tech",
+  "when": {
+    "all": [
+      {
+        "fact": "tech",
+        "op": "contains",
+        "value": "wordpress"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "枚举 WordPress 插件/主题/用户",
+    "actions": [
+      {
+        "tool": "wpscan",
+        "cmd": "wpscan --url {url} --enumerate vp,vt,u --user-agent '{ua}'"
+      },
+      {
+        "tool": "nuclei",
+        "cmd": "nuclei -jsonl -u {url} -tags wordpress -rl 5 -c 2 -bs 5 -timeout 10 -duc -H 'User-Agent: {ua}'"
+      }
+    ],
+    "on_hit_class": "cve",
+    "priority": {
+      "impact": 0.6,
+      "cost": 0.3
+    }
+  }
+}

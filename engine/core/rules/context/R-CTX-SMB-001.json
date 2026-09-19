@@ -1,0 +1,30 @@
+{
+  "id": "R-CTX-SMB-001",
+  "name": "SMB 服务枚举（Kali 容器，enum4linux-ng）",
+  "category": "context",
+  "when": {
+    "all": [
+      {
+        "fact": "services",
+        "op": "intersects",
+        "value": ["smb", "microsoft-ds", "netbios-ssn"]
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "SMB 匿名会话/账户/共享枚举（容器执行；不含 RID 循环）",
+    "actions": [
+      {
+        "tool": "enum4linux",
+        "runtime": "container",
+        "cmd": "enum4linux -A -t 15 {host}",
+        "cmd_stealth": "enum4linux -As -t 10 {host}"
+      }
+    ],
+    "on_hit_class": "info_disclosure.smb",
+    "priority": {
+      "impact": 0.55,
+      "cost": 0.3
+    }
+  }
+}
