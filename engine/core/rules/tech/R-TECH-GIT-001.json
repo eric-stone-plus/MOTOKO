@@ -1,0 +1,33 @@
+{
+  "id": "R-TECH-GIT-001",
+  "name": "Git 泄露",
+  "category": "tech",
+  "when": {
+    "all": [
+      {
+        "fact": "class",
+        "op": "contains",
+        "value": "exposure.git"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "重建 .git 并扫秘密",
+    "actions": [
+      {
+        "tool": "git-dumper",
+        "cmd": "git-dumper -u '{ua}' -j 1 -t 20 -r 2 {url}/.git {out}"
+      },
+      {
+        "tool": "trufflehog",
+        "depends_on": [0],
+        "cmd": "trufflehog filesystem {out} --json --no-verification"
+      }
+    ],
+    "on_hit_class": "secret.leak",
+    "priority": {
+      "impact": 0.85,
+      "cost": 0.25
+    }
+  }
+}

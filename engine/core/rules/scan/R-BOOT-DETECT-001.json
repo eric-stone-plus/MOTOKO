@@ -1,0 +1,42 @@
+{
+  "id": "R-BOOT-DETECT-001",
+  "name": "检测型技术探测（JWT 泄露 / GraphQL 端点）",
+  "category": "scan",
+  "when": {
+    "all": [
+      {
+        "fact": "url",
+        "op": "matches",
+        "value": "^https?://"
+      },
+      {
+        "fact": "status",
+        "op": "in",
+        "value": [
+          200,
+          201,
+          204,
+          301,
+          302,
+          307
+        ]
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "存活端点检测型探测（jwt-token / graphql-detect，3 请求）",
+    "actions": [
+      {
+        "tool": "nuclei",
+        "cmd": "nuclei -u {url} -jsonl -duc -id jwt-token,graphql-detect,graphiql-detect -rl 2 -c 1 -bs 2 -timeout 10 -H 'User-Agent: {ua}'",
+        "cmd_stealth": "nuclei -u {url} -jsonl -duc -id jwt-token,graphql-detect -rl 1 -c 1 -bs 1 -timeout 10 -H 'User-Agent: {ua}'",
+        "timeout": 300
+      }
+    ],
+    "on_hit_class": null,
+    "priority": {
+      "impact": 0.35,
+      "cost": 0.4
+    }
+  }
+}

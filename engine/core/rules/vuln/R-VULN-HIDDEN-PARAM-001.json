@@ -1,0 +1,37 @@
+{
+  "id": "R-VULN-HIDDEN-PARAM-001",
+  "name": "隐藏参数→注入桥接（R7 bridge）",
+  "category": "vuln",
+  "when": {
+    "all": [
+      {
+        "fact": "class",
+        "op": "contains",
+        "value": "hidden_param"
+      },
+      {
+        "fact": "has_param",
+        "op": "eq",
+        "value": true
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "arjun 确认的隐藏参数送 sqlmap/dalfox 精准验证（has_param 门保证 URL 自带查询串，& 追加才合法；参数名经 hyp.param 渲染进命令）",
+    "actions": [
+      {
+        "tool": "sqlmap",
+        "cmd": "sqlmap -u {url}&{param}=1* --batch --level=2 --risk=1 --technique=BE --threads=1 --delay=1 --random-agent",
+        "cmd_stealth": "sqlmap -u {url}&{param}=1* --batch --level=1 --risk=1 --technique=BE --threads=1 --delay=3 --random-agent"
+      },
+      {
+        "tool": "dalfox",
+        "cmd": "dalfox url {url}&{param}=1 -p {param} --skip-discovery --no-spinner --user-agent {ua} --delay 2000"
+      }
+    ],
+    "priority": {
+      "impact": 0.8,
+      "cost": 0.35
+    }
+  }
+}
