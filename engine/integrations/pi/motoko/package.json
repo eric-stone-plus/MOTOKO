@@ -1,0 +1,24 @@
+{
+	"name": "motoko-pi",
+	"version": "1.0.0",
+	"private": true,
+	"type": "module",
+	"description": "Pi extension for the host-neutral MOTOKO supervisor",
+	"keywords": [
+		"pi-package"
+	],
+	"license": "AGPL-3.0-or-later",
+	"peerDependencies": {
+		"@earendil-works/pi-ai": "*",
+		"@earendil-works/pi-coding-agent": "*",
+		"typebox": "*"
+	},
+	"pi": {
+		"extensions": [
+			"./extension.ts"
+		],
+		"skills": [
+			"./SKILL.md"
+		]
+	}
+}
