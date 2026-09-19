@@ -4,8 +4,23 @@ import { lstat } from "node:fs/promises";
 import { StringEnum, Type } from "@earendil-works/pi-ai";
 import { defineTool, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-const OPERATIONS = ["capabilities", "doctor", "rules", "digest", "query", "events", "health"] as const;
-const KINDS = ["asset", "finding", "hypothesis", "evidence", "access", "path"] as const;
+const OPERATIONS = [
+	"capabilities",
+	"doctor",
+	"rules",
+	"digest",
+	"query",
+	"events",
+	"health",
+] as const;
+const KINDS = [
+	"asset",
+	"finding",
+	"hypothesis",
+	"evidence",
+	"access",
+	"path",
+] as const;
 const STATES = [
 	"active",
 	"candidate",
@@ -78,11 +93,20 @@ async function configuredPaths(): Promise<[string, string]> {
 	const config = process.env.MOTOKO_HOST_CONFIG;
 	if (process.platform !== "linux") throw new Error("unsupported_platform");
 	for (const value of [executable, config]) {
-		if (!value?.startsWith("/") || value.includes("\0")) throw new Error("configuration_required");
+		if (!value?.startsWith("/") || value.includes("\0"))
+			throw new Error("configuration_required");
 	}
 	try {
 		const [exe, cfg] = await Promise.all([lstat(executable!), lstat(config!)]);
-		if (!exe.isFile() || !(exe.mode & 0o111) || !cfg.isFile() || cfg.mode & 0o077 || cfg.uid !== process.getuid!()) {
+		if (
+			!exe.isFile() ||
+			!(exe.mode & 0o111) ||
+			exe.mode & 0o022 ||
+			(exe.uid !== 0 && exe.uid !== process.getuid!()) ||
+			!cfg.isFile() ||
+			cfg.mode & 0o077 ||
+			cfg.uid !== process.getuid!()
+		) {
 			throw new Error("configuration_required");
 		}
 	} catch {
@@ -91,22 +115,36 @@ async function configuredPaths(): Promise<[string, string]> {
 	return [executable!, config!];
 }
 
-async function invoke(operation: string, params: Record<string, unknown>, signal?: AbortSignal) {
+async function invoke(
+	operation: string,
+	params: Record<string, unknown>,
+	signal?: AbortSignal,
+) {
 	const [executable, config] = await configuredPaths();
 	if (signal?.aborted) throw new Error("cancelled");
 	const { engagement_id, ...options } = params;
 	const frame = `${JSON.stringify({ protocol: "motoko/1", operation, engagement_id, options })}\n`;
-	if (Buffer.byteLength(frame) > MAX_FRAME) throw new Error("invalid_arguments");
-	const seconds = Number(options.wall_timeout ?? (operation === "run" ? 600 : 90));
-	if (!Number.isFinite(seconds) || seconds <= 0 || seconds > 3600) throw new Error("invalid_arguments");
-	const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => SAFE_ENV.has(key)));
+	if (Buffer.byteLength(frame) > MAX_FRAME)
+		throw new Error("invalid_arguments");
+	const seconds = Number(
+		options.wall_timeout ?? (operation === "run" ? 600 : 90),
+	);
+	if (!Number.isFinite(seconds) || seconds <= 0 || seconds > 3600)
+		throw new Error("invalid_arguments");
+	const env = Object.fromEntries(
+		Object.entries(process.env).filter(([key]) => SAFE_ENV.has(key)),
+	);
 	return await new Promise<Record<string, unknown>>((resolve, reject) => {
-		const child = spawn(executable, ["--config", config, "--disconnect-cancels"], {
-			env,
-			cwd: "/",
-			stdio: ["pipe", "pipe", "ignore"],
-			detached: true,
-		});
+		const child = spawn(
+			executable,
+			["--config", config, "--disconnect-cancels"],
+			{
+				env,
+				cwd: "/",
+				stdio: ["pipe", "pipe", "ignore"],
+				detached: true,
+			},
+		);
 		let data = Buffer.alloc(0);
 		let failure: string | undefined;
 		let escalation: ReturnType<typeof setTimeout> | undefined;
@@ -127,7 +165,10 @@ async function invoke(operation: string, params: Record<string, unknown>, signal
 			}, 12000);
 		};
 		const cancel = () => stop("cancelled");
-		const deadline = setTimeout(() => stop("deadline_exceeded"), (seconds + 35) * 1000);
+		const deadline = setTimeout(
+			() => stop("deadline_exceeded"),
+			(seconds + 35) * 1000,
+		);
 		signal?.addEventListener("abort", cancel, { once: true });
 		child.on("error", () => {
 			failure = "transport_failed";
@@ -150,9 +191,15 @@ async function invoke(operation: string, params: Record<string, unknown>, signal
 			}
 			try {
 				const text = data.toString("utf8");
-				if (!text.endsWith("\n") || text.split("\n").length !== 2 || termSignal) throw new Error();
+				if (!text.endsWith("\n") || text.split("\n").length !== 2 || termSignal)
+					throw new Error();
 				const result = JSON.parse(text);
-				if (!result || typeof result !== "object" || Array.isArray(result) || typeof result.ok !== "boolean")
+				if (
+					!result ||
+					typeof result !== "object" ||
+					Array.isArray(result) ||
+					typeof result.ok !== "boolean"
+				)
 					throw new Error();
 				if (!result.ok) {
 					const error = result.error ?? result.result?.error;
@@ -163,7 +210,8 @@ async function invoke(operation: string, params: Record<string, unknown>, signal
 					code !== 0 ||
 					result.exit_code !== 0 ||
 					result.protocol !== "motoko/1" ||
-					result.operation !== operation
+					result.operation !== operation ||
+					result.request_id !== (operation === "capabilities" ? 1 : 2)
 				)
 					throw new Error();
 				resolve(result);
@@ -172,7 +220,11 @@ async function invoke(operation: string, params: Record<string, unknown>, signal
 			}
 		});
 		if (signal?.aborted) cancel();
-		child.stdin.write(frame);
+		try {
+			child.stdin.write(frame);
+		} catch {
+			stop("transport_failed");
+		}
 	});
 }
 
@@ -181,8 +233,13 @@ const engagement = Type.String({
 	description: "Existing authorized engagement identifier.",
 });
 const positive = (maximum: number, value?: number) =>
-	Type.Integer({ minimum: 1, maximum, ...(value === undefined ? {} : { default: value }) });
-const timeout = (value: number) => Type.Number({ exclusiveMinimum: 0, maximum: 3600, default: value });
+	Type.Integer({
+		minimum: 1,
+		maximum,
+		...(value === undefined ? {} : { default: value }),
+	});
+const timeout = (value: number) =>
+	Type.Number({ exclusiveMinimum: 0, maximum: 3600, default: value });
 
 export default function motoko(pi: ExtensionAPI) {
 	pi.registerTool(
@@ -198,15 +255,22 @@ export default function motoko(pi: ExtensionAPI) {
 					kind: Type.Optional(StringEnum(KINDS)),
 					state: Type.Optional(StringEnum(STATES)),
 					limit: Type.Optional(positive(100)),
-					after: Type.Optional(Type.Integer({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER })),
+					after: Type.Optional(
+						Type.Integer({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER }),
+					),
 				},
 				{ additionalProperties: false },
 			),
 			executionMode: "parallel",
 			async execute(_id, params, signal) {
 				const { operation, ...rest } = params;
+				if (!OPERATIONS.includes(operation))
+					throw new Error("invalid_arguments");
 				const result = await invoke(operation, rest, signal);
-				return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
+				return {
+					content: [{ type: "text", text: JSON.stringify(result) }],
+					details: result,
+				};
 			},
 		}),
 	);
@@ -230,7 +294,10 @@ export default function motoko(pi: ExtensionAPI) {
 			executionMode: "sequential",
 			async execute(_id, params, signal) {
 				const result = await invoke("run", params, signal);
-				return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
+				return {
+					content: [{ type: "text", text: JSON.stringify(result) }],
+					details: result,
+				};
 			},
 		}),
 	);

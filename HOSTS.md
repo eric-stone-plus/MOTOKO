@@ -7,13 +7,19 @@ messaging gateway. An adapter must not add another scheduler or edit SQLite.
 | Host | Adapter | Status |
 |---|---|---|
 | [Hermes](https://github.com/NousResearch/hermes-agent) | Python plugin importing `motoko_host.client` | Discovery, profile isolation and tool dispatch tested. |
-| [Pi](https://github.com/earendil-works/pi) | Typed extension invoking `motoko-host` | Actual extension loader and dispatch tested on 0.85.1. |
+| [Pi](https://github.com/earendil-works/pi) | Installable `motoko-pi` package with a typed extension invoking `motoko-host` | Package/skill discovery, actual extension loading, dispatch and cancellation tested on 0.85.1. |
 | [OpenClaw](https://github.com/openclaw/openclaw) | None yet | Protocol boundary is reusable; no runtime acceptance claimed. |
 
 Pi's small extension interface makes it a useful lightweight host. Its
-experimental local server does not supply a complete authenticated remote
-gateway. Existing host gateways can carry operator messages; SSH carries the
-engine protocol. No host is required by the engine.
+experimental server uses a separate facet-plugin API, which this regular
+extension does not support. Its Unix-socket transport leaves peer
+authentication to the application. The optional Radius relay uses bearer
+authentication and defaults to HTTPS/WSS, but also accepts HTTP/WS URLs.
+The reviewed relay wrapper forwards payloads without application-layer
+encryption; TLS does not establish confidentiality from the relay. This
+adapter enables neither server nor relay. Existing host gateways can carry
+operator messages; SSH carries the engine protocol. No host is required by
+the engine.
 
 ## Install
 
@@ -27,10 +33,13 @@ pip install ./engine/integrations/host
 The client uses Python 3.11+, stdlib only, with no engine imports. On Hermes,
 copy `engine/integrations/hermes/motoko` to the profile plugin directory, enable
 `motoko`, and supply its manifest's transport settings. Install `motoko-host`
-in Hermes's Python environment. On Pi, load
-`engine/integrations/pi/motoko/extension.ts`; set `MOTOKO_HOST_EXECUTABLE` to the
+in Hermes's Python environment. On Pi, run
+`pi install ./engine/integrations/pi/motoko` for the reviewed local package; it loads the
+extension and host procedure as a skill. Set `MOTOKO_HOST_EXECUTABLE` to the
 absolute installed client CLI and `MOTOKO_HOST_CONFIG` to an owner-only JSON
-configuration file. Deployment paths are operator inputs, never model inputs.
+configuration file. Both paths must be regular files, not symlinks; the CLI
+must be owned by the user or root and not writable by other users. Deployment
+paths are operator inputs, never model inputs.
 
 Local configuration requires `executable` and `runtime_root`. The latter is a
 private 0700 directory used as engine data root and for process records. SSH
