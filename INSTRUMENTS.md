@@ -52,12 +52,22 @@ driven by rules too and are cited in the table above.
 | enum4linux | SMB / Windows enumeration, JSON out | [cddmp/enum4linux-ng](https://github.com/cddmp/enum4linux-ng) |
 | jsluice | JavaScript analysis | [bishopfox/jsluice](https://github.com/bishopfox/jsluice) |
 | curl | single-request probes (robots, canary, actuator) | [curl/curl](https://github.com/curl/curl) |
+| h2csmuggler | cleartext HTTP/2 (h2c) upgrade probe — is smuggling possible here | [assetnote/h2csmuggler](https://github.com/assetnote/h2csmuggler) |
 | trufflehog | secret scanning | [trufflesecurity/trufflehog](https://github.com/trufflesecurity/trufflehog) |
+| interactsh-client | out-of-band callback backend for the OOB validator | [projectdiscovery/interactsh](https://github.com/projectdiscovery/interactsh) |
 
 One name differs from its package: the rules invoke `enum4linux`, while Kali
 ships the enumerator as `enum4linux-ng`, so a container built from it needs
 that binary reachable under the name the rules use. `kr` is Kiterunner's own
 binary name.
+
+One entry is not a rule tool. `interactsh-client` never appears in a rule's
+command line: it is owned by the engine's canary manager
+(`engine/core/verification/interactsh.py`), which registers once per
+orchestrator, hands a distinct payload to each out-of-band validation, and
+delivers it through the same asserted egress a replay uses. A long-lived
+poller cannot be a bounded rule action — as one-shot it could only exit on the
+timeout — so the session lives with the validator instead.
 
 ### Cited in the graph contract but not driven by this engine
 

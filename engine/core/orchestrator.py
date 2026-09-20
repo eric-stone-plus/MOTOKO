@@ -56,6 +56,21 @@ def _accepts_failure_lines(reflector) -> bool:
     return any(p.kind is p.VAR_KEYWORD for p in params.values())
 
 
+def _accepts_canary_sender(canary) -> bool:
+    'Does the injected canary manager\'s ``trigger`` take ``sender=``?\n\n    Probed once at construction, for the reason ``_accepts_failure_lines``\n    gives: a ``try: t(f, c, sender=s) except TypeError: t(f, c)`` at call time\n    would misread a TypeError raised INSIDE a delivery as "old signature" and\n    deliver the canary a second time — two payloads for one finding, the second\n    one outside anything the validator reasoned about.'
+    trigger = getattr(canary, "trigger", None)
+    if not callable(trigger):
+        return False
+    try:
+        sig = inspect.signature(trigger)
+    except (TypeError, ValueError):
+        return False                    # builtin/C callable: assume no sender
+    params = sig.parameters
+    if "sender" in params:
+        return True
+    return any(p.kind is p.VAR_KEYWORD for p in params.values())
+
+
 def _command_fingerprint(tool: str, target: tuple[str, str], argv: list[str]) -> tuple:
     """G9: identity of a concrete ACT command (tool, target, argv digest).
 
@@ -73,6 +88,9 @@ def replay_egress_blocked(fetcher) -> bool:
     return fetcher is default_fetcher and not egress.replay_asserted()
 
 
+_REPLAY_CONNECT_TIMEOUT_S = 15.0
+
+
 def default_fetcher(url: str, bind_ip: str | None = None):
     '    Any transport error returns None as well; tests inject a stub instead.\n    '
     if not bind_ip:
@@ -88,7 +106,8 @@ def default_fetcher(url: str, bind_ip: str | None = None):
         target += f"?{u.query}"
     host_header = u.hostname if u.port is None else f"{u.hostname}:{port}"
     try:
-        sock = socket.create_connection((bind_ip, port), timeout=15)
+        sock = socket.create_connection(
+            (bind_ip, port), timeout=_REPLAY_CONNECT_TIMEOUT_S)
         try:
             if u.scheme == "https":
                 sock = ssl.create_default_context().wrap_socket(
@@ -131,6 +150,7 @@ class Orchestrator:
         self.fetcher = fetcher or default_fetcher
         self.browser = browser
         self.canary = canary
+        self._canary_takes_sender = _accepts_canary_sender(canary)
 
         scope = self.writer.get_scope(engagement_id) or {}
         self.guard = ScopeGuard(
@@ -670,7 +690,11 @@ class Orchestrator:
             return ((name == "dom" and self.browser is None)
                     or (name == "oob" and self.canary is None))
         if reason == EGRESS_POLICY:
-            return name == "replay" and replay_egress_blocked(self.fetcher)
+            # Both target-facing legs park on the same assertion, so both must
+            # recognise it as still in force — otherwise an OOB finding is
+            # re-decided every beat for a deployment condition that cannot
+            # change under it.
+            return name in ("replay", "oob") and replay_egress_blocked(self.fetcher)
         return reason in (NO_VALIDATOR, IO_EXHAUSTED, SCOPE_BLOCKED, NO_TARGET)
 
     def _absorb_inconclusive(self, f: dict, name: str, verdict) -> None:
@@ -741,8 +765,13 @@ class Orchestrator:
     def _run_validator(self, name: str, finding: dict):
         'Validator entry point.'
         url = finding.get("url") or ""
-        decision = (self.guard.check_url(url) if url
-                    else ScopeDecision(False, "finding has no url"))
+        if not url:
+            self.writer.append_event("verification_blocked", finding.get("id"),
+                                     {"phase": "validate", "validator": name,
+                                      "reason": NO_TARGET})
+            return Verdict("inconclusive", "finding has no url to validate",
+                           reason=NO_TARGET)
+        decision = self.guard.check_url(url)
         if not decision.allowed:
             self.writer.append_event("scope_blocked", finding.get("id"), {
                 "phase": "validate", "url": url, "reason": decision.reason})
@@ -750,22 +779,35 @@ class Orchestrator:
                            f"scope guard blocked validation: {decision.reason}",
                            reason=SCOPE_BLOCKED)
         try:
+            bind_ip = (decision.detail.get("bind_ip")
+                       if isinstance(decision.detail, dict) else None)
+            unpinned = ("bind_ip" not in decision.detail
+                        or (self.fetcher is default_fetcher and not bind_ip))
+            # Gate order matters and is deliberate: egress BEFORE unpinned.
+            # `egress_policy` is deployment-shaped — it holds until the
+            # operator asserts a lane, and `_block_still_applies` knows that.
+            # `unpinned` is finding-shaped and transient (a DNS answer at one
+            # instant), so it is re-decided every beat. Reporting a deployment
+            # that has no asserted egress as "DNS gave us no address" sends the
+            # operator to fix the resolver instead of the lane, and re-decides
+            # a condition that cannot change under it.
+            egress_blocked = replay_egress_blocked(self.fetcher)
             if name == "replay":
-                if "bind_ip" not in decision.detail:
-                    return Verdict(
-                        "inconclusive",
-                        f"scope guard cleared {url!r} without a bind_ip; "
-                        f"refusing to connect unpinned (DNS rebinding window)",
-                        reason=UNPINNED)
-                if replay_egress_blocked(self.fetcher):
+                if egress_blocked:
                     return Verdict(
                         "inconclusive",
                         "the built-in replay fetcher fails closed: "
                         "MOTOKO_ALLOW_DIRECT_REPLAY is not asserted for this "
                         "deployment, so no replay traffic may leave the box",
                         reason=EGRESS_POLICY)
+                if unpinned:
+                    return Verdict(
+                        "inconclusive",
+                        f"scope guard cleared {url!r} without a bind_ip; "
+                        f"refusing to connect unpinned (DNS rebinding window)",
+                        reason=UNPINNED)
                 return replay.replay_verdict(finding, self.fetcher,
-                                             bind_ip=decision.detail.get("bind_ip"))
+                                             bind_ip=bind_ip)
             if name == "dom":
                 if self.browser is None:
                     return Verdict("inconclusive",
@@ -777,14 +819,55 @@ class Orchestrator:
                     return Verdict("inconclusive",
                                    "no canary backend is wired for the OOB "
                                    "validator", reason=MISSING_BACKEND)
-                return oob.oob_verdict(finding, self.canary.issue,
-                                       self.canary.trigger, self.canary.poll)
+                if egress_blocked:
+                    return Verdict(
+                        "inconclusive",
+                        "the canary injection rides the replay fetcher, which "
+                        "fails closed: MOTOKO_ALLOW_DIRECT_REPLAY is not "
+                        "asserted for this deployment, so no OOB payload may "
+                        "leave the box",
+                        reason=EGRESS_POLICY)
+                if unpinned:
+                    return Verdict(
+                        "inconclusive",
+                        f"scope guard cleared {url!r} without a bind_ip; the "
+                        "canary injection would reconnect unpinned (DNS "
+                        "rebinding window), so no payload is delivered",
+                        reason=UNPINNED)
+                # `interactions` is passed when the manager offers it: the
+                # protocol that answered (dns vs http) is evidence about how
+                # strong the callback is, and getattr keeps a boolean-only
+                # manager — the test stubs — working unchanged.
+                return oob.oob_verdict(
+                    finding, self.canary.issue,
+                    self._canary_trigger(bind_ip), self.canary.poll,
+                    getattr(self.canary, "interactions", None))
         except Exception as e:
             return Verdict("inconclusive", f"validator {name!r} IO failure: {e}",
                            reason=IO_ERROR)
         return Verdict("inconclusive",
-                       f"no validator implementation for {name!r}",
-                       reason=NO_VALIDATOR)
+                        f"no validator implementation for {name!r}",
+                        reason=NO_VALIDATOR)
+
+    def _canary_trigger(self, bind_ip: str | None):
+        'The ``(finding, canary)`` callable ``oob_verdict`` delivers with.\n\n        Managers that take no ``sender`` keep their own path (probed once at\n        construction — see ``_accepts_canary_sender``).\n        '
+        manager = self.canary
+        takes_sender = self._canary_takes_sender
+        fetcher = self.fetcher
+
+        def deliver(url: str):
+            # Same contract replay_verdict offers an injected fetcher: the
+            # pinned form only when there is an address to pin to.
+            if bind_ip is None:
+                return fetcher(url)
+            return fetcher(url, bind_ip=bind_ip)
+
+        def trigger(finding: dict, canary: str):
+            if not takes_sender:
+                return manager.trigger(finding, canary)
+            return manager.trigger(finding, canary, sender=deliver)
+
+        return trigger
 
     def _expand(self) -> None:
         'Hypothesis engine fires on frontier nodes.'
@@ -873,6 +956,9 @@ class Orchestrator:
                         hyp.setdefault("param", facts["param"])
                     if facts.get("token"):
                         hyp.setdefault("token", facts["token"])
+                    if facts.get("ssrf_url") and facts.get("ssrf_param"):
+                        hyp.setdefault("ssrf_url", facts["ssrf_url"])
+                        hyp.setdefault("ssrf_param", facts["ssrf_param"])
                     dead = self._broken_tools(hyp)
                     if dead:
                         self.writer.append_event(
@@ -975,6 +1061,16 @@ class Orchestrator:
                     facts.setdefault("param", f.get("param"))
                 if f.get("token"):
                     facts.setdefault("token", f.get("token"))
+                # A confirmed SSRF carries its own injection point (the nuclei
+                # parser writes the pair via util.ssrf_injection_point, which
+                # normalises or refuses): R-VULN-SSRF-CHAIN-001 rewrites that
+                # ONE query value to reach the cloud metadata service, instead
+                # of appending a second `?url=` to a matched-at that already
+                # carries a query. Both halves or neither — a base without the
+                # parameter name renders a URL that injects nothing.
+                if f.get("ssrf_url") and f.get("ssrf_param"):
+                    facts.setdefault("ssrf_url", f.get("ssrf_url"))
+                    facts.setdefault("ssrf_param", f.get("ssrf_param"))
         facts["class"] = classes
         return facts
 
@@ -1552,16 +1648,37 @@ class Orchestrator:
         reap = getattr(self.executor, "reap", None)
         if callable(reap):
             reap()
+        # A canary manager owns a long-lived interactsh-client session, so it
+        # must not outlive the engine either. It stops by the PID it recorded
+        # at launch (its own process group) — never by matching a command line,
+        # which would also match whatever ran the match.
+        close_canary = getattr(self.canary, "close", None)
+        if callable(close_canary):
+            try:
+                close_canary()
+            except Exception:      # noqa: BLE001 - shutdown must never raise
+                pass
         self.writer.close()
+
+
+def default_canary(engagement_id: str):
+    "The interactsh-backed canary manager for a run, or None.\n\n    Lives here, next to ``default_fetcher``, because both engine entry points\n    (``cli.cmd_run`` and ``adapter.dispatch``) call ``run_engagement``: a\n    canary wired only into the CLI would make the same engine two different\n    engines depending on who launched it.\n\n    The session starts lazily on the first ``issue()`` — a run that never\n    verifies an OOB finding never spawns a poller — and is closed by\n    ``Orchestrator.close()`` through ``run_engagement``'s finally.\n    "
+    from .verification.interactsh import InteractshCanary
+
+    edir = db.engagement_dir(db.default_root(), engagement_id)
+    mgr = InteractshCanary(workdir=edir / "obs" / "canary")
+    return mgr if mgr.resolve_binary() else None
 
 
 def run_engagement(engagement_id: str, *, max_cycles: int = 20,
                    wave_cycles: int = 5, max_waves: int | None = None,
-                   timeout: float = 300, rules_dir=None, reflector=None) -> dict:
+                   timeout: float = 300, rules_dir=None, reflector=None,
+                   canary=None) -> dict:
     """Shared operator/adapter entry; one scheduler, executor and writer lease."""
     from .executor import SubprocessExecutor
 
-    orch = Orchestrator(engagement_id, rules_dir=rules_dir, reflector=reflector)
+    orch = Orchestrator(engagement_id, rules_dir=rules_dir, reflector=reflector,
+                        canary=canary)
     try:
         orch.executor = SubprocessExecutor(orch.writer, orch.engagement_id,
                                           orch.artifacts, tool_timeout=timeout)

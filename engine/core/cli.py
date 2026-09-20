@@ -1,6 +1,9 @@
 """MOTOKO CLI — single-writer process entry point.
 
 Commands:
+    workbench open the terminal workbench (also the default without a command)
+    status    print a read-only workbench snapshot
+    watch     watch read-only workbench snapshots
     init      create an engagement (dir + graph.db + scope row)
     run       run the six-beat main loop with the real tool executor
     adapter   dispatch one host-neutral, bounded JSON request
@@ -14,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -108,11 +112,13 @@ def cmd_run(args) -> int:
                   "MOTOKO_REFLECTOR_BASE_URL or the key env is unset; "
                   "continuing without a reflector",
                   file=_sys.stderr)
+    canary = orchestrator.default_canary(args.engagement_id)
     summary = orchestrator.run_engagement(
         args.engagement_id, rules_dir=args.rules_dir or None, reflector=reflector,
         timeout=args.timeout, max_cycles=args.max_cycles,
         wave_cycles=getattr(args, "wave_cycles", 5),
-        max_waves=getattr(args, "max_waves", None))
+        max_waves=getattr(args, "max_waves", None),
+        canary=canary)
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     return 0
 
@@ -259,6 +265,39 @@ def _strix_records(edir: Path) -> list[Path]:
     return sorted(runs.glob("launch-*.record")) if runs.is_dir() else []
 
 
+#: Every flag the wrapper's launch CMD uses (launch-strix.sh:
+#: ``strix -n -t <target> --instruction-file <file> -m <mode>``). Keep in
+#: sync with the wrapper-side preflight probe (its gate 5.9).
+_STRIX_REQUIRED_FLAGS = ("-n", "-t", "--instruction-file", "-m")
+
+_STRIX_MODES = ("deep", "standard", "quick")
+
+
+def _strix_help_flags_ok() -> tuple[bool, str]:
+    'Probe ``strix --help`` for the launch flags the wrapper needs.'
+    import subprocess
+
+    try:
+        r = subprocess.run(["strix", "--help"], capture_output=True,
+                           text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return False, f"strix --help probe failed: {exc}"
+    if r.returncode != 0:
+        return False, f"strix --help exited {r.returncode}"
+    help_text = f"{r.stdout or ''}\n{r.stderr or ''}"
+    # Token-boundary match: argparse help shows flags as "[-t TARGET]",
+    # "-t, --target" or "[-n]" — the flag must stand alone against
+    # non-word/non-hyphen edges, so "-t" never matches inside "--target"
+    # and "-m" never inside "--max-budget".
+    missing = [flag for flag in _STRIX_REQUIRED_FLAGS
+               if not re.search(rf"(?<![\w-]){re.escape(flag)}(?![\w-])",
+                                help_text)]
+    if missing:
+        return False, ("installed strix --help lacks required launch flags: "
+                       + ", ".join(missing))
+    return True, ""
+
+
 def cmd_strix(args) -> int:
     'Launch a strix deep-dive through the six-gate wrapper (operator-driven).'
     import subprocess
@@ -272,16 +311,68 @@ def cmd_strix(args) -> int:
               file=sys.stderr)
         return 2
 
+    ok, why = _strix_help_flags_ok()
+    if not ok:
+        print(f"strix preflight failed: {why}\n"
+              "refusing to launch: a strix that prints usage and exits 0 is "
+              "NOT a launch (qwen #2). Repair the install "
+              "(the internal tooling area strix-upgrade) and retry.",
+              file=sys.stderr)
+        return 2
+
+    mode = getattr(args, "mode", None)
+    if mode is not None and mode not in _STRIX_MODES:
+        print(f"invalid --mode {mode!r} — expected one of "
+              f"{'/'.join(_STRIX_MODES)}", file=sys.stderr)
+        return 2
+    timeout = getattr(args, "timeout", None)
+    if timeout is not None and (isinstance(timeout, bool)
+                                or not isinstance(timeout, int)
+                                or timeout <= 0):
+        print(f"invalid --timeout {timeout!r} — expected a positive integer "
+              "(seconds)", file=sys.stderr)
+        return 2
+    egress_class = getattr(args, "egress_class", None)
+    if egress_class is not None and not re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9-]*", egress_class):
+        print(f"invalid --egress-class {egress_class!r} — expected a name "
+              "like 'browser' or 'campaign-<x>' (the wrapper's gateway "
+              "mapping is the source of truth)", file=sys.stderr)
+        return 2
+    target_local = args.target.startswith(("/", "file://"))
+    no_rotate = bool(getattr(args, "no_rotate", False))
+    if no_rotate and not target_local:
+        print("--no-rotate is limited to local self-test targets (a path or "
+              "file:// URL) — remote hosts must pass gate 5 rotation + "
+              "IP-echo (the internal doctrine standing egress rule)", file=sys.stderr)
+        return 2
+
     edir = db.engagement_dir(db.default_root(), args.engagement_id)
     edir.mkdir(parents=True, exist_ok=True)
     stamp = re.sub(r"[^0-9A-Za-z]", "", util.now_iso()[:19])
-    ifile = edir / f"strix-instruction-{stamp}.md"
-    ifile.write_text(_STRIX_INSTRUCTION.format(target=args.target))
+    op_ifile = getattr(args, "instruction_file", None)
+    if op_ifile:
+        ifile = Path(op_ifile)
+        if not ifile.is_file() or ifile.stat().st_size == 0:
+            print(f"--instruction-file not found or empty: {ifile}",
+                  file=sys.stderr)
+            return 2
+    else:
+        ifile = edir / f"strix-instruction-{stamp}.md"
+        ifile.write_text(_STRIX_INSTRUCTION.format(target=args.target))
     out = Path(args.output) if args.output \
         else edir / f"strix-launch-{stamp}.md"
 
     argv = [str(wrapper), "--target", args.target,
             "--instruction-file", str(ifile), "--workdir", str(edir)]
+    if mode is not None:
+        argv += ["--mode", mode]
+    if timeout is not None:
+        argv += ["--timeout", str(timeout)]
+    if egress_class is not None:
+        argv += ["--egress-class", egress_class]
+    if no_rotate:
+        argv.append("--no-rotate")
     if getattr(args, "dry_run", False):
         argv.append("--dry-run")
     print(f"launching strix through the six-gate wrapper: {args.target}",
@@ -418,12 +509,12 @@ def cmd_loop(args) -> int:
 
     runner = loop.LoopRunner(args.engagement_id, config=cfg)
     rounds = min(args.rounds, 5)          # HARD_MAX_ROUNDS fuse
-    repo_root = runner.engine_root.parent
 
     if args.out:
         wave = Path(args.out)
     else:
-        wave = repo_root / _WAVE_ROOT / f"loop-{util.now_iso()[:10]}"
+        engagement_dir = db.engagement_dir(runner.root, args.engagement_id)
+        wave = engagement_dir / _WAVE_ROOT / f"loop-{util.now_iso()[:10]}"
     wave.mkdir(parents=True, exist_ok=True)
 
     extra = Path(args.extra).read_text() if args.extra else ""
@@ -704,9 +795,44 @@ def cmd_adapter(args) -> int:
     return int(result.get("exit_code") or 0)
 
 
+def cmd_workbench(args) -> int:
+    """Launch the optional UI against the same runtime as the engine."""
+    from motoko_workbench.cli import run
+
+    args.root = (args.root or db.default_root()).expanduser().resolve()
+    return run(args)
+
+
+def _workbench_options(parser: argparse.ArgumentParser) -> None:
+    # Suppressed defaults preserve top-level options before a subcommand.
+    parser.add_argument("--demo", action="store_true", default=argparse.SUPPRESS,
+                        help="show synthetic workbench data")
+    parser.add_argument("--root", type=Path, default=argparse.SUPPRESS, metavar="PATH",
+                        help="engagement runtime directory (default: MOTOKO_HOME "
+                             "or the engine runtime/ directory)")
+    parser.add_argument("--theme", default=argparse.SUPPRESS, metavar="NAME",
+                        help="workbench theme name or theme file")
+
+
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="motoko", description="MOTOKO attack-graph orchestrator")
-    sub = p.add_subparsers(dest="command", required=True)
+    p = argparse.ArgumentParser(
+        prog="motoko", description="MOTOKO attack-graph orchestrator",
+        epilog="Without a command, open the workbench (print status when output is redirected).")
+    p.set_defaults(func=cmd_workbench, mode="tui", root=None, demo=False,
+                   theme="motoko-dark")
+    _workbench_options(p)
+    sub = p.add_subparsers(dest="command")
+
+    workbench = sub.add_parser("workbench", help="open the read-only terminal workbench")
+    _workbench_options(workbench)
+    workbench.set_defaults(func=cmd_workbench, mode="tui")
+    workbench_modes = workbench.add_subparsers(dest="workbench_mode")
+    for name, description in (("status", "print a read-only snapshot"),
+                              ("watch", "watch read-only snapshots")):
+        for commands in (sub, workbench_modes):
+            view = commands.add_parser(name, help=description)
+            _workbench_options(view)
+            view.set_defaults(func=cmd_workbench, mode=name)
 
     pi = sub.add_parser("init", help="initialize an engagement")
     pi.add_argument("engagement_id")
@@ -735,7 +861,9 @@ def build_parser() -> argparse.ArgumentParser:
     pr.add_argument("--max-waves", type=int, default=None,
                     help="additional hard cap on scan waves in this invocation")
     pr.add_argument("--rules-dir", default=None,
-                    help="override the rules directory")
+                    help="override the rules directory (default: the bundled "
+                         "engine/rules checkout, else the installed core/rules "
+                         "package data — see util.default_rules_dir)")
     pr.add_argument("--reflector", action="store_true",
                     help="enable the LLM reflector (MOTOKO_REFLECTOR_* env)")
     pr.set_defaults(func=cmd_run)
@@ -773,6 +901,21 @@ def build_parser() -> argparse.ArgumentParser:
     ps.add_argument("--dry-run", action="store_true",
                     help="passed through to the wrapper: run every gate, "
                          "launch nothing (no egress, no tokens)")
+    ps.add_argument("--mode", default=None, choices=_STRIX_MODES,
+                    help="strix scan mode (wrapper default: deep)")
+    ps.add_argument("--timeout", type=int, default=None,
+                    help="session timeout in seconds (wrapper default: 7200)")
+    ps.add_argument("--egress-class", default=None,
+                    help="gate-5 egress class (wrapper default: "
+                         "$MOTOKO_EGRESS_CLASS or 'browser'); unknown classes "
+                         "die in the wrapper's gateway mapping")
+    ps.add_argument("--no-rotate", action="store_true",
+                    help="local self-test targets only (path or file://): "
+                         "skip gate-5 rotation; refused for remote hosts")
+    ps.add_argument("--instruction-file", default=None,
+                    help="operator instruction file (replaces the generated "
+                         "one; wrapper gate 3 still requires the target host "
+                         "inside)")
     ps.set_defaults(func=cmd_strix)
 
     pl = sub.add_parser("loop", help="drive the wave-loop (audit -> adjudicate -> evaluate)")
@@ -783,7 +926,7 @@ def build_parser() -> argparse.ArgumentParser:
                     help="max rounds to drive (default 1, hard cap 5)")
     pl.add_argument("--out", default=None,
                     help="wave dir (default the private wave archive, "
-                         "rounds land in round-N subdirs)")
+                         "under the selected engagement; rounds land in round-N subdirs)")
     pl.add_argument("--extra", default=None,
                     help="extra material file to append to the bundle")
     pl.set_defaults(func=cmd_loop)
@@ -801,7 +944,7 @@ def build_parser() -> argparse.ArgumentParser:
         "seal", help="seal a finished engagement: WAL checkpoint, integrity "
                      "gates, census, engagement.manifest.json")
     pseal.add_argument("engagement_id")
-    pseal.add_argument("--root", default=None,
+    pseal.add_argument("--root", default=argparse.SUPPRESS,
                        help="engagements root override "
                             "(default MOTOKO_HOME or package-relative)")
     pseal.add_argument("--verify", action="store_true",
@@ -830,7 +973,10 @@ def build_parser() -> argparse.ArgumentParser:
     prules.add_argument("--no-resolve", action="store_true",
                         help="skip binary resolution (toolbox not mounted)")
     prules.add_argument("--rules-dir", default=None,
-                        help="corpus to check (default: engine/rules)")
+                        help="corpus to check (default: the bundled engine/rules "
+                             "checkout, else the installed core/rules package "
+                             "data when running from a wheel — see "
+                             "util.default_rules_dir)")
     prules.set_defaults(func=cmd_rules)
 
     prev = sub.add_parser(
@@ -857,8 +1003,23 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
-    return args.func(args)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if args.func != cmd_workbench and (args.demo or args.theme != "motoko-dark"):
+        parser.error("--demo and --theme apply only to workbench, status, and watch")
+    if args.root is None:
+        return args.func(args)
+    # A global runtime override must select the same data for every command
+    # and any adapter child, then leave an embedding caller's env unchanged.
+    previous = os.environ.get("MOTOKO_HOME")
+    os.environ["MOTOKO_HOME"] = str(Path(args.root).expanduser().resolve())
+    try:
+        return args.func(args)
+    finally:
+        if previous is None:
+            os.environ.pop("MOTOKO_HOME", None)
+        else:
+            os.environ["MOTOKO_HOME"] = previous
 
 
 if __name__ == "__main__":

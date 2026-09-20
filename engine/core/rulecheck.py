@@ -1131,8 +1131,12 @@ def _check_actions(r: Rule, model: CorpusModel, report: RuleReport,
                            f"{where} names {tool!r}, which resolves to nothing "
                            "(~/.local/bin -> $MOTOKO_TOOLS-or-package-tools "
                            "bin/ -> nuclei/ -> PATH — executor."
-                           "_known_tool_dirs order) — the action records "
-                           "exit 127 and burns three strikes per asset",
+                           "_known_tool_dirs order) — the first attempt per "
+                           "asset records exit 127 and burns a strike; once the "
+                           "executor has seen the tool die, the a recorded pitfall mint door "
+                           "stops proposing rules that can only use it "
+                           "(mint.tool_broken_skip), so the cost is bounded per "
+                           "asset rather than free",
                            evidence=_rel(r),
                            fix=f"install/anchor {tool}, or retire the rule")
         if tool not in model.parser_tools:
@@ -1189,23 +1193,7 @@ def _check_actions(r: Rule, model: CorpusModel, report: RuleReport,
 def _collect_placeholders(model: CorpusModel, template: str, field_name: str,
                           action: dict, hits: dict[tuple, list[str]],
                           result_keys: set[str] | None = None) -> None:
-    """Accumulate placeholder defects for one command template.
-
-    Three cases, in ascending danger:
-
-    * producible — the engine supplies it, nothing to report;
-    * declared but unproduced (``cmd.CTX_KEYS`` with no writer) — caught at ACT
-      time by the fail-closed gate, so the action never runs. Costly but
-      contained: the hypothesis retires as error and three strikes ban the
-      (rule, asset) pair;
-    * undeclared — NOT caught by the gate. ``render_command`` leaves unknown
-      placeholders verbatim by design ("visible, never a silent blank"), so
-      the literal text ``{token2}`` is sent to the target inside argv. This is
-      the only case that puts garbage on the wire, and it is silent.
-
-    curl's own ``-w '%{http_code}'`` format strings use the same braces; they
-    are data and are excluded by span, not by name.
-    """
+    "Accumulate placeholder defects for one command template.\n\n    Three cases, in ascending danger:\n\n    curl's own ``-w '%{http_code}'`` format strings use the same braces; they\n    are data and are excluded by span, not by name.\n    "
     literal_spans = [(m.start(), m.end())
                      for m in _LITERAL_BRACE_RE.finditer(template)]
     supplied = model.producible_ctx | (result_keys or set())
@@ -1229,9 +1217,10 @@ def _collect_placeholders(model: CorpusModel, template: str, field_name: str,
         elif low in cmd.CTX_KEYS:
             key = ("placeholder_no_producer", "HIGH", name,
                    f"renders {{{name}}}, a declared context key with no "
-                   "producer — the ACT fail-closed gate refuses the action, "
-                   "the hypothesis retires as error, and after three strikes "
-                   "the (rule, asset) pair is banned forever",
+                   "producer — the a recorded pitfall mint door refuses to propose this "
+                   "hypothesis at all (one mint.placeholder_unsatisfiable "
+                   "event per asset), so the rule silently covers nothing and "
+                   "no strike is burned",
                    f"supply {{{name}}} from the hypothesis/asset, or retire "
                    "the rule")
         else:
@@ -1347,18 +1336,15 @@ def _check_chain_wire(rules: list[Rule], model: CorpusModel,
             fix="consume chain_hint in _prioritize, or drop the declarations")
 
 
-def _check_class_coverage(rules: list[Rule], model: CorpusModel,
-                          declared_classes: set[str],
-                          report: RuleReport) -> None:
-    """Corpus-level: which produced classes nobody reacts to.
+def _consumed_class_leaves(rules: list[Rule]) -> list[tuple[str, str]]:
+    """``(op, gated value)`` for every AFFIRMATIVE class gate in the corpus.
 
-    Only AFFIRMATIVE gates consume: a ``ne`` leaf fires on the class's
-    ABSENCE — it is not a follow-up to that class (A2-6: counting it hid the
-    "detection lands, nothing reacts" case). Consumption is evaluated under
-    each leaf's own op and in _eval's direction (gated value → produced
-    class), not the old argument-inverted two-way scan.
+    A ``ne`` leaf fires on the class's ABSENCE, so it consumes nothing (A2-6:
+    counting it hid the "detection lands, nothing reacts" case). Consumption is
+    evaluated under each leaf's own op and in _eval's direction (gated value →
+    produced class), not the old argument-inverted two-way scan.
     """
-    consumed: list[tuple[str, str]] = []      # (op, gated member)
+    consumed: list[tuple[str, str]] = []
     for r in rules:
         for leaf in _leaves(r.when):
             if str(leaf.get("fact")) != "class":
@@ -1374,6 +1360,53 @@ def _check_class_coverage(rules: list[Rule], model: CorpusModel,
             # other list-value shapes never match at runtime
             # (class_op_runtime_dead reports them per rule); they consume
             # nothing.
+    return consumed
+
+
+def class_coverage(rules_dir) -> dict:
+    """The derived class map, exactly as the coverage check computes it.
+
+    One source of truth on purpose: ``_check_class_coverage`` reports from the
+    same derivation and so do the registry tests, so changing how `produced` or
+    `consumed` is derived moves both at once instead of leaving the tests
+    asserting a stale copy of the logic. Keys: ``produced`` (parsers plus, when
+    the wire exists, every declared on_hit_class), ``declared``, ``gated`` (the
+    raw gate values), ``consumed_classes`` (the produced subset some rule
+    actually reacts to) and ``drift`` (finding_classes.audit against it).
+    """
+    from . import finding_classes as fc
+
+    model = derive_model()
+    rules = load_corpus(Path(rules_dir))
+    declared = {str((r.data.get("then") or {}).get("on_hit_class"))
+                for r in rules
+                if (r.data.get("then") or {}).get("on_hit_class")}
+    consumed = _consumed_class_leaves(rules)
+    produced = set(model.produced_classes)
+    if model.chain_consumers:
+        produced |= declared
+    consumed_classes = {cls for cls in produced
+                        if any(_class_producible(v, {cls}, o)
+                               for o, v in consumed)}
+    return {"produced": produced,
+            "declared": declared,
+            "gated": sorted({v for _o, v in consumed}),
+            "consumed_classes": consumed_classes,
+            "drift": fc.audit(produced, consumed_classes)}
+
+
+def _check_class_coverage(rules: list[Rule], model: CorpusModel,
+                          declared_classes: set[str],
+                          report: RuleReport) -> None:
+    """Corpus-level: which produced classes nobody reacts to.
+
+    Only AFFIRMATIVE gates consume: a ``ne`` leaf fires on the class's
+    ABSENCE — it is not a follow-up to that class (A2-6: counting it hid the
+    "detection lands, nothing reacts" case). Consumption is evaluated under
+    each leaf's own op and in _eval's direction (gated value → produced
+    class), not the old argument-inverted two-way scan.
+    """
+    consumed = _consumed_class_leaves(rules)   # (op, gated member)
     gated = sorted({v for _o, v in consumed})
     produced = set(model.produced_classes)
     if model.chain_consumers:
@@ -1381,28 +1414,70 @@ def _check_class_coverage(rules: list[Rule], model: CorpusModel,
     # Lazy import, like the executor one below: the checker must stay loadable
     # when the verification package is not (and a cycle here would be silent).
     from . import verification
+    from . import finding_classes as fc
+
+    # The subset some rule actually consumes, under each leaf's own op — the
+    # registry's `wired` disposition is audited against exactly this set, so it
+    # cannot drift out of sync with the corpus unnoticed.
+    consumed_classes = {cls for cls in produced
+                        if any(_class_producible(v, {cls}, o) for o, v in consumed)}
+    drift = fc.audit(produced, consumed_classes)
     for cls in sorted(produced):
-        if any(_class_producible(v, {cls}, o) for o, v in consumed):
+        if cls in consumed_classes:
             continue
+        entry = fc.disposition(cls)
         # Derived, not asserted: the router is the second consumer of a class,
         # and its answer belongs in the row. Saying "nothing follows up" — the
         # wording this shipped with — was false for all 26 live rows and points
         # at the wrong fix (write a rule per class, or silence the check).
         validator = verification.pick_validator({"class": cls})
+        if entry is None:
+            # The registry is the load gate: a class nothing has ruled on is
+            # not a MEDIUM "maybe write a rule", it is an unanswered question
+            # that will otherwise sit in the report forever.
+            report.add(
+                "HIGH", "class_disposition_unknown", "<corpus>",
+                f"class {cls!r} is produced (parser or on_hit_class wire) but "
+                "core/finding_classes.py has no disposition for it — until "
+                "someone records whether a confirmed hit is terminal here or "
+                "owes a follow-up, the checker cannot tell a gap from noise",
+                evidence=f"validator: {validator}; registered: "
+                         f"{len(fc.registered())} classes",
+                fix=f"add {cls} to finding_classes._REGISTRY as terminal, "
+                    "follow_up_expected or wired, with the reason")
+            continue
+        kind, why = entry
+        if kind != fc.FOLLOW_UP_EXPECTED:
+            # terminal: nothing is owed. wired: something consumes it already —
+            # and if that claim is false the mismatch row above says so, which
+            # is a sharper statement than a duplicate coverage row.
+            continue
         report.add("MEDIUM", "class_without_response", "<corpus>",
                    f"class {cls!r} is produced (parser or on_hit_class wire) "
-                   "but no RULE gates on it — the finding is still verified "
+                   "but no RULE gates on it, and the registry records it as "
+                   f"OWING a follow-up: {why}. The finding is still verified "
                    f"(validator: {validator}) and still reaches digest and "
                    "reports; what is absent is a rule-side follow-up step",
                    evidence="gated classes: "
                             f"{', '.join(gated) or 'none'}"
                             f" | declared classes: "
                             f"{', '.join(sorted(declared_classes)) or 'none'}",
-                   fix=f"add a chain/verification rule for {cls} ONLY if a "
-                       "follow-up action exists in this engine — the finding "
-                       "may be terminal by design (a confirmed hit needs no "
-                       "further probe), and the post-ex channel the retired "
-                       "`access` rules needed does not exist here")
+                   fix=f"wire the follow-up for {cls}, or re-record it as "
+                       "terminal in finding_classes.py if the action no longer "
+                       "exists in this engine")
+    for msg in drift["mismatch"]:
+        report.add("MEDIUM", "class_disposition_mismatch", "<corpus>",
+                   f"the finding-class registry disagrees with the corpus: {msg}",
+                   evidence="core/finding_classes.py vs the derived gate set",
+                   fix="correct the disposition — `wired` means a rule gates on "
+                       "the class, and nothing else may claim it")
+    for cls in drift["stale"]:
+        report.add("LOW", "class_disposition_stale", "<corpus>",
+                   f"class {cls!r} has a disposition in finding_classes.py but "
+                   "nothing produces it any more",
+                   evidence="core/finding_classes.py",
+                   fix="delete the entry — a retired rule or parser row took the "
+                       "class with it, and git is the history")
 
 
 def _signature(r: Rule) -> tuple | None:

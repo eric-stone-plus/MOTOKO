@@ -69,9 +69,13 @@ refuses anything on its own.
 - **Deterministic validators** (`engine/core/verification/`): the only
   code allowed to promote a finding — pure judgement over an injected IO
   function (replay / DOM / out-of-band canary), with machine-readable
-  reason codes. A harness limitation (no browser, no canary, no asserted
-  anonymous egress) parks a finding with a reason instead of burning
-  retries or terminating it.
+  reason codes. A harness limitation (no browser backend, no asserted
+  anonymous egress, DNS not yet pinned) parks a finding with a reason
+  instead of burning retries or terminating it. The out-of-band leg has a
+  real backend: an interactsh canary manager registers once per
+  orchestrator and delivers its payload through the same asserted egress a
+  replay uses, so "no canary wired" is a deployment state rather than a
+  missing capability.
 - **Seal / `--verify`** (`motoko seal`): turns a finished engagement into
   a product unit — engine commit + checkpointed graph.db +
   `engagement.manifest.json` (SHA256, schema version, full census,
@@ -131,7 +135,8 @@ parallel fan-out, and host-resource budgeting live in the operator shell.
 | `engine/core/` | The orchestration engine (stdlib-only Python package `core`) |
 | `engine/core/rules/` | Rule packs (JSON): chain / context / scan / tech / vuln |
 | `engine/core/parsers/` | Tool-output parsers (nuclei, httpx, katana, sqlmap, strix, …) |
-| `engine/core/verification/` | Deterministic validators (replay / dom / oob) |
+| `engine/core/verification/` | Deterministic validators (replay / dom / oob), plus the interactsh canary manager that supplies the OOB leg's IO |
+| `engine/motoko_workbench/` | Read-only terminal workbench (Textual; the `workbench` optional extra) |
 | `engine/pyproject.toml` | Packaging manifest; provides the `motoko` console script |
 | `engine/integrations/` | Standalone host client, Hermes plugin and Pi extension |
 | `HOSTS.md` | Host boundaries, remote protocol and installation contract |
@@ -145,6 +150,10 @@ parallel fan-out, and host-resource budgeting live in the operator shell.
 ```bash
 pip install ./engine        # stdlib-only, Python >= 3.11; provides `motoko`
 motoko --help
+
+# optional: the read-only terminal workbench
+pip install './engine[workbench]'
+motoko                      # opens it; `motoko status` / `motoko watch` stay stdlib
 
 # without installing, from the source tree:
 cd engine && python3 -m core --help

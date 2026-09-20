@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 
-from .. import opsec
+from .. import opsec, util
 from . import Parser, register
 
 # template-id keyword -> finding class. Order matters (first match wins).
@@ -88,6 +88,11 @@ class NucleiParser(Parser):
             vendor = opsec.detect_waf(tech=tags)
             if vendor:
                 extra["waf"] = vendor
+            if cls.startswith("ssrf"):
+                point = util.ssrf_injection_point(matched)
+                if point:
+                    extra["ssrf_url"] = point[0]
+                    extra["ssrf_param"] = point[1]
             findings.append(self._finding(
                 class_=cls,
                 title=f"{tid}: {info.get('name', tid)}",

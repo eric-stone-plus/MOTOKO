@@ -25,6 +25,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 from pathlib import Path
 
 from . import cmd, db, egress, executor, util
@@ -182,6 +183,60 @@ def broken_wrappers(bin_dir: Path | None = None,
     return out
 
 
+def _strix_pyproject_version() -> str | None:
+    "Version declared in the tools/strix checkout's pyproject.toml, or None."
+    env = os.environ.get("MOTOKO_TOOLS")
+    root = Path(env).expanduser() if env else util.motoko_root() / "tools"
+    try:
+        with open(root / "strix" / "pyproject.toml", "rb") as fh:
+            project = tomllib.load(fh).get("project")
+    except (OSError, ValueError):
+        return None
+    if not isinstance(project, dict):
+        return None
+    version = project.get("version")
+    return version.strip() if isinstance(version, str) and version.strip() else None
+
+
+def _strix_cli_version(timeout: int = 10) -> tuple[bool, str]:
+    """(answered, version) from the deployed `strix --version`, bounded.
+
+    Mirrors _podman: `answered` False means strix is absent or did not answer
+    — cannot-verify, never a defect (the corpus-tools line already reports an
+    absent strix). Bounded because doctor is the fresh-host gate and must not
+    hang; `--version` exits before any IO (measured ~0.2 s, no network).
+    """
+    where = executor.resolve_tool("strix")
+    if not where:
+        return False, ""
+    try:
+        proc = subprocess.run([where, "--version"], capture_output=True,
+                              text=True, timeout=timeout)
+    except (OSError, subprocess.SubprocessError):
+        return False, ""
+    if proc.returncode != 0:
+        return False, ""
+    parts = (proc.stdout or "").split()  # `strix 1.6.2` -> "1.6.2"
+    return True, (parts[-1] if parts else "")
+
+
+def _check_strix_version() -> list[tuple[str, str]]:
+    'WARN when the deployed strix and the tools/strix source tree disagree.'
+    declared = _strix_pyproject_version()
+    if not declared:
+        return []
+    answered, deployed = _strix_cli_version()
+    if not answered or not deployed:
+        return []
+    if declared != deployed:
+        return [(WARN, "strix version split: tools/strix/pyproject.toml declares "
+                       f"{declared}, deployed `strix --version` is {deployed} "
+                       "(a recorded pitfall — the running bytes are the uv-tool install, not "
+                       "the source tree the patches merge against). Reconcile "
+                       "via `provision.sh strix-upgrade` or re-pin the checkout")]
+    return [(OK, f"strix version consistent: {deployed}")]
+
+
 def _check_tools() -> list[tuple[str, str]]:
     out: list[tuple[str, str]] = []
     env = os.environ.get("MOTOKO_TOOLS")
@@ -238,6 +293,7 @@ def _check_tools() -> list[tuple[str, str]]:
         else:
             out.append((WARN, "podman socket missing "
                               "(systemctl --user start podman.socket)"))
+    out.extend(_check_strix_version())
     return out
 
 
@@ -313,9 +369,11 @@ def _check_backends() -> list[tuple[str, str]]:
     canary = executor.resolve_tool("interactsh-client")
     out.append((OK if canary else WARN,
                 f"oob canary tool: {canary or 'interactsh-client not found'} — "
-                "the oob validator needs a canary manager AND an engagement "
-                "`--oob-domain`; without the domain the callback URL cannot be "
-                "rendered at all"))
+                "`motoko run` builds an interactsh canary manager from this "
+                "binary (lazily: the poller starts on the first canary issue, "
+                "so a run that verifies no OOB finding spawns none) and the "
+                "engagement also needs `--oob-domain`; without the domain the "
+                "callback URL cannot be rendered at all"))
     oob = _oob_rules(util.default_rules_dir())
     out.append((OK, f"rules rendering {{oob}}: {', '.join(oob) or 'none'} — on "
                     "an engagement without `--oob-domain` these are not "
@@ -324,14 +382,21 @@ def _check_backends() -> list[tuple[str, str]]:
                     "gap, not a dead rule"))
     wires_browser, wires_canary = _run_wires_backends()
     if not (wires_browser and wires_canary):
+        # Name the leg that is actually missing. "injects neither" was true
+        # while both were unwired; the day the canary got wired it would have
+        # started lying about the half that works, which is the one failure
+        # mode this line exists to prevent.
+        missing = "/".join(n for n, wired in (("browser", wires_browser),
+                                              ("canary", wires_canary))
+                           if not wired)
         out.append((WARN,
-                    "`motoko run` injects neither backend (browser="
-                    f"{'wired' if wires_browser else 'NOT wired'}, canary="
-                    f"{'wired' if wires_canary else 'NOT wired'}): the runtime "
-                    "is stdlib-only by design (the internal doctrine), so dom/oob findings park as "
-                    "`missing_backend` even with everything above installed — "
-                    "inject them through the API, or read the park as the "
-                    "expected outcome"))
+                    f"`motoko run` does not inject the {missing} backend "
+                    f"(browser={'wired' if wires_browser else 'NOT wired'}, "
+                    f"canary={'wired' if wires_canary else 'NOT wired'}): the "
+                    "runtime is stdlib-only by design (the internal doctrine), so findings needing "
+                    "it park as `missing_backend` even with everything above "
+                    "installed — inject them through the API, or read the park "
+                    "as the expected outcome"))
     return out
 
 

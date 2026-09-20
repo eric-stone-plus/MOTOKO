@@ -24,6 +24,7 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.error
 import urllib.request
 from dataclasses import asdict, dataclass, field
@@ -81,6 +82,14 @@ def _expand_value(value: str) -> str:
     return out
 
 _OPEN_CONFIRMED_STATES = frozenset({"verified", "exploitable"})
+
+# Directories the pyflakes metric walks past. `strix-patches` holds vendored
+# deploy patches anchored by hash — a finding there is not ours to fix in place
+# — and the two others are build artefacts. Same set as
+# tests/test_lint_engine.py's EXCLUDE_PARTS; keep them in step.
+_LINT_EXCLUDE_PARTS = frozenset({"strix-patches", "__pycache__", "build"})
+
+_SUITE_TIMEOUT_S = 600
 
 
 class LoopError(RuntimeError):
@@ -776,15 +785,21 @@ class LoopRunner:
             return 0, 0, 0
         child_env = dict(os.environ,
                          MOTOKO_LOOP_METRICS_CHILD="1")
+        started = time.monotonic()
         try:
             proc = subprocess.run(
                 [sys.executable, "-m", "unittest", "discover", "-s", "tests",
                  "-v"], cwd=str(self.engine_root), capture_output=True,
-                text=True, timeout=600, env=child_env)
+                text=True, timeout=_SUITE_TIMEOUT_S, env=child_env)
         except subprocess.TimeoutExpired:
-            # a hung suite is a measurement failure, not a zero — surface
-            # it as 0 passed / 1 failed so the reward signal reacts
-            self._last_test_results = ["(suite timeout)"]
+            # A hung suite is a measurement failure, not a zero — surface it as
+            # 0 passed / 1 failed so the reward signal reacts. The elapsed
+            # number IS the diagnosis, and the failure mode is not theoretical:
+            # the child runs 124 s cold and 374 s under tracemalloc, so a
+            # loaded host can reach a fixed budget that a cold one never does.
+            self._last_test_results = [
+                f"(suite timeout after {int(time.monotonic() - started)}s, "
+                f"budget {_SUITE_TIMEOUT_S}s)"]
             return 0, 1, 1
         # Verbose status lines can span docstrings or be interrupted by test
         # diagnostics. Read the final summary and failure headings instead.
@@ -794,7 +809,18 @@ class LoopRunner:
             r"(OK|FAILED)(?: \(([^\n]*)\))?[ \t]*$",
             output, re.MULTILINE))
         if not summaries or int(summaries[-1].group(1)) == 0:
-            self._last_test_results = ["(suite output unparsable)"]
+            # Record WHY, not merely that. This branch produces a red metric
+            # with no artefact: the round history said "(suite output
+            # unparsable)" and nothing in it distinguished "the suite is
+            # broken" from "a warning line landed between `Ran` and `OK`" —
+            # which is exactly what three ResourceWarnings from an unclosed
+            # test socket could do. The tail is the evidence, so the next
+            # occurrence is diagnosable from the history alone.
+            tail = " | ".join(ln.strip() for ln in output.splitlines()
+                              if ln.strip())[-400:]
+            self._last_test_results = [
+                f"(suite output unparsable; rc={proc.returncode}; "
+                f"stderr tail: {tail})"]
             return 0, 1, 1
         summary = summaries[-1]
         ran = int(summary.group(1))
@@ -828,20 +854,23 @@ class LoopRunner:
         return max(ran - failed - skipped, 0), failed, new_red
 
     def _static_analysis(self) -> tuple[int, int]:
-        """pyflakes over core/: (warnings, errors). Falls back to (0, 0)
-        with the error captured when pyflakes is unavailable — a missing
-        linter must not fabricate metric values."""
+        'pyflakes over core/: (warnings, errors).\n\n        Two shapes are excluded on purpose, and both were making the metric\n        useless rather than making it lenient:\n\n        Everything else stays in, and it is the set that means "this code does\n        something other than what it says": undefined names, repeated dict keys,\n        unused locals, f-strings with nothing in them. ``tests/\n        test_lint_engine.py`` fails the suite on the same classes across core/,\n        motoko_workbench/, tests/ and scripts/, so a non-zero here is residue\n        that gate cannot see — which is worth a round record, not a shrug.\n\n        Falls back to (0, 0) when pyflakes is unavailable or the walk finds\n        nothing: a missing linter must not fabricate metric values. That does\n        leave (0, 0) ambiguous between "clean" and "unmeasured", which is\n        tolerable only because tests/test_lint_engine.py imports pyflakes at\n        module scope — a venv without it fails the suite loudly rather than\n        reporting a clean round. (The docstring this replaced claimed the error\n        was captured; nothing ever captured it.)\n        '
+        paths = [str(p)
+                 for p in sorted((self.engine_root / "core").rglob("*.py"))
+                 if not _LINT_EXCLUDE_PARTS.intersection(p.parts)]
+        if not paths:
+            return 0, 0
         try:
             proc = subprocess.run(
-                [sys.executable, "-m", "pyflakes",
-                 str(self.engine_root / "core")],
+                [sys.executable, "-m", "pyflakes", *paths],
                 capture_output=True, text=True, timeout=120)
         except (OSError, subprocess.SubprocessError):
             return 0, 0
         if proc.returncode not in (0, 1):
             # pyflakes exits 1 for findings (normal); other codes = broken run
             return 0, 1
-        warnings = [l for l in (proc.stdout or "").splitlines() if ": " in l]
+        warnings = [line for line in (proc.stdout or "").splitlines()
+                    if ": " in line and "imported but unused" not in line]
         return len(warnings), 0
 
     def _churn(self) -> int:

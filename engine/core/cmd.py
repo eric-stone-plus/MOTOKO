@@ -25,8 +25,8 @@ _PLACEHOLDER = re.compile(r"(?<!%)\{([A-Za-z_][A-Za-z0-9_]*)\}")
 CTX_KEYS = (
     "url", "host", "ip", "domain", "dc", "wordlist", "wordlist_dir",
     "out", "oob",
-    "ssrf_url", "tampered", "param", "canary", "user", "username", "ak", "sk",
-    "token", "password", "port", "ua",
+    "ssrf_url", "ssrf_param", "tampered", "param", "canary", "user", "username",
+    "ak", "sk", "token", "password", "port", "ua",
 )
 
 

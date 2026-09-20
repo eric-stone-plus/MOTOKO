@@ -31,7 +31,7 @@ class DalfoxParser(Parser):
             seen.add(url)
             findings.append(self._finding(
                 class_="xss.reflected",
-                title=f"Reflected XSS via dalfox",
+                title="Reflected XSS via dalfox",
                 url=url,
                 severity="medium",
             ))

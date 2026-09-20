@@ -1,4 +1,4 @@
-"OOB validator — interactsh-style callback confirmation.\n\nInjected IO:\n* ``issue_canary() -> str``        unique canary token/URL\n* ``trigger(finding, canary)``     send the payload pointing at the canary\n* ``poll_callback(canary) -> bool`` did the canary receive a callback?\n\nNote: this validator does not itself require a URL — a callback can arrive\nfor payloads delivered by another component. The orchestrator's guard is the\ngate; see ``Orchestrator._run_validator``.\n"
+"OOB validator — interactsh-style callback confirmation.\n\nInjected IO:\n* ``issue_canary() -> str``        unique canary token/URL\n* ``trigger(finding, canary)``     send the payload pointing at the canary\n* ``poll_callback(canary) -> bool`` did the canary receive a callback?\n* ``interactions(canary) -> [dict]`` OPTIONAL. The rows behind a positive poll,\n  used only to record WHICH protocol answered — see ``_protocols``.\n\nNote: this validator does not itself require a URL — a callback can arrive\nfor payloads delivered by another component. The orchestrator's guard is the\ngate; see ``Orchestrator._run_validator``.\n"
 
 from __future__ import annotations
 
@@ -9,7 +9,32 @@ def _inconclusive(detail: str, reason: str = IO_ERROR) -> Verdict:
     return Verdict("inconclusive", detail, reason=reason)
 
 
-def oob_verdict(finding: dict, issue_canary, trigger, poll_callback) -> Verdict:
+def _protocols(interactions, canary: str) -> list[str]:
+    """The protocols that answered a canary, or ``["unknown"]``.
+
+    A DNS interaction is weaker evidence than an HTTP one: any resolver on the
+    path can produce a DNS hit, while an HTTP fetch means the target's own
+    egress reached the canary server. Collapsing both into the boolean
+    ``poll_callback`` returns throws that difference away, so the rows are read
+    here when the manager offers them.
+
+    Optional and defensive on purpose — a manager that only offers the boolean
+    still verifies, and enriching evidence must never be able to change or fail
+    a verdict.
+    """
+    if interactions is None:
+        return ["unknown"]
+    try:
+        rows = interactions(canary) or []
+    except Exception:      # noqa: BLE001 - enrichment is never fatal
+        return ["unknown"]
+    protos = sorted({str(r.get("protocol") or "unknown")
+                     for r in rows if isinstance(r, dict)})
+    return protos or ["unknown"]
+
+
+def oob_verdict(finding: dict, issue_canary, trigger, poll_callback,
+                interactions=None) -> Verdict:
     # first canary
     try:
         c1 = issue_canary()
@@ -28,7 +53,8 @@ def oob_verdict(finding: dict, issue_canary, trigger, poll_callback) -> Verdict:
             "oob_callback",
             f"canary {c1} received callback",
             signals=["oob_callback"],
-            evidence={"canary": c1, "protocols": ["unknown"]},
+            evidence={"canary": c1,
+                      "protocols": _protocols(interactions, c1)},
         )
 
     # second, distinct canary
@@ -52,7 +78,8 @@ def oob_verdict(finding: dict, issue_canary, trigger, poll_callback) -> Verdict:
             "oob_callback",
             f"canary {c2} received callback",
             signals=["oob_callback"],
-            evidence={"canary": c2},
+            evidence={"canary": c2,
+                      "protocols": _protocols(interactions, c2)},
         )
 
     return Verdict(

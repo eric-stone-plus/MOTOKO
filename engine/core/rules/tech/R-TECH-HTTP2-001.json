@@ -16,7 +16,8 @@
     "actions": [
       {
         "tool": "h2csmuggler",
-        "cmd": "h2csmuggler -x GET {url}"
+        "cmd": "h2csmuggler -x {url} -t -m 10",
+        "cmd_stealth": "h2csmuggler -x {url} -t -m 5"
       }
     ],
     "on_hit_class": "smuggling.h2",
