@@ -49,6 +49,7 @@ code enforces, not the engagement that motivated it.
   review attribution (who or which model found something) - state the
   invariant the code enforces instead.
 - Cite upstream repositories only. Do not cite operator forks.
-- Preserve contributor identity. Agent-authored commits use the agent's
-  GitHub-linked Git author identity rather than the human operator or only a
-  co-author trailer; human-authored commits retain the human author.
+- One contributor identity. Every commit carries the repository owner's
+  GitHub-linked Git identity as both author and committer. Do not commit under
+  an agent, bot or tool identity, and do not add co-author or generated-with
+  trailers: the history records the work, not which assistant held the pen.
