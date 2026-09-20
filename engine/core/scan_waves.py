@@ -8,8 +8,25 @@ finding. Events in the engagement database carry the resumable policy.
 
 from __future__ import annotations
 
+from datetime import datetime
 import json
 import math
+
+
+def _run_duration(row, observations) -> float:
+    """Count a run once even when it emits several observation records."""
+    samples = [o["duration_s"] for o in observations
+               if isinstance(o["duration_s"], (int, float))
+               and not isinstance(o["duration_s"], bool)
+               and math.isfinite(o["duration_s"]) and o["duration_s"] >= 0]
+    if samples:
+        return min(86_400.0, max(samples))
+    try:
+        seconds = (datetime.fromisoformat(row["finished_at"])
+                   - datetime.fromisoformat(row["started_at"])).total_seconds()
+        return max(0.0, min(86_400.0, seconds))
+    except (TypeError, ValueError, OverflowError):
+        return 0.0
 
 
 class ScanWaves:
@@ -49,7 +66,7 @@ class ScanWaves:
 
     def complete(self, *, stop_reason: str, pending: int) -> dict:
         rows = self.writer.conn.execute(
-            "SELECT t.id, t.status, e.data FROM tool_run t "
+            "SELECT t.id, t.status, t.started_at, t.finished_at, e.data FROM tool_run t "
             "JOIN entities e ON e.id = t.hypothesis_id "
             "WHERE t.rowid > ? AND e.engagement_id = ? ORDER BY t.rowid",
             (self.cursor, self.engagement_id)).fetchall()
@@ -79,7 +96,7 @@ class ScanWaves:
                     stat["discoveries"] += len(new)
                     row_discoveries += len(new)
                     credited.update(new)
-                stat["duration_s"] += max(0.0, float(obs["duration_s"] or 0))
+            stat["duration_s"] += _run_duration(row, observations)
             if row["status"] == "done" and row_discoveries:
                 try:
                     hints = json.loads(row["data"]).get("chain_hint") or []
@@ -96,6 +113,11 @@ class ScanWaves:
             utility = (15.0 * min(1.0, stat["discoveries"] / n)
                        - 30.0 * stat["failed"] / n
                        - (4.0 if not stat["discoveries"] and not stat["failed"] else 0.0))
+            # Observed runtime is a bounded opportunity cost, not a reason to
+            # retire coverage. The cap preserves positive discovery credit
+            # even for expensive rules; category reservations still apply.
+            mean_seconds = stat["duration_s"] / n
+            utility -= min(6.0, 2.0 * math.log2(1.0 + mean_seconds / 30.0))
             old = self.priority_offsets.get(rid, 0.0)
             self.priority_offsets[rid] = round(max(-30.0, min(15.0, (old + utility) / 2)), 2)
             stat["duration_s"] = round(stat["duration_s"], 3)

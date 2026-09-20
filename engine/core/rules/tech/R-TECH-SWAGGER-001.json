@@ -21,7 +21,7 @@
     "actions": [
       {
         "tool": "kr",
-        "cmd": "kr scan {url} -A api --user-agent '{ua}'"
+        "cmd": "kr scan {url} -A api --user-agent '{ua}' -o json --delay 100ms -x 2"
       },
       {
         "tool": "arjun",

@@ -16,7 +16,7 @@
     "actions": [
       {
         "tool": "wpscan",
-        "cmd": "wpscan --url {url} --enumerate vp,vt,u --user-agent '{ua}'"
+        "cmd": "wpscan --url {url} --enumerate vp,vt,u --user-agent '{ua}' --format json --no-banner --no-update --max-threads 2 --throttle 500"
       },
       {
         "tool": "nuclei",

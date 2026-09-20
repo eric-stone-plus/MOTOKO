@@ -19,7 +19,7 @@ from . import asset_link
 from .dedup import compute_dedup_key
 from .hypothesis_engine import HypothesisEngine
 from .opsec import CooldownBoard
-from .parsers import parse_tool
+from .parsers import dependency_context_keys, get_parser, parse_tool
 from .scope import ScopeDecision, ScopeGuard
 from .scan_waves import ScanWaves
 from .verification import (
@@ -284,24 +284,28 @@ class Orchestrator:
         for o in self.writer.unprocessed_observations(self.engagement_id):
             self._ingest_observation(o)
 
-    def _ingest_observation(self, o: dict) -> None:
-        """The shared per-observation ingest body of _sync and _sync_runs."""
+    def _ingest_observation(self, o: dict, action: dict | None = None) -> dict:
+        """Ingest evidence and return ephemeral results to the current caller."""
+        result = {}
         if o.get("raw_path"):
-            self._ingest_raw(
+            result = self._ingest_raw(
                 o["id"], o["tool"], o["raw_path"],
                 context={"url": o.get("url"), "host": o.get("host"),
-                         "action_id": o.get("action_id")},
+                         "action_id": o.get("action_id")}, action=action,
             )
         self.writer.mark_observation_processed(o["id"])
+        return result
 
-    def _sync_runs(self, run_ids: list[str]) -> None:
+    def _sync_runs(self, run_ids: list[str], *, action: dict | None = None) -> dict:
         "        The executor is synchronous, so _act closes a hypothesis's runs and\n        retires it in the SAME beat — the beat-level _sync would only parse\n        those observations next cycle, after the retirement vote. The\n        on_hit_class oracle needs the evidence columns written back first,\n        so _act ingests its own loop's rows before retiring. Rows land\n        processed exactly once: the next _sync skips them.\n        "
+        result = {}
         for o in self.writer.unprocessed_observations_for_runs(
                 self.engagement_id, run_ids):
-            self._ingest_observation(o)
+            result.update(self._ingest_observation(o, action=action))
+        return result
 
     def _ingest_raw(self, obs_id: str, tool: str, raw_path: str,
-                    context: dict | None = None) -> None:
+                    context: dict | None = None, action: dict | None = None) -> dict:
         try:
             raw = Path(raw_path).read_text(errors="replace")
         except OSError as e:
@@ -310,8 +314,8 @@ class Orchestrator:
             self.writer.append_event("observation_dead_letter", obs_id,
                                      {"tool": tool, "raw_path": raw_path,
                                       "error": str(e)})
-            return
-        action = {k: v for k, v in (context or {}).items() if v}
+            return {}
+        action = {**(action or {}), **{k: v for k, v in (context or {}).items() if v}}
         err_text = ""
         err_path = Path(str(raw_path).replace(".out", ".err"))
         try:
@@ -325,7 +329,7 @@ class Orchestrator:
                 "observation_dead_letter", obs_id,
                 {"tool": tool, "raw_path": raw_path,
                  "error": f"parse_tool raised: {e!r}"})
-            return
+            return {}
         self.writer.update_observation_summary(obs_id, parsed.summary)
         if parsed.dead_letter:
             self.writer.append_event(
@@ -420,6 +424,15 @@ class Orchestrator:
                 if any((s.get("port"), s.get("service_name")) not in previous
                        for s in parsed.services):
                     self._reopen_frontier(aid)
+
+        # Only a successful invocation can supply values to its immediate
+        # dependent actions. The return value is never attached to graph data;
+        # callers outside ACT discard it, including recovery after restart.
+        parser = get_parser(tool)
+        allowed = parser.context_keys(action) if parser and run_complete else frozenset()
+        return {key: value for key, value in parsed.context.items()
+                if key in allowed and key in cmd.CTX_KEYS and isinstance(value, str)
+                and value and len(value) <= 8192}
 
     def _reopen_frontier(self, asset_id: str) -> None:
         asset = self.writer.get_entity(asset_id)
@@ -1015,6 +1028,7 @@ class Orchestrator:
             started = 0
             run_ids: list[str] = []
             action_runs: dict[int, str] = {}
+            action_results: dict[int, dict] = {}
             for index, action in enumerate(hyp.get("actions", [])):
                 dependencies = action.get("depends_on", [])
                 if (not isinstance(dependencies, list) or any(
@@ -1083,7 +1097,10 @@ class Orchestrator:
                 if getattr(self, "intensity", "normal") not in ("", "normal"):
                     template = action.get(
                         f"cmd_{self.intensity}") or template
-                ctx = self._command_ctx(hyp, action)
+                results = {}
+                for dependency in dependencies:
+                    results.update(action_results.get(dependency, {}))
+                ctx = self._command_ctx(hyp, action, results=results)
                 try:
                     rendered = cmd.render_command(template, ctx)
                     r_obs = (cmd.render_command(str(action["obs_url"]), ctx)
@@ -1131,6 +1148,12 @@ class Orchestrator:
                            "secret_bindings": rendered.secret_bindings,
                            "bind_ip": recheck.detail.get("bind_ip"),
                            "_tool_run_id": run_id}
+                # The executor's success contract is judged against the
+                # template that was RENDERED, not the rule's default one: a
+                # stealth run executes cmd_stealth, and a parser that reads
+                # `cmd` to recognize its own invocation would otherwise grade
+                # an argv it never saw.
+                payload["cmd"] = template
                 if r_obs:
                     if r_obs.argv and r_obs.argv[0]:
                         # collapse "//" in the path: a seed value with a
@@ -1144,7 +1167,8 @@ class Orchestrator:
                     self.writer.append_event("act.executor_error", hyp["id"],
                         {"run_id": run_id, "tool": action.get("tool"),
                          "error_type": type(exc).__name__})
-                self._sync_runs([run_id])
+                action_results[index] = self._sync_runs(
+                    [run_id], action={**action, "cmd": template})
             if run_ids:
                 try:
                     self._sync_runs(run_ids)
@@ -1347,13 +1371,11 @@ class Orchestrator:
             except Exception:
                 pass
 
-    def _command_ctx(self, hyp: dict, action: dict) -> dict:
+    def _command_ctx(self, hyp: dict, action: dict, *, results: dict | None = None) -> dict:
         '        Only the known target/credential keys are handed to the renderer;\n        action-level values win over hypothesis-level ones. ``wordlist_dir``\n        is injected here so rule JSONs never carry absolute home paths:\n        they reference ``{wordlist_dir}/<file>``, the directory comes from\n        ``MOTOKO_WORDLIST_DIR`` (default ``~/.motoko/wordlists``).\n        '
-        ctx: dict = {}
-        for source in (action, hyp):
+        ctx = {key: value for key, value in (results or {}).items() if key in cmd.CTX_KEYS}
+        for source in (hyp, action):
             for key in cmd.CTX_KEYS:
-                if key in ctx:
-                    continue
                 value = source.get(key)
                 if isinstance(value, (str, int, float)) and value != "":
                     ctx[key] = value
@@ -1402,13 +1424,16 @@ class Orchestrator:
         "Placeholder names ACT could never render for this hypothesis.\n\n        Returns the missing names, sorted and de-duplicated across the rule's\n        actions; empty means every action can render.\n        "
         missing: set[str] = set()
         stealth = getattr(self, "intensity", "normal") not in ("", "normal")
-        for action in hyp.get("actions") or []:
+        actions = hyp.get("actions") or []
+        for index, action in enumerate(actions):
             if not isinstance(action, dict):
                 continue
             template = action.get("cmd", "")
             if stealth:
                 template = action.get(f"cmd_{self.intensity}") or template
             supplied = {str(k).lower() for k in self._command_ctx(hyp, action)}
+            supplied.update(dependency_context_keys(
+                actions, index, getattr(self, "intensity", "normal")))
             for tpl in (template, str(action.get("obs_url") or "")):
                 for name in cmd.placeholder_names(tpl):
                     if name.lower() not in supplied:

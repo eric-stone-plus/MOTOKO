@@ -21,7 +21,7 @@
     "actions": [
       {
         "tool": "jwt_tool",
-        "cmd": "jwt_tool {token} -M at -X i"
+        "cmd": "jwt_tool {token} -b -X i"
       },
       {
         "tool": "nuclei",

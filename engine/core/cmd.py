@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 SECRET_KEYS = frozenset({
     "ak", "sk", "token", "password", "passwd", "secret", "api_key", "apikey",
     "access_key", "secret_key", "session_token", "credential", "creds",
-    "canary", "bearer",
+    "canary", "bearer", "tampered",
 })
 
 ENV_PREFIX = "MOTOKO_SECRET_"

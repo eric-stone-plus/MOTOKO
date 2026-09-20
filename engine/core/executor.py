@@ -15,6 +15,7 @@ from pathlib import Path
 
 from . import egress, util, secret_transport
 from .cmd import ENV_PREFIX
+from .parsers import Parser, get_parser
 
 _TOOLS = util.motoko_root() / "tools"
 
@@ -68,6 +69,13 @@ def resolve_tool(tool: str, extra_dirs: tuple[Path, ...] = ()) -> str | None:
             return str(p)
     found = shutil.which(tool)
     return found or None
+
+
+# Bound on the artifact a parser's success contract may read. A contract is an
+# output-shape assertion ("the four generated tokens are all here"), not a
+# reason to load a 16 MiB capture into memory twice; truncation fails CLOSED,
+# because a half-read contract cannot prove the run finished.
+_SUCCESS_CONTRACT_BYTES = 1 << 20
 
 
 def _obs_opener(path, flags: int) -> int:
@@ -248,7 +256,8 @@ class SubprocessExecutor:
                 reason = self._capture(proc, out_f, err_f, effective_timeout)
             exit_code = proc.returncode
             status = "timeout" if reason == "timeout" or exit_code == 124 else \
-                ("done" if exit_code == 0 else "error")
+                ("done" if self._run_succeeded(tool, exit_code, action,
+                                               out_path, err_path) else "error")
             if reason == "output_limit":
                 status, exit_code = "error", 125
         except (OSError, TypeError, ValueError) as e:
@@ -279,6 +288,10 @@ class SubprocessExecutor:
                 self._unregister(proc.pid)
 
         summary = f"{tool} exit {exit_code} ({status})"
+        if status == "done" and exit_code != 0:
+            # An exit code the parser's output contract overruled is the one
+            # thing a post-mortem cannot reconstruct from the row alone.
+            summary += " via parser output contract"
         if reason:
             summary += f" reason={reason}"
         broken = _wrapper_death(exit_code, err_path)
@@ -306,6 +319,41 @@ class SubprocessExecutor:
         )
         self._finish_tool_run(action, status=status, exit_code=exit_code,
                               out_path=out_path, err_path=err_path)
+
+    def _run_succeeded(self, tool: str, exit_code: int, action: dict,
+                       out_path: Path, err_path: Path) -> bool:
+        """Is a non-zero exit nonetheless a finished, successful run?
+
+        For most tools ``exit 0`` is the whole answer, and this returns it
+        without touching the artifacts. A parser that OVERRIDES the contract
+        is the only thing that can relax it: jwt_tool's offline generation
+        modes exit 1 after writing valid tokens, and a run recorded as
+        ``error`` is not ``done``, so the dependency bridge withholds every
+        value the run produced and the chain behind it never arms — the exit
+        code alone made a working generation indistinguishable from a crash.
+
+        Only the parser that declared the contract may accept it, only for the
+        exact invocation it recognizes (``action`` carries the rendered
+        command), and only when the tool's own output proves it. Failures stay
+        failures: a missing artifact, an unreadable one, or a parser raising
+        all fall back to the exit code, since withholding a success is
+        recoverable on the next run and claiming one is not.
+        """
+        if exit_code == 0:
+            return True
+        parser = get_parser(tool)
+        if parser is None or \
+                type(parser).execution_succeeded is Parser.execution_succeeded:
+            return False
+        try:
+            stdout = out_path.read_text(errors="replace")[:_SUCCESS_CONTRACT_BYTES]
+            stderr = err_path.read_text(errors="replace")[:_SUCCESS_CONTRACT_BYTES]
+        except OSError:
+            return False
+        try:
+            return bool(parser.execution_succeeded(exit_code, stdout, stderr, action))
+        except Exception:
+            return False
 
     def _stop_group(self, proc) -> None:
         if proc.pid <= 0:

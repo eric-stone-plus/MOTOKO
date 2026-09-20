@@ -1170,7 +1170,10 @@ def _check_actions(r: Rule, model: CorpusModel, report: RuleReport,
         for field_name, template in r.cmds():
             if not field_name.startswith(own):
                 continue
-            _collect_placeholders(model, template, field_name, a, hits)
+            from .parsers import dependency_context_keys
+            intensity = field_name.split("cmd_", 1)[1] if "cmd_" in field_name else "normal"
+            _collect_placeholders(model, template, field_name, a, hits,
+                                  dependency_context_keys(actions, i, intensity))
             if not field_name.endswith(".obs_url"):
                 _check_opsec_flags(r, report, tool, template, field_name)
 
@@ -1184,7 +1187,8 @@ def _check_actions(r: Rule, model: CorpusModel, report: RuleReport,
 
 
 def _collect_placeholders(model: CorpusModel, template: str, field_name: str,
-                          action: dict, hits: dict[tuple, list[str]]) -> None:
+                          action: dict, hits: dict[tuple, list[str]],
+                          result_keys: set[str] | None = None) -> None:
     """Accumulate placeholder defects for one command template.
 
     Three cases, in ascending danger:
@@ -1204,7 +1208,7 @@ def _collect_placeholders(model: CorpusModel, template: str, field_name: str,
     """
     literal_spans = [(m.start(), m.end())
                      for m in _LITERAL_BRACE_RE.finditer(template)]
-    supplied = model.producible_ctx
+    supplied = model.producible_ctx | (result_keys or set())
     action_keys = {str(k).lower() for k in action} & set(cmd.CTX_KEYS)
     for m in _PLACEHOLDER_RE.finditer(template):
         if any(a <= m.start() < b for a, b in literal_spans):

@@ -20,7 +20,10 @@
       },
       {
         "tool": "curl",
-        "cmd": "curl -sS -m 10 -A '{ua}' -H 'Authorization: Bearer {tampered}' {url}/api/me"
+        "cmd": "curl -sS -m 10 -A '{ua}' -H 'Authorization: Bearer {tampered}' {url}/api/me",
+        "depends_on": [
+          0
+        ]
       }
     ],
     "on_hit_class": "auth.bypass",
