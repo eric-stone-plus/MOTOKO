@@ -159,7 +159,7 @@ def _corpus_tools(rules_dir: Path) -> dict[str, set[str]]:
 
 def broken_wrappers(bin_dir: Path | None = None,
                     rules_dir: Path | None = None) -> dict[str, list[tuple]]:
-    'Every wrapper in `bin_dir` whose pinned absolute paths have vanished.\n\n    A missing or unreadable `bin_dir` yields empty lists, not an exception: a\n    host that keeps its tools in the toolbox or on PATH has no wrappers and is\n    not defective.\n    '
+    'Every wrapper in `bin_dir` whose pinned absolute paths have vanished.\n\n    Shared with `core/tools_anchor/provision.sh verify-wrappers` so the\n    deployment gate and the runtime report answer "is this wrapper broken" the\n    same way and cannot drift apart. Doctor\'s own `_check_tools` keeps probing\n    only corpus tools (its question is "can this engine run its rules"); the\n    gate reports the stray ones too, because a wrapper pointing at a vanished\n    venv breaks whatever workflow uses it, whether or not a rule names it.\n\n    A missing or unreadable `bin_dir` yields empty lists, not an exception: a\n    host that keeps its tools in the toolbox or on PATH has no wrappers and is\n    not defective.\n    '
     root = Path(bin_dir).expanduser() if bin_dir else Path(
         os.environ.get("MOTOKO_WRAPPER_BIN", "~/.local/bin")).expanduser()
     named = _corpus_tools(Path(rules_dir) if rules_dir
@@ -243,7 +243,8 @@ def _check_tools() -> list[tuple[str, str]]:
     root = Path(env).expanduser() if env else util.motoko_root() / "tools"
     if not root.is_dir():
         out.append((WARN, f"toolbox not found: {root} (set MOTOKO_TOOLS; "
-                          f"see the internal tooling area (manifest.json + provision.sh))"))
+                          "see engine/core/tools_anchor/ — provision.sh, with "
+                          "manifest.json generated per host by make_manifest.py)"))
     else:
         out.append((OK, f"toolbox: {root}"))
     # resolve a few well-known binaries — absence is a warning, not a
@@ -582,11 +583,11 @@ def _check_kali_container() -> list[tuple[str, str]]:
                        f"answer); {scope}")]
     if image != util.KALI_IMAGE:
         return [(FAIL, f"kali container: `{util.KALI_CONTAINER}` runs {image}, "
-                 f"not the documented {util.KALI_IMAGE} — rules declaring "
+                 f"not the configured {util.KALI_IMAGE} — rules declaring "
                  "runtime: container exec INTO this container, so they get the "
                  f"OLD toolset ({scope}). Remedy: `motoko kali start "
-                 f"--recreate`, or bump util.KALI_IMAGE if {image} is the "
-                 "intended tag")]
+                 f"--recreate`, or set MOTOKO_KALI_IMAGE={image} if {image} "
+                 "is the intended tag")]
     return [(OK, f"kali container: `{util.KALI_CONTAINER}` on {image}; {scope}")]
 
 

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import time
 import uuid
@@ -11,7 +12,7 @@ from pathlib import Path
 from urllib.parse import parse_qsl, urlsplit, urlunsplit
 
 KALI_CONTAINER = "kali-recon"
-KALI_IMAGE = "localhost/kali-recon:20260919"
+KALI_IMAGE = os.environ.get("MOTOKO_KALI_IMAGE") or "localhost/kali-recon:latest"
 
 
 def motoko_root() -> Path:

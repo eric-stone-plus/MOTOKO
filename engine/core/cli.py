@@ -274,7 +274,14 @@ _STRIX_MODES = ("deep", "standard", "quick")
 
 
 def _strix_help_flags_ok() -> tuple[bool, str]:
-    'Probe ``strix --help`` for the launch flags the wrapper needs.'
+    """Probe ``strix --help`` for the launch flags the wrapper needs.
+
+    Fail closed if the installed strix does not advertise them —
+    a strix that prints usage and exits 0 is NOT a launch, and without this
+    probe the discovery costs the full gate-6 readiness window (60 s of a
+    session that never existed) or, on the old bare path, a green exit code.
+    Offline and local: --help spawns no agent and touches no network.
+    """
     import subprocess
 
     try:
@@ -315,8 +322,8 @@ def cmd_strix(args) -> int:
     if not ok:
         print(f"strix preflight failed: {why}\n"
               "refusing to launch: a strix that prints usage and exits 0 is "
-              "NOT a launch (qwen #2). Repair the install "
-              "(the internal tooling area strix-upgrade) and retry.",
+              "NOT a launch. Repair the install "
+              "(tools_anchor/provision.sh strix-upgrade) and retry.",
               file=sys.stderr)
         return 2
 

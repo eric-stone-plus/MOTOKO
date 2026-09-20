@@ -135,7 +135,7 @@ ADJUDICATE_PROMPT = """\
 3. 修复顺序按依赖链排（P0 依赖排序不受"不重排"约束）。
 4. 输出严格的修复清单，每项：编号 / 一句话内容 / 为什么这个顺序。
 5. 每项必须标注：severity（P0|HIGH|MEDIUM|LOW）、evidence（文件:行或数据
-   引用，不得空泛）、consensus（哪些审计腿独立发现了它，如 "both" / "qwen
+   引用，不得空泛）、consensus（哪些审计腿独立发现了它，如 "both" / "a leg
    only" / "single"）。你只有编排权，没有真伪终审权。
 
 最后一行输出 JSON（其余内容可自由发挥），fixes 每项字段严格如下：
@@ -854,7 +854,34 @@ class LoopRunner:
         return max(ran - failed - skipped, 0), failed, new_red
 
     def _static_analysis(self) -> tuple[int, int]:
-        'pyflakes over core/: (warnings, errors).\n\n        Two shapes are excluded on purpose, and both were making the metric\n        useless rather than making it lenient:\n\n        Everything else stays in, and it is the set that means "this code does\n        something other than what it says": undefined names, repeated dict keys,\n        unused locals, f-strings with nothing in them. ``tests/\n        test_lint_engine.py`` fails the suite on the same classes across core/,\n        motoko_workbench/, tests/ and scripts/, so a non-zero here is residue\n        that gate cannot see — which is worth a round record, not a shrug.\n\n        Falls back to (0, 0) when pyflakes is unavailable or the walk finds\n        nothing: a missing linter must not fabricate metric values. That does\n        leave (0, 0) ambiguous between "clean" and "unmeasured", which is\n        tolerable only because tests/test_lint_engine.py imports pyflakes at\n        module scope — a venv without it fails the suite loudly rather than\n        reporting a clean round. (The docstring this replaced claimed the error\n        was captured; nothing ever captured it.)\n        '
+        """pyflakes over core/: (warnings, errors).
+
+        Two shapes are excluded on purpose, and both were making the metric
+        useless rather than making it lenient:
+
+        * vendored sources under ``core/tools_anchor/strix-patches`` — anchored
+          by hash, not ours to fix in place, so counting them put a permanent
+          non-zero in every round record;
+        * ``imported but unused`` — ``core/parsers/__init__.py`` imports
+          nineteen modules purely for their ``@register`` side effect, which
+          pyflakes cannot tell from a leftover. That is a constant
+          nineteen-warning floor under a number that is supposed to move.
+
+        Everything else stays in, and it is the set that means "this code does
+        something other than what it says": undefined names, repeated dict keys,
+        unused locals, f-strings with nothing in them. ``tests/
+        test_lint_engine.py`` fails the suite on the same classes across core/,
+        motoko_workbench/, tests/ and scripts/, so a non-zero here is residue
+        that gate cannot see — which is worth a round record, not a shrug.
+
+        Falls back to (0, 0) when pyflakes is unavailable or the walk finds
+        nothing: a missing linter must not fabricate metric values. That does
+        leave (0, 0) ambiguous between "clean" and "unmeasured", which is
+        tolerable only because tests/test_lint_engine.py imports pyflakes at
+        module scope — a venv without it fails the suite loudly rather than
+        reporting a clean round. (The docstring this replaced claimed the error
+        was captured; nothing ever captured it.)
+        """
         paths = [str(p)
                  for p in sorted((self.engine_root / "core").rglob("*.py"))
                  if not _LINT_EXCLUDE_PARTS.intersection(p.parts)]
