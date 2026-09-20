@@ -73,6 +73,17 @@ no agent, no forwarding and no PTY. Model inputs travel inside encrypted JSON;
 the remote command is fixed. This creates no MOTOKO HTTP listener. MCP can
 also use stdio or encrypted transports, but is not part of this implementation.
 
+The SSH lane runs over whatever network the operator provides. A headless scan
+host with no public listener is the normal shape, and an overlay network such
+as [Tailscale](https://github.com/tailscale/tailscale) is one way to reach it:
+the boundary becomes the private network, so the pinned known-hosts file stays
+small and stable and no port is published. That is a property of the operator's
+network, not of this engine — Tailscale is cited as a tool in
+[INSTRUMENTS.md](INSTRUMENTS.md), the engine never invokes it, and the SSH
+posture above is identical with or without it. Whatever carries the transport,
+encryption of the channel says nothing about the scanner's egress route, which
+is a separate control.
+
 The supervisor keeps stdin open until the response. Closure cancels active
 engine work; SSH keepalives and the engine wall deadline bound network-loss
 handling. Cancellation reaps recorded scanner groups, closes tool rows,
