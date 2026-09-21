@@ -459,13 +459,18 @@ def _commit_section(out: dict, name: str | None, items: list, single: dict) -> N
 
 # -- protocol adapters --------------------------------------------------
 
-def call_endpoint(ep: LLMEndpoint, prompt: str) -> str | dict:
+def call_endpoint(ep: LLMEndpoint, prompt: str) -> dict:
     """Call one endpoint leg.
 
-    Returns the transcript text; the cli protocol returns a dict with
-    {text, exit_code, stderr} because a CLI leg's failure metadata (exit
-    code, stderr) must survive into leg-meta.json instead of being
-    collapsed into the report text.
+    Every protocol returns ONE dict shape so per-leg telemetry needs no
+    isinstance dance: {"text", "duration_ms", "usage": {"input_tokens",
+    "output_tokens"}, "stop_reason"}, and a cli leg adds {"exit_code",
+    "stderr"} because its failure metadata must survive into leg-meta.json
+    instead of being collapsed into the report text. usage is read off the
+    wire when the lane reports it (anthropic: message_start /
+    message_delta events; openai: a stream_options.include_usage chunk)
+    and stays None-valued when the lane does not report — telemetry is
+    measured, never fabricated.
     """
     if ep.protocol == "openai":
         return _call_openai(ep, prompt)
@@ -476,11 +481,15 @@ def call_endpoint(ep: LLMEndpoint, prompt: str) -> str | dict:
     raise ValueError(f"unknown protocol {ep.protocol!r}")
 
 
-def _call_openai(ep: LLMEndpoint, prompt: str) -> str:
+def _call_openai(ep: LLMEndpoint, prompt: str) -> dict:
+    started = time.monotonic()
     body = json.dumps({
         "model": ep.model,
         "messages": [{"role": "user", "content": prompt}],
         "stream": True,
+        # ask the lane for a final usage chunk; a lane that ignores the
+        # option simply never sends one and usage stays None
+        "stream_options": {"include_usage": True},
     }).encode("utf-8")
     req = urllib.request.Request(
         ep.base_url.rstrip("/") + "/chat/completions", data=body,
@@ -488,6 +497,8 @@ def _call_openai(ep: LLMEndpoint, prompt: str) -> str:
                  "Content-Type": "application/json"}, method="POST")
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     parts: list[str] = []
+    usage: dict = {"input_tokens": None, "output_tokens": None}
+    stop_reason = None
     with opener.open(req, timeout=ep.timeout) as resp:
         for raw in resp:
             line = raw.decode("utf-8", "replace").strip()
@@ -506,10 +517,19 @@ def _call_openai(ep: LLMEndpoint, prompt: str) -> str:
                 content = delta.get("content")
                 if content:
                     parts.append(content)
-    return "".join(parts)
+                if choices[0].get("finish_reason"):
+                    stop_reason = choices[0]["finish_reason"]
+            u = ev.get("usage")
+            if u:
+                usage = {"input_tokens": u.get("prompt_tokens"),
+                         "output_tokens": u.get("completion_tokens")}
+    return {"text": "".join(parts),
+            "duration_ms": int((time.monotonic() - started) * 1000),
+            "usage": usage, "stop_reason": stop_reason}
 
 
-def _call_anthropic(ep: LLMEndpoint, prompt: str) -> str:
+def _call_anthropic(ep: LLMEndpoint, prompt: str) -> dict:
+    started = time.monotonic()
     body: dict = {
         "model": ep.model,
         "max_tokens": 40960,
@@ -521,10 +541,12 @@ def _call_anthropic(ep: LLMEndpoint, prompt: str) -> str:
     req = urllib.request.Request(
         ep.base_url.rstrip("/") + "/v1/messages", data=wire,
         headers={"x-api-key": ep.resolve_key(),
-                 "anthropic-version": "2023-06-01",
-                 "Content-Type": "application/json"}, method="POST")
+                  "anthropic-version": "2023-06-01",
+                  "Content-Type": "application/json"}, method="POST")
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     parts: list[str] = []
+    usage: dict = {"input_tokens": None, "output_tokens": None}
+    stop_reason = None
     with opener.open(req, timeout=ep.timeout) as resp:
         for raw in resp:
             line = raw.decode("utf-8", "replace").strip()
@@ -534,22 +556,41 @@ def _call_anthropic(ep: LLMEndpoint, prompt: str) -> str:
                 ev = json.loads(line[5:].strip())
             except json.JSONDecodeError:
                 continue
-            if ev.get("type") == "content_block_delta":
+            etype = ev.get("type")
+            if etype == "content_block_delta":
                 d = ev.get("delta") or {}
                 if d.get("type") == "text_delta":
                     parts.append(d.get("text", ""))
-            elif ev.get("type") == "message_stop":
+            elif etype == "message_start":
+                u = (ev.get("message") or {}).get("usage") or {}
+                if u.get("input_tokens") is not None:
+                    usage["input_tokens"] = u["input_tokens"]
+                if u.get("output_tokens") is not None:
+                    usage["output_tokens"] = u["output_tokens"]
+            elif etype == "message_delta":
+                # message_delta carries the CUMULATIVE output_tokens and
+                # the terminal stop_reason — overwrite, never add.
+                u = ev.get("usage") or {}
+                if u.get("output_tokens") is not None:
+                    usage["output_tokens"] = u["output_tokens"]
+                d = ev.get("delta") or {}
+                if d.get("stop_reason"):
+                    stop_reason = d["stop_reason"]
+            elif etype == "message_stop":
                 break
-    return "".join(parts)
+    return {"text": "".join(parts),
+            "duration_ms": int((time.monotonic() - started) * 1000),
+            "usage": usage, "stop_reason": stop_reason}
 
 
 def _call_cli(ep: LLMEndpoint, prompt: str) -> dict:
     'Run a cli-protocol leg. Returns the transcript plus meta (exit code,\n    stderr) so a failed leg is archived instead of silently half-reported.'
     if not ep.command:
         raise ValueError("cli endpoint needs a command list")
+    started = time.monotonic()
     if ep.prompt_file_flag:
         fd, ppath = tempfile.mkstemp(prefix="motoko-prompt-",
-                                     suffix=".txt")
+                                      suffix=".txt")
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as fh:
                 fh.write(prompt)
@@ -562,7 +603,10 @@ def _call_cli(ep: LLMEndpoint, prompt: str) -> dict:
             except OSError:
                 pass
         return {"text": proc.stdout or proc.stderr,
-                "exit_code": proc.returncode, "stderr": proc.stderr}
+                "exit_code": proc.returncode, "stderr": proc.stderr,
+                "duration_ms": int((time.monotonic() - started) * 1000),
+                "usage": {"input_tokens": None, "output_tokens": None},
+                "stop_reason": None}
     sent = prompt
     size = len(prompt.encode("utf-8", "replace"))
     if size > _CLI_ARGV_LIMIT:
@@ -574,7 +618,10 @@ def _call_cli(ep: LLMEndpoint, prompt: str) -> dict:
         [*ep.command, sent], capture_output=True, text=True,
         timeout=ep.timeout)
     return {"text": proc.stdout or proc.stderr,
-            "exit_code": proc.returncode, "stderr": proc.stderr}
+            "exit_code": proc.returncode, "stderr": proc.stderr,
+            "duration_ms": int((time.monotonic() - started) * 1000),
+            "usage": {"input_tokens": None, "output_tokens": None},
+            "stop_reason": None}
 
 
 # -- loop orchestration -------------------------------------------------
@@ -613,17 +660,18 @@ class LoopRunner:
                           "protocol": ep.protocol, "model": ep.model,
                           "lens": ep.lens or "generic",
                           "exit_code": 0, "stderr": "",
-                          "stop_reason": None}
+                          "stop_reason": None,
+                          "duration_ms": None, "usage": None}
             try:
                 prompt = (_load_prompt(_audit_prompt_name(ep.lens))
                           + "\n\n" + bundle)
                 out = call_endpoint(ep, prompt)
-                if isinstance(out, dict):        # cli protocol
-                    meta["text"] = out["text"]
-                    meta["exit_code"] = out.get("exit_code", 0)
-                    meta["stderr"] = out.get("stderr", "")
-                else:
-                    meta["text"] = out
+                meta["text"] = out["text"]
+                meta["exit_code"] = out.get("exit_code", 0)
+                meta["stderr"] = out.get("stderr", "")
+                meta["stop_reason"] = out.get("stop_reason")
+                meta["duration_ms"] = out.get("duration_ms")
+                meta["usage"] = out.get("usage")
             except Exception as e:               # noqa: BLE001 - leg isolation
                 meta["exit_code"] = 1
                 meta["stderr"] = f"{type(e).__name__}: {e}"
@@ -756,20 +804,35 @@ class LoopRunner:
                 body += (f"\n\n# Audit leg {meta['index']}"
                          f" ({meta['name']}, lens {meta['lens']})"
                          f"\n\n{meta['text']}")
+            adj_meta: dict = {"name": self.adjudicator.name,
+                              "protocol": self.adjudicator.protocol,
+                              "model": self.adjudicator.model,
+                              "exit_code": 0, "stderr": "",
+                              "stop_reason": None,
+                              "duration_ms": None, "usage": None}
             try:
                 out = call_endpoint(self.adjudicator, body)
-                adjudication = out if isinstance(out, str) else out["text"]
-                exit_code = out.get("exit_code") if isinstance(out, dict) else 0
+                adjudication = out["text"]
+                exit_code = out.get("exit_code", 0)
+                adj_meta.update({
+                    "exit_code": exit_code,
+                    "stderr": out.get("stderr", ""),
+                    "stop_reason": out.get("stop_reason"),
+                    "duration_ms": out.get("duration_ms"),
+                    "usage": out.get("usage")})
             except (urllib.error.URLError, urllib.error.HTTPError,
                     subprocess.SubprocessError, ValueError) as e:
                 adjudication = (f"(adjudicator failed: "
                                 f"{type(e).__name__}: {e})")
                 exit_code = 1
+                adj_meta.update({"exit_code": 1,
+                                 "stderr": f"{type(e).__name__}: {e}"})
             (out_dir / "adjudication.md").write_text(adjudication)
-            if exit_code:
-                (out_dir / "adjudicator-meta.json").write_text(json.dumps(
-                    {"name": self.adjudicator.name, "exit_code": exit_code},
-                    ensure_ascii=False, indent=2))
+            # telemetry rides along on success too — the meta file is the
+            # per-round account of what the adjudication cost (duration,
+            # tokens), not only a failure record
+            (out_dir / "adjudicator-meta.json").write_text(json.dumps(
+                adj_meta, ensure_ascii=False, indent=2))
             verdict, fixes = _parse_verdict(adjudication)
             (out_dir / "fix-list.json").write_text(json.dumps(
                 {"verdict": verdict, "fixes": fixes}, ensure_ascii=False,
