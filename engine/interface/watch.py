@@ -1,10 +1,10 @@
 """``motoko watch`` — Rich Live fullscreen rotator tier (DESIGN section 0, tier 2).
 
 The minimal real-time layer for machines that have rich but not Textual: a
-1s poll loop collects one frozen :class:`WorkbenchSnapshot` per tick in a
+1s poll loop collects one frozen :class:`InterfaceSnapshot` per tick in a
 worker thread (crash isolation, design section 2: a failing/stalling
 collector never takes the UI down) and Rich Live repaints a rotating stack
-of panel renderables built from :mod:`motoko_workbench.render.panels` —
+of panel renderables built from :mod:`interface.render.panels` —
 page 0 is the OVERVIEW wall (engagements table + run progress + feed tail),
 page 1 the ENGAGEMENT drill-down (cooldowns/legs/gates). The page flips
 every ``rotate_after`` ticks; ``q`` or Ctrl-C exits cleanly.
@@ -18,7 +18,7 @@ Graceful degradation (design P4/P6):
 - without rich the module still imports (the poll loop is stdlib-only) and
   :func:`run_watch` falls back to printing one one-shot status frame.
 
-``--theme`` is resolved through :mod:`motoko_workbench.render.theme`
+``--theme`` is resolved through :mod:`interface.render.theme`
 (built-in name or key=value file). Because panels.py bakes token colors
 into the Text objects inline, a ``rich.Console(theme=...)`` mapping is
 applied *additionally* (token names as rich style names) so future
@@ -49,8 +49,8 @@ import threading
 import time
 from collections.abc import Callable
 
-from motoko_workbench.collectors import build_workbench_snapshot
-from motoko_workbench.snapshot import WorkbenchSnapshot
+from interface.collectors import build_interface_snapshot
+from interface.snapshot import InterfaceSnapshot
 
 try:  # the poll loop below is stdlib-only; rich is needed for rendering only
     from rich.console import Console, Group
@@ -58,15 +58,15 @@ try:  # the poll loop below is stdlib-only; rich is needed for rendering only
     from rich.text import Text
     from rich.theme import Theme as RichTheme
 
-    from motoko_workbench.render import panels
-    from motoko_workbench.render.theme import Theme, get_builtin_theme, load_theme_file
+    from interface.render import panels
+    from interface.render.theme import Theme, get_builtin_theme, load_theme_file
 
     RICH_AVAILABLE = True
 except ImportError:  # pragma: no cover - degraded path is covered via monkeypatch
     RICH_AVAILABLE = False
 
 #: The cli.py seam: any zero-arg callable returning one consistent frame.
-Provider = Callable[[], WorkbenchSnapshot]
+Provider = Callable[[], InterfaceSnapshot]
 
 DEFAULT_POLL_S = 1.0
 """One poll per second (design section 6: global tick 1s)."""
@@ -104,7 +104,7 @@ __all__ = [
 
 def poll_once(
     provider: Provider, *, timeout_s: float = POLL_TIMEOUT_S
-) -> tuple[WorkbenchSnapshot | None, str | None]:
+) -> tuple[InterfaceSnapshot | None, str | None]:
     """Run ``provider`` in a worker thread; return ``(snapshot, error)``.
 
     Exactly one half of the pair is meaningful: a successful poll returns
@@ -153,7 +153,7 @@ class WatchLoop:
         self.poll_interval_s = poll_interval_s
         self.poll_timeout_s = poll_timeout_s
         self.tick_count = 0
-        self.snapshot: WorkbenchSnapshot | None = None
+        self.snapshot: InterfaceSnapshot | None = None
         self.error: str | None = None
         self.stop_requested = False
 
@@ -320,12 +320,12 @@ def run_watch(
         root = getattr(args, "root", None)
         demo = bool(getattr(args, "demo", False))
 
-        def resolved() -> WorkbenchSnapshot:
-            return build_workbench_snapshot(root, demo)
+        def resolved() -> InterfaceSnapshot:
+            return build_interface_snapshot(root, demo)
 
     if not RICH_AVAILABLE:
         # graceful degradation: no rich -> print one one-shot frame and exit
-        from motoko_workbench.status import render_status
+        from interface.status import render_status
 
         print(render_status(resolved()))
         return 0

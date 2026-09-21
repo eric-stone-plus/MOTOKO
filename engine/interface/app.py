@@ -1,4 +1,4 @@
-"""The MOTOKO workbench — Textual application (design/DESIGN.md sections 3, 5, 6).
+"""The MOTOKO interface — Textual application (design/DESIGN.md sections 3, 5, 6).
 
 Three screens plus overlays:
 
@@ -47,18 +47,19 @@ from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.coordinate import Coordinate
 from textual.css.query import NoMatches
 from textual.screen import ModalScreen, Screen
-from textual.widgets import Button, DataTable, Footer, Input, RichLog, Static
+from textual.widget import Widget
+from textual.widgets import Button, DataTable, Footer, Input, OptionList, RichLog, Static
 from textual.widgets.data_table import CellDoesNotExist, ColumnKey, RowDoesNotExist
 from textual.worker import Worker
 
-from motoko_workbench.render import panels
-from motoko_workbench.render.theme import (
+from interface.render import panels
+from interface.render.theme import (
     Theme,
     get_builtin_theme,
     letter_flags,
     load_theme_file,
 )
-from motoko_workbench.snapshot import EngagementSnapshot, Event, WorkbenchSnapshot
+from interface.snapshot import EngagementSnapshot, Event, InterfaceSnapshot
 
 
 def _sort_order_key(key: str):
@@ -74,7 +75,7 @@ def _sort_order_key(key: str):
 class SnapshotProvider(Protocol):
     """Anything callable that returns one consistent snapshot frame."""
 
-    def __call__(self) -> WorkbenchSnapshot: ...
+    def __call__(self) -> InterfaceSnapshot: ...
 
 
 TICK_S = 1.0
@@ -114,17 +115,21 @@ _ARGLESS_COMMANDS = frozenset(
 # ---------------------------------------------------------------------------
 
 
-class WorkbenchScreen(Screen):
+class InterfaceScreen(Screen):
     """Base for main screens: hosts the ``:`` command bar and ``?`` help."""
 
     BINDINGS = [
-        Binding("colon", "command_bar", ": command", show=False, priority=True),
-        Binding("question_mark", "app.help_overlay", "? help", show=False),
+        Binding("colon", "command_bar", "Command", show=False),
+        Binding("question_mark", "app.help_overlay", "Help", show=False),
         Binding("escape", "escape_or_close", show=False),
     ]
 
     #: selector of the widget to (re)focus when overlays close
     body_focus: str = "#detail"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._bar_focus: Widget | None = None
 
     def command_bar(self) -> Input:
         """The screen's command bar input."""
@@ -141,13 +146,25 @@ class WorkbenchScreen(Screen):
 
     def focus_body(self) -> None:
         """Focus the screen's primary widget (kept across overlay close)."""
+        previous, self._bar_focus = self._bar_focus, None
+        if previous is not None and previous.is_mounted and previous.focusable:
+            previous.focus()
+            return
         try:
             self.query_one(self.body_focus).focus()
         except NoMatches:
             pass
 
     def action_command_bar(self) -> None:
-        bar = self.command_bar()
+        self.open_bar(self.command_bar())
+
+    def open_bar(self, bar: Input) -> None:
+        """Show one input at a time and restore its originating pane on close."""
+        if not isinstance(self.focused, Input):
+            self._bar_focus = self.focused
+        for other in self.query("#command-bar, #filter-bar"):
+            if other is not bar:
+                other.remove_class("visible")
         bar.add_class("visible")
         bar.focus()
 
@@ -177,25 +194,25 @@ class WorkbenchScreen(Screen):
         self.app.run_command(value)
 
 
-class OverviewScreen(WorkbenchScreen):
+class OverviewScreen(InterfaceScreen):
     """DESIGN section 3.1 — the box-grid overview wall (default screen)."""
 
     body_focus = "#engagements"
 
     BINDINGS = [
-        Binding("s", "sort", "s sort"),
-        Binding("j", "cursor_down", "j down"),
-        Binding("k", "cursor_up", "k up"),
-        Binding("slash", "filter_bar", "/ filter"),
-        Binding("n", "match_next", "n next match"),
-        Binding("N", "match_previous", "N prev match"),
-        Binding("f", "follow_toggle", "f follow"),
-        Binding("c", "copy_summary", "c copy summary"),
-        Binding("v", "event_log", "v event log"),
+        Binding("s", "sort", "Sort"),
+        Binding("j", "cursor_down", "Down", show=False),
+        Binding("k", "cursor_up", "Up", show=False),
+        Binding("slash", "filter_bar", "Filter"),
+        Binding("n", "match_next", "Next match", show=False),
+        Binding("N", "match_previous", "Previous match", show=False),
+        Binding("f", "follow_toggle", "Follow"),
+        Binding("c", "copy_summary", "Copy", show=False),
+        Binding("v", "event_log", "Events"),
         # Shadows the base screen's hidden escape binding (same action, so the
         # close-command-bar / close-filter chain is unchanged) purely to give
         # the footer a visible quit affordance on this screen only.
-        Binding("escape", "escape_or_close", "esc quit (confirm)"),
+        Binding("escape", "escape_or_close", "Quit"),
     ]
 
     def handle_escape(self) -> None:
@@ -270,7 +287,7 @@ class OverviewScreen(WorkbenchScreen):
         """
         key, reverse = self.SORT_CYCLE[self._sort_pos % len(self.SORT_CYCLE)]
         self._sort_pos += 1
-        app: WorkbenchApp = self.app
+        app: InterfaceApp = self.app
         frame = app.snapshot
         if frame is None:
             return
@@ -289,8 +306,7 @@ class OverviewScreen(WorkbenchScreen):
         """``/`` — open the ENGAGEMENTS regex filter bar (DESIGN section 5.1)."""
         bar = self.filter_bar()
         bar.value = self.app._filter_text  # prefill: edit the active pattern
-        bar.add_class("visible")
-        bar.focus()
+        self.open_bar(bar)
 
     def action_escape_or_close(self) -> None:
         """esc closes the filter bar (and clears the filter) before the rest."""
@@ -320,7 +336,7 @@ class OverviewScreen(WorkbenchScreen):
         self._step_match(-1)
 
     def _step_match(self, delta: int) -> None:
-        app: WorkbenchApp = self.app
+        app: InterfaceApp = self.app
         if app._filter_re is None:
             app.notify("no filter active — press / first", severity="warning")
             return
@@ -336,7 +352,7 @@ class OverviewScreen(WorkbenchScreen):
 
     def action_follow_toggle(self) -> None:
         """``f`` — follow mode: the selection rides its row across rebuilds."""
-        app: WorkbenchApp = self.app
+        app: InterfaceApp = self.app
         app._follow = not app._follow
         if app._follow:
             app._follow_key = app._overview_cursor_key()
@@ -349,7 +365,7 @@ class OverviewScreen(WorkbenchScreen):
     @on(DataTable.RowHighlighted)
     def _row_highlighted(self, event: DataTable.RowHighlighted) -> None:
         """While following, the latch rides cursor movement (j/k/arrows/n/N)."""
-        app: WorkbenchApp = self.app
+        app: InterfaceApp = self.app
         if not app._follow:
             return
         key = event.row_key.value
@@ -364,7 +380,7 @@ class OverviewScreen(WorkbenchScreen):
 
     def action_copy_summary(self) -> None:
         """``c`` — copy the selected engagement's masked one-line summary."""
-        app: WorkbenchApp = self.app
+        app: InterfaceApp = self.app
         eng_id = app._overview_cursor_key()
         if eng_id is None:
             app.notify("no engagement selected", severity="warning")
@@ -392,7 +408,7 @@ class OverviewScreen(WorkbenchScreen):
 
     def action_event_log(self) -> None:
         '``v`` — event-log modal for the cursor-selected engagement.'
-        app: WorkbenchApp = self.app
+        app: InterfaceApp = self.app
         eng_id = app._overview_cursor_key()
         if eng_id is None:
             eng = app.current_engagement()
@@ -403,10 +419,37 @@ class OverviewScreen(WorkbenchScreen):
         app.push_screen(EventLogOverlay(eng_id))
 
 
-class EngagementScreen(WorkbenchScreen):
+class SectionList(OptionList):
+    """Keyboard and mouse navigation with stable, bounded section selection."""
+
+    BINDINGS = [
+        Binding("up,k", "cursor_up", "Previous section", show=False),
+        Binding("down,j", "cursor_down", "Next section", show=False),
+        Binding("enter", "select", "Detail"),
+        Binding("right", "screen.focus_detail", "Detail", show=False),
+    ]
+
+    def action_cursor_down(self) -> None:
+        self.highlighted = min((self.highlighted or 0) + 1, self.option_count - 1)
+
+    def action_cursor_up(self) -> None:
+        self.highlighted = max((self.highlighted or 0) - 1, 0)
+
+
+class DetailScroll(VerticalScroll):
+    """Keep scrolling local to the detail pane when it holds keyboard focus."""
+
+    BINDINGS = [
+        Binding("j", "scroll_down", "Scroll down", show=False),
+        Binding("k", "scroll_up", "Scroll up", show=False),
+        Binding("left", "screen.focus_sidebar", "Sections"),
+    ]
+
+
+class EngagementScreen(InterfaceScreen):
     """DESIGN section 3.2 — sidebar + detail drill-down (lazydocker-style)."""
 
-    body_focus = "#detail-scroll"
+    body_focus = "#sidebar"
     SECTIONS: tuple[str, ...] = (
         "overview",
         "hypotheses",
@@ -420,11 +463,14 @@ class EngagementScreen(WorkbenchScreen):
     )
 
     BINDINGS = [
-        Binding(str(n), f"section({n})", f"{n} {name}", show=False)
+        Binding(str(n), f"section({n})", name.capitalize(), show=False)
         for n, name in enumerate(SECTIONS, start=1)
     ] + [
         Binding("r", "app.refresh_now", "Refresh", show=False),
-        Binding("R", "reveal", "R reveal (audited)"),
+        Binding("left", "focus_sidebar", "Sections"),
+        Binding("right", "focus_detail", "Detail"),
+        Binding("escape", "escape_or_close", "Back"),
+        Binding("R", "reveal", "Reveal", show=False),
     ]
 
     def __init__(self) -> None:
@@ -435,14 +481,17 @@ class EngagementScreen(WorkbenchScreen):
     def compose(self) -> ComposeResult:
         yield Static(id="drill-head")
         with Horizontal(id="drill"):
-            yield Static(id="sidebar")
-            with VerticalScroll(id="detail-scroll"):
+            yield SectionList(*(f"{n}  {name}" for n, name in enumerate(self.SECTIONS, 1)),
+                              id="sidebar")
+            with DetailScroll(id="detail-scroll"):
                 yield Static(id="detail")
         yield from self.compose_command_bar()
         yield Footer()
 
     def on_mount(self) -> None:
+        self.query_one("#sidebar").border_title = "SECTIONS · ↑↓ / 1–9"
         self.rerender()
+        self.focus_body()
 
     def on_screen_resume(self) -> None:
         self.rerender()
@@ -452,12 +501,32 @@ class EngagementScreen(WorkbenchScreen):
         self.section_idx = 0
         if self.is_mounted:
             self.rerender()
+            self.query_one("#detail-scroll").scroll_home(animate=False)
 
     def action_section(self, n: int) -> None:
         """``1``-``9`` jump straight to a sidebar section (DESIGN section 5.1)."""
         if 1 <= n <= len(self.SECTIONS):
-            self.section_idx = n - 1
+            self.query_one("#sidebar", OptionList).highlighted = n - 1
+            self.action_focus_sidebar()
+
+    @on(OptionList.OptionHighlighted, "#sidebar")
+    def _section_highlighted(self, event: OptionList.OptionHighlighted) -> None:
+        event.stop()
+        if self.section_idx != event.option_index:
+            self.section_idx = event.option_index
             self.rerender()
+            self.query_one("#detail-scroll").scroll_home(animate=False)
+
+    @on(OptionList.OptionSelected, "#sidebar")
+    def _section_selected(self, event: OptionList.OptionSelected) -> None:
+        event.stop()
+        self.action_focus_detail()
+
+    def action_focus_sidebar(self) -> None:
+        self.query_one("#sidebar").focus()
+
+    def action_focus_detail(self) -> None:
+        self.query_one("#detail-scroll").focus()
 
     def handle_escape(self) -> None:
         self.app.goto_screen("overview")
@@ -479,28 +548,25 @@ class EngagementScreen(WorkbenchScreen):
             self.rerender()
 
     def rerender(self) -> None:
-        app: WorkbenchApp = self.app
-        theme = app.wb_theme
+        app: InterfaceApp = self.app
+        theme = app.ui_theme
         eng = app.current_engagement(self.engagement_id)
         head = self.query_one("#drill-head", Static)
         head.update(panels.run_progress_header(eng, theme))
-        sidebar_lines = Text()
-        for idx, name in enumerate(self.SECTIONS):
-            marker = "▸" if idx == self.section_idx else " "
-            style = theme.style("accent") if idx == self.section_idx else theme.style("text.muted")
-            sidebar_lines.append(f"{marker} {idx + 1} {name}\n", style=style)
-        self.query_one("#sidebar", Static).update(sidebar_lines)
+        self.query_one("#sidebar", OptionList).highlighted = self.section_idx
+        self.query_one("#detail-scroll").border_title = self.section.upper()
         detail = panels.detail_section(self.section, eng, theme)
         self.query_one("#detail", Static).update(detail)
 
 
-class ReportsScreen(WorkbenchScreen):
+class ReportsScreen(InterfaceScreen):
     """DESIGN section 3.3 — full-screen report (doctor / rules / digest)."""
 
     body_focus = "#report-scroll"
     BINDINGS = [
-        Binding("r", "force_refresh", "r force refresh"),
-        Binding("q", "back", "q back"),
+        Binding("r", "force_refresh", "Refresh"),
+        Binding("q", "back", "Back", show=False),
+        Binding("escape", "escape_or_close", "Back"),
     ]
 
     def __init__(self) -> None:
@@ -542,8 +608,8 @@ class ReportsScreen(WorkbenchScreen):
         self.rerender()
 
     def rerender(self) -> None:
-        app: WorkbenchApp = self.app
-        theme = app.wb_theme
+        app: InterfaceApp = self.app
+        theme = app.ui_theme
         head = Text()
         head.append(f"REPORT — :{self.kind}", style=f"bold {theme.style('panel.title')}")
         if self.arg:
@@ -558,7 +624,7 @@ class HelpOverlay(ModalScreen):
     """``?`` overlay — generated from the *live* keymap (k9s pattern)."""
 
     BINDINGS = [
-        Binding("escape", "dismiss", "esc close"),
+        Binding("escape", "dismiss", "Close"),
         Binding("question_mark", "dismiss", show=False),
     ]
 
@@ -574,7 +640,7 @@ class HelpOverlay(ModalScreen):
             yield Static("esc close · overlays: ? help  ⌃P palette  : command", id="help-foot")
 
     def _build_table(self) -> Table:
-        theme: Theme = self.app.wb_theme
+        theme: Theme = self.app.ui_theme
         table = Table.grid(padding=(0, 3))
         table.add_column(justify="right")
         table.add_column()
@@ -597,7 +663,7 @@ class HelpOverlay(ModalScreen):
 class EventLogOverlay(ModalScreen):
     '    One line per snapshot event, ``ts + kind + summary``: every line is the\n    already-redacted snapshot payload, so no new redaction (and no raw data\n    path) is needed here. Scrollable; esc closes.\n    '
 
-    BINDINGS = [Binding("escape", "dismiss", "esc close")]
+    BINDINGS = [Binding("escape", "dismiss", "Close")]
 
     def __init__(self, eng_id: str | None = None) -> None:
         super().__init__()
@@ -610,8 +676,8 @@ class EventLogOverlay(ModalScreen):
             yield Static("esc close", id="eventlog-foot")
 
     def on_mount(self) -> None:
-        app: WorkbenchApp = self.app
-        theme = app.wb_theme
+        app: InterfaceApp = self.app
+        theme = app.ui_theme
         eng = app.current_engagement(self._eng_id)
         tail = eng.events_tail if eng is not None else ()
         title = Text("EVENT LOG", style=f"bold {theme.style('panel.title')}")
@@ -640,16 +706,15 @@ class EventLogOverlay(ModalScreen):
 class ConfirmDialog(ModalScreen):
     """Structured confirm dialog (DESIGN section 5.3, oh-my-pi ``ask`` pattern).
 
-    Buttons + impact text + recommended default (Cancel). Fail-closed: esc or
+    Buttons + impact text. Fail-closed: esc or
     30s of silence resolve as Cancel — never as action.
 
-    Focus starts on Cancel and left/right cycle between the two buttons, so the
-    safe answer is what a bare Enter accepts and the dangerous one needs a
-    deliberate move.
+    Focus starts on Cancel without a colored choice. Navigation reveals the
+    focused choice in yellow; only activation resolves the dialog.
     """
 
     BINDINGS = [
-        Binding("escape", "cancel", "Cancel (safe default)"),
+        Binding("escape", "cancel", "Cancel"),
         Binding("left", "cycle_button", "Other button"),
         Binding("right", "cycle_button", "Other button"),
     ]
@@ -664,8 +729,9 @@ class ConfirmDialog(ModalScreen):
             yield Static(self._title, id="confirm-title")
             yield Static(self._impact, id="confirm-impact")
             with Horizontal(id="confirm-buttons"):
-                yield Button("Cancel (default)", variant="default", id="btn-cancel")
-                yield Button("Confirm", variant="warning", id="btn-confirm")
+                yield Button("Cancel", id="btn-cancel")
+                yield Button("Confirm", id="btn-confirm")
+            yield Static("← → choose · Enter accept · Esc cancel", id="confirm-hint")
 
     def on_mount(self) -> None:
         self.query_one("#btn-cancel", Button).focus()
@@ -684,6 +750,7 @@ class ConfirmDialog(ModalScreen):
         way to change the answer. With two buttons left and right are the same
         move, which is what "cycle" means here.
         """
+        self.add_class("choosing")
         buttons = (self.query_one("#btn-cancel", Button),
                    self.query_one("#btn-confirm", Button))
         try:
@@ -691,6 +758,13 @@ class ConfirmDialog(ModalScreen):
         except ValueError:
             idx = 0                  # focus is nowhere in particular: Cancel
         buttons[(idx + 1) % len(buttons)].focus()
+
+    def on_key(self, event) -> None:
+        if event.key in {"tab", "shift+tab"}:
+            self.add_class("choosing")
+
+    def on_mouse_down(self) -> None:
+        self.add_class("choosing")
 
     @on(Button.Pressed, "#btn-cancel")
     def _cancel(self) -> None:
@@ -706,17 +780,17 @@ class ConfirmDialog(ModalScreen):
 # ---------------------------------------------------------------------------
 
 
-class WorkbenchCommandProvider(Provider):
+class InterfaceCommandProvider(Provider):
     """Command palette provider: the same vocabulary as ``:`` command mode.
 
-    Recently executed commands (tracked by :meth:`WorkbenchApp.run_command`)
+    Recently executed commands (tracked by :meth:`InterfaceApp.run_command`)
     are ordered first, most recent first; the rest keep their stable
     definition order (DESIGN section 5.2, recents-first).
     """
 
     def _ordered_commands(self) -> list[tuple[str, str, object]]:
         """The command table with recents floated to the top (MRU first)."""
-        app: WorkbenchApp = self.app  # type: ignore[assignment]
+        app: InterfaceApp = self.app  # type: ignore[assignment]
         entries = {name: (name, help_text, callback)
                    for name, help_text, callback in self.commands()}
         ordered: list[tuple[str, str, object]] = []
@@ -728,7 +802,7 @@ class WorkbenchCommandProvider(Provider):
         return ordered
 
     def commands(self) -> list[tuple[str, str, object]]:
-        app: WorkbenchApp = self.app  # type: ignore[assignment]
+        app: InterfaceApp = self.app  # type: ignore[assignment]
         return [
             ("doctor", "REPORTS: doctor gate summary (v1 stub content)",
              lambda: app.run_command("doctor")),
@@ -754,7 +828,7 @@ class WorkbenchCommandProvider(Provider):
             yield DiscoveryHit(name, callback, help=help_text)
 
     async def search(self, query: str) -> Hits:
-        app: WorkbenchApp = self.app  # type: ignore[assignment]
+        app: InterfaceApp = self.app  # type: ignore[assignment]
         matcher = self.matcher(query)
         recents = set(app._recent_commands)
         for name, help_text, callback in self._ordered_commands():
@@ -773,11 +847,11 @@ class WorkbenchCommandProvider(Provider):
 # ---------------------------------------------------------------------------
 
 
-class WorkbenchApp(App[None]):
-    """The MOTOKO workbench application shell."""
+class InterfaceApp(App[None]):
+    """The MOTOKO interface application shell."""
 
-    TITLE = "MOTOKO workbench"
-    COMMANDS = App.COMMANDS | {WorkbenchCommandProvider}
+    TITLE = "MOTOKO"
+    COMMANDS = App.COMMANDS | {InterfaceCommandProvider}
 
     BINDINGS = [
         Binding("r", "refresh_now", "Refresh"),
@@ -824,20 +898,35 @@ class WorkbenchApp(App[None]):
     #drill-head { height: 1; padding: 0 1; color: $text; }
     #drill { height: 1fr; }
     #sidebar { width: 26; height: 1fr; border: tall $border-blurred; background: $panel; }
+    #sidebar:focus, #detail-scroll:focus, #engagements:focus, #feed:focus {
+        border: tall $accent;
+    }
     #detail-scroll { width: 1fr; border: tall $border-blurred; background: $panel; }
     #detail { padding: 0 1; }
     #report-head { height: 1; padding: 0 1; }
     #report-scroll { height: 1fr; border: tall $border-blurred; background: $panel; }
     #report-body { padding: 0 1; }
-    #help-box { width: 72; height: 70%; border: tall $border;
+    #help-box { width: 72; max-width: 95%; height: 70%; border: tall $border;
                 background: $panel; padding: 1 2; }
     #help-title { color: $text; }
     #help-foot { color: $text-muted; }
-    #confirm-box { width: 64; height: auto; border: tall $warning;
+    #confirm-box { width: 64; max-width: 95%; height: auto; max-height: 95%;
+                   overflow-y: auto; border: tall $border;
                    background: $panel; padding: 1 2; }
     #confirm-title { text-style: bold; color: $text; margin-bottom: 1; }
     #confirm-impact { color: $text; margin-bottom: 1; }
     #confirm-buttons { height: auto; align-horizontal: center; }
+    #confirm-buttons Button {
+        min-width: 12; margin: 0 1; background: $panel; color: $text;
+        border: tall $border-blurred; text-style: none; background-tint: transparent;
+    }
+    #confirm-buttons Button:hover { border: tall $warning; }
+    ConfirmDialog.choosing #confirm-buttons Button:focus {
+        background: $warning; color: $background;
+        border: tall $warning; text-style: bold;
+    }
+    #confirm-hint { color: $text-muted; text-align: center; margin-top: 1; }
+    #eventlog-box { max-width: 95%; }
     /* ModalScreen has no alignment of its own, so every overlay was pinned to
        the top-left corner of the terminal and read as a stray panel rather
        than a dialog. Centering is one rule for all three because they share
@@ -846,16 +935,16 @@ class WorkbenchApp(App[None]):
     Button { margin: 0 2; }
     """
 
-    def __init__(self, provider: SnapshotProvider, wb_theme: Theme | None = None,
+    def __init__(self, provider: SnapshotProvider, ui_theme: Theme | None = None,
                  theme_name: str | None = None) -> None:
         super().__init__()
         self._provider = provider
         self._provider_worker: Worker[None] | None = None
-        self.wb_theme: Theme = (
-            wb_theme or get_builtin_theme("motoko-dark")  # type: ignore[arg-type]
+        self.ui_theme: Theme = (
+            ui_theme or get_builtin_theme("motoko-dark")  # type: ignore[arg-type]
         )
-        self.theme_name = theme_name or self.wb_theme.name
-        self.snapshot: WorkbenchSnapshot | None = None
+        self.theme_name = theme_name or self.ui_theme.name
+        self.snapshot: InterfaceSnapshot | None = None
         self._tick = 0
         self._last_data_mono = time.monotonic()
         self._watched: str | None = None
@@ -888,7 +977,7 @@ class WorkbenchApp(App[None]):
         return self._overview
 
     def on_mount(self) -> None:
-        self._activate_theme(self.wb_theme)
+        self._activate_theme(self.ui_theme)
         self.install_screen(self._engagement, name="engagement")
         self.install_screen(self._reports, name="reports")
         self.set_interval(TICK_S, self._on_tick)
@@ -908,7 +997,7 @@ class WorkbenchApp(App[None]):
             "reports": self._reports,
         }
         if name not in targets:
-            raise ValueError(f"unknown workbench screen: {name!r}")
+            raise ValueError(f"unknown MOTOKO screen: {name!r}")
         target = targets[name]
         if self.screen is target:
             return
@@ -933,7 +1022,7 @@ class WorkbenchApp(App[None]):
 
         tokens = render_theme.tokens
         ttheme = TextualTheme(
-            name=f"wb-{render_theme.name}",
+            name=f"motoko-{render_theme.name}",
             primary=tokens.get("accent", "#4a9eff"),
             secondary=tokens.get("accent.muted", "#2b5f8f"),
             success=tokens.get("state.ok", "#8fd460"),
@@ -978,7 +1067,7 @@ class WorkbenchApp(App[None]):
                 raise
             # App shut down under us; nothing left to post to.
 
-    def _apply_snapshot(self, frame: WorkbenchSnapshot) -> None:
+    def _apply_snapshot(self, frame: InterfaceSnapshot) -> None:
         """Single mutation path for snapshot data (bubbletea discipline)."""
         previous_error = self.snapshot.collector_error if self.snapshot else None
         self.snapshot = frame
@@ -1082,7 +1171,7 @@ class WorkbenchApp(App[None]):
         if widget is None:
             return
         eng = self.current_engagement()
-        widget.update(panels.run_progress(eng, self.wb_theme))
+        widget.update(panels.run_progress(eng, self.ui_theme))
 
     def _update_small(self, panel_id: str) -> None:
         widget = self._overview_widget(f"#{panel_id}")
@@ -1090,16 +1179,16 @@ class WorkbenchApp(App[None]):
             return
         eng = self.current_engagement()
         if eng is None:
-            widget.update(Text("no data yet", style=self.wb_theme.style("text.muted")))
+            widget.update(Text("no data yet", style=self.ui_theme.style("text.muted")))
             return
         if panel_id == "hyp":
-            widget.update(panels.hypotheses(eng, self.wb_theme))
+            widget.update(panels.hypotheses(eng, self.ui_theme))
         elif panel_id == "funnel":
-            widget.update(panels.finding_funnel(eng, self.wb_theme))
+            widget.update(panels.finding_funnel(eng, self.ui_theme))
         elif panel_id == "legs":
-            widget.update(panels.legs_panel(eng, self.wb_theme, compact=True))
+            widget.update(panels.legs_panel(eng, self.ui_theme, compact=True))
         elif panel_id == "gates":
-            widget.update(panels.gates_panel(eng, self.wb_theme))
+            widget.update(panels.gates_panel(eng, self.ui_theme))
 
     def _update_engagements(self) -> None:
         """ENGAGEMENTS table with stable row keys + update_cell (no rebuild).
@@ -1120,7 +1209,7 @@ class WorkbenchApp(App[None]):
             if not self._matches_filter(eng):
                 continue
             seen.add(eng.id)
-            cells = panels.engagement_row_cells(eng, self.wb_theme)
+            cells = panels.engagement_row_cells(eng, self.ui_theme)
             if eng.id not in self._row_keys:
                 self._row_keys[eng.id] = table.add_row(*cells, key=eng.id)
                 added_new = True
@@ -1152,7 +1241,7 @@ class WorkbenchApp(App[None]):
             return True
         if self._filter_re.search(eng.id):
             return True
-        flags = letter_flags(panels.derive_flags(eng), self.wb_theme).plain
+        flags = letter_flags(panels.derive_flags(eng), self.ui_theme).plain
         return bool(self._filter_re.search(flags))
 
     def apply_filter(self, pattern: str) -> None:
@@ -1198,7 +1287,7 @@ class WorkbenchApp(App[None]):
         table.clear()
         self._row_keys.clear()
         for eng in ordered:
-            cells = panels.engagement_row_cells(eng, self.wb_theme)
+            cells = panels.engagement_row_cells(eng, self.ui_theme)
             self._row_keys[eng.id] = table.add_row(*cells, key=eng.id)
         self._apply_follow()
 
@@ -1242,7 +1331,7 @@ class WorkbenchApp(App[None]):
         if widget is None:
             return
         widget.update(panels.topbar(
-            self.snapshot, self.wb_theme, theme_name=self.theme_name,
+            self.snapshot, self.ui_theme, theme_name=self.theme_name,
             watched=self._watched, uptime_s=time.monotonic() - self._started_at,
         ))
 
@@ -1254,23 +1343,23 @@ class WorkbenchApp(App[None]):
             widget = self._overview_widget(f"#{panel_id}")
             if widget is None:
                 continue
-            title = Text(PANEL_TITLES[panel_id], style=self.wb_theme.style("panel.title"))
+            title = Text(PANEL_TITLES[panel_id], style=self.ui_theme.style("panel.title"))
             if panel_id == "feed":
                 title.append(f" ─ newest first · polled {age:.0f}s ago",
-                             style=self.wb_theme.style("text.muted"))
+                             style=self.ui_theme.style("text.muted"))
             if panel_id == "engagements":
                 # OVERVIEW table-verb state hints (DESIGN section 5.1).
                 if self._filter_text:
                     title.append(f" ─ filter: {self._filter_text}",
-                                 style=self.wb_theme.style("text.muted"))
+                                 style=self.ui_theme.style("text.muted"))
                 if self._follow:
-                    title.append("  ● follow", style=self.wb_theme.style("accent"))
+                    title.append("  ● follow", style=self.ui_theme.style("accent"))
             if age > STALE_CRIT_X * mult:
-                title.append("  ■ STALE", style=f"bold {self.wb_theme.style('state.crit')}")
+                title.append("  ■ STALE", style=f"bold {self.ui_theme.style('state.crit')}")
                 widget.add_class("stale-crit")
                 widget.remove_class("stale-warn")
             elif age > STALE_WARN_X * mult:
-                title.append("  ▲ stale?", style=self.wb_theme.style("state.stale"))
+                title.append("  ▲ stale?", style=self.ui_theme.style("state.stale"))
                 widget.add_class("stale-warn")
                 widget.remove_class("stale-crit")
             else:
@@ -1313,7 +1402,7 @@ class WorkbenchApp(App[None]):
         feed = self._overview_widget("#feed")
         if not self._feed_dirty or not isinstance(feed, RichLog):
             return
-        rows = [(*self._event_sort_key(event), panels.event_line(event, self.wb_theme))
+        rows = [(*self._event_sort_key(event), panels.event_line(event, self.ui_theme))
                 for event in self._feed_events.values()]
         rows.extend(self._feed_audits)
         rows.sort(key=lambda row: row[:2], reverse=True)
@@ -1327,7 +1416,7 @@ class WorkbenchApp(App[None]):
 
     def audit(self, summary: str) -> None:
         """Echo a UI audit line into the activity feed (P7; stub for v1)."""
-        theme = self.wb_theme
+        theme = self.ui_theme
         now = datetime.now().astimezone()
         line = Text(f"{now.isoformat(timespec='seconds')} ", style=theme.style("feed.ts"))
         line.append("ui.audit", style=theme.style("feed.kind_rule"))
@@ -1345,7 +1434,7 @@ class WorkbenchApp(App[None]):
     def _show_banner(self, text: str) -> None:
         widget = self._overview_widget("#banner")
         if widget is not None:
-            widget.update(Text(text, style=f"bold {self.wb_theme.style('state.crit')}"))
+            widget.update(Text(text, style=f"bold {self.ui_theme.style('state.crit')}"))
             widget.add_class("visible")
 
     def _hide_banner(self) -> None:
@@ -1398,7 +1487,7 @@ class WorkbenchApp(App[None]):
             state += " ▲ stale"
         hyps = sum(eng.hyps.values()) if eng.hyps else 0
         finds = sum(eng.findings.values()) if eng.findings else 0
-        flags = letter_flags(panels.derive_flags(eng), self.wb_theme).plain
+        flags = letter_flags(panels.derive_flags(eng), self.ui_theme).plain
         return f"{eng.id} {state} flags={flags} hyps={hyps} finds={finds}"
 
     def run_command(self, line: str) -> None:
@@ -1471,7 +1560,7 @@ class WorkbenchApp(App[None]):
             return
         builtin = get_builtin_theme(arg)
         if builtin is not None:
-            self.wb_theme, self.theme_name = builtin, builtin.name
+            self.ui_theme, self.theme_name = builtin, builtin.name
         else:
             try:
                 loaded, warnings = load_theme_file(arg)
@@ -1480,20 +1569,18 @@ class WorkbenchApp(App[None]):
                 return
             for warning in warnings:
                 self.notify(warning, severity="warning")
-            self.wb_theme, self.theme_name = loaded, loaded.name
-        self._activate_theme(self.wb_theme)
+            self.ui_theme, self.theme_name = loaded, loaded.name
+        self._activate_theme(self.ui_theme)
         self.audit(f"ui.theme '{self.theme_name}'")
         self.notify(f"theme: {self.theme_name}")
 
     def action_confirm_quit(self) -> None:
         ''
         dialog = ConfirmDialog(
-            title="quit the workbench ?",
+            title="Quit MOTOKO?",
             impact=(
-                "Effect: close this monitor session only — the workbench is "
-                "read-only, so engines, runners and graphs keep running "
-                "untouched.\n"
-                f"Fail-closed: no answer within {CONFIRM_TIMEOUT_S:.0f}s = Cancel."
+                "Close this monitor session. Running scans continue.\n"
+                f"No response within {CONFIRM_TIMEOUT_S:.0f}s cancels."
             ),
         )
         self.push_screen(dialog, self._on_quit_confirmed)

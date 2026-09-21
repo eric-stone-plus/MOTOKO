@@ -10,8 +10,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
-from motoko_workbench.render.redact import origin_label, redact_text
-from motoko_workbench.snapshot import Cooldown, LegStatus
+from interface.render.redact import origin_label, redact_text
+from interface.snapshot import Cooldown, LegStatus
 
 LIVE_WINDOW_S = 120.0
 """Heartbeat/WAL age below which an unsealed engagement counts as live."""

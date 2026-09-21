@@ -1,4 +1,4 @@
-'Render layer for the MOTOKO workbench.\n\nFramework-independent: pure functions from frozen snapshot dataclasses to\nRich renderables (:mod:`.panels`), plus theme tokens (:mod:`.theme`) and the\nP5 redaction helpers (:mod:`.redact`). No Textual import anywhere in this\npackage, so a future Rich-Live ``motoko watch`` tier can reuse everything.'
+'Render layer for the MOTOKO interface.\n\nFramework-independent: pure functions from frozen snapshot dataclasses to\nRich renderables (:mod:`.panels`), plus theme tokens (:mod:`.theme`) and the\nP5 redaction helpers (:mod:`.redact`). No Textual import anywhere in this\npackage, so a future Rich-Live ``motoko watch`` tier can reuse everything.'
 
 from __future__ import annotations
 

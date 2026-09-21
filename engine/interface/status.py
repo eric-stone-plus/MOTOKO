@@ -1,6 +1,6 @@
 """``motoko status`` — one-shot summary tier (DESIGN section 0, tier 1).
 
-Renders one frozen :class:`WorkbenchSnapshot` as a compact static table and
+Renders one frozen :class:`InterfaceSnapshot` as a compact static table and
 exits: the cron/script/SSH glance whose zero-dependency claim is binding.
 Rich is used for table layout *only when importable*; every path degrades
 to a plain ASCII table rendered by stdlib code, so the tier stays usable in
@@ -13,7 +13,7 @@ arrives pre-redacted upstream (collectors -> render.redact) and event
 summaries are contract-safe, so they render as-is; the only free text that
 is NOT contract-clean — the heartbeat message (a raw engine-written file)
 and the collector error string — passes through
-:func:`motoko_workbench.render.redact.redact_text` as belt-and-braces. No
+:func:`interface.render.redact.redact_text` as belt-and-braces. No
 filesystem, no network, no subprocess is touched.
 
 stdlib + rich(-if-present) only; no Textual import.
@@ -36,13 +36,13 @@ import time
 from collections.abc import Callable
 from typing import TextIO
 
-from motoko_workbench.collectors import build_workbench_snapshot
-from motoko_workbench.render.redact import redact_text
-from motoko_workbench.snapshot import (
+from interface.collectors import build_interface_snapshot
+from interface.render.redact import redact_text
+from interface.snapshot import (
     HYP_STATES,
     EngagementSnapshot,
     GatesSummary,
-    WorkbenchSnapshot,
+    InterfaceSnapshot,
 )
 
 try:  # rich is layout sugar for this tier, never a requirement
@@ -53,7 +53,7 @@ except ImportError:  # pragma: no cover - simulated via monkeypatch in tests
     _HAVE_RICH = False
 
 #: The cli.py seam: any zero-arg callable returning one consistent frame.
-Provider = Callable[[], WorkbenchSnapshot]
+Provider = Callable[[], InterfaceSnapshot]
 
 #: Column model of the summary table (order is fixed; both render paths align).
 STATUS_HEADERS: tuple[str, ...] = (
@@ -73,7 +73,7 @@ __all__ = [
 ]
 
 
-def render_status(snapshot: WorkbenchSnapshot) -> str:
+def render_status(snapshot: InterfaceSnapshot) -> str:
     """Render one snapshot as a compact summary string (pure, no printing).
 
     Uses a rich-rendered boxed table when rich is importable, otherwise the
@@ -87,7 +87,7 @@ def render_status(snapshot: WorkbenchSnapshot) -> str:
     return render_status_plain(snapshot)
 
 
-def render_status_plain(snapshot: WorkbenchSnapshot) -> str:
+def render_status_plain(snapshot: InterfaceSnapshot) -> str:
     """Render the summary with stdlib only — the zero-dependency fallback.
 
     Never touches rich, so it works with rich absent; the returned string is
@@ -118,7 +118,7 @@ def render_status_and_print(
 
     ``args`` needs ``demo`` (bool) and ``root`` (Path | None) attributes only
     (both read defensively via getattr). ``provider`` overrides the default
-    ``build_workbench_snapshot(root, demo)`` for tests. Never raises on
+    ``build_interface_snapshot(root, demo)`` for tests. Never raises on
     collector problems: failures arrive inside the snapshot (design section
     2, crash isolation).
     """
@@ -126,8 +126,8 @@ def render_status_and_print(
         root = getattr(args, "root", None)
         demo = bool(getattr(args, "demo", False))
 
-        def provider() -> WorkbenchSnapshot:
-            return build_workbench_snapshot(root, demo)
+        def provider() -> InterfaceSnapshot:
+            return build_interface_snapshot(root, demo)
 
     print(render_status(provider()), file=out if out is not None else sys.stdout)
     return 0
@@ -137,7 +137,7 @@ def render_status_and_print(
 
 
 def _status_parts(
-    snapshot: WorkbenchSnapshot,
+    snapshot: InterfaceSnapshot,
 ) -> tuple[str, list[tuple[str, ...]], list[str]]:
     """Single content source for both render paths: header, rows, notes."""
     rows = [_engagement_row(eng) for eng in snapshot.engagements]
@@ -151,7 +151,7 @@ def _status_parts(
     return _header_line(snapshot), rows, notes
 
 
-def _header_line(snapshot: WorkbenchSnapshot) -> str:
+def _header_line(snapshot: InterfaceSnapshot) -> str:
     stamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(snapshot.taken_at))
     return f"MOTOKO status - {stamp} - {len(snapshot.engagements)} engagement(s)"
 
@@ -195,7 +195,7 @@ def _flags_cell(eng: EngagementSnapshot) -> str:
     event observed in the engagement's tail. ``L`` (lane saturation) has no
     observable data source yet and never appears (P6, see derive_flags).
     """
-    from motoko_workbench.snapshot import STUCK_AFTER_S
+    from interface.snapshot import STUCK_AFTER_S
 
     active = {
         "C": bool(eng.cooldowns),
@@ -222,7 +222,7 @@ def _fmt_age(seconds: float | None) -> str:
     return f"{total}s"
 
 
-def _followed_notes(snapshot: WorkbenchSnapshot, *, limit: int = 4) -> list[str]:
+def _followed_notes(snapshot: InterfaceSnapshot, *, limit: int = 4) -> list[str]:
     """Active cooldowns and newest feed lines of the followed engagement.
 
     Follows the first live engagement, else the first one (same rule as
@@ -251,7 +251,7 @@ def _followed_notes(snapshot: WorkbenchSnapshot, *, limit: int = 4) -> list[str]
     return notes
 
 
-def _followed(snapshot: WorkbenchSnapshot) -> EngagementSnapshot | None:
+def _followed(snapshot: InterfaceSnapshot) -> EngagementSnapshot | None:
     for eng in snapshot.engagements:
         if eng.live:
             return eng
@@ -261,7 +261,7 @@ def _followed(snapshot: WorkbenchSnapshot) -> EngagementSnapshot | None:
 # ------------------------------------------------------- rich layout sugar
 
 
-def _rich_status(snapshot: WorkbenchSnapshot) -> str | None:
+def _rich_status(snapshot: InterfaceSnapshot) -> str | None:
     """Render the same content through a rich boxed grid (no ANSI escapes).
 
     Returns None when rich cannot be imported after all (import-time probe

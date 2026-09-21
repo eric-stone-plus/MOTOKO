@@ -14,13 +14,13 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pyflakes>=3"]
-workbench = ["textual>=8.2"]
+interface = ["textual>=8.2"]
 
 [project.scripts]
 motoko = "core.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["core*", "motoko_workbench*"]
+include = ["core*", "interface", "interface.collectors", "interface.render"]
 
 # Rule packs travel inside the wheel and are found beside the installed package.
 [tool.setuptools.package-data]

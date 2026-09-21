@@ -112,7 +112,7 @@ class AdapterClient:
         # stdin and can exit on its own, and the descriptors stop outliving the
         # handle. Popen closes neither for us — leaving that to the collector
         # leaked one reader and one writer per spawn (ResourceWarning at
-        # interpreter exit; in a long-lived workbench that respawns on every
+        # interpreter exit; in a long-lived interface that respawns on every
         # failed handshake, an fd ceiling).
         for stream in (proc.stdin, proc.stdout, proc.stderr):
             if stream is None:
@@ -250,12 +250,12 @@ class AdapterClient:
     def run(self, *_args: object, **_kwargs: object) -> None:
         """The mutating ``run`` op is intentionally not implemented.
 
-        The workbench never drives the engine loop from the data layer; run
+        The interface never drives the engine loop from the data layer; run
         capability is only surfaced via ``mutating_operations`` in the
         capabilities payload (design section 5.3: control flows through the
         UI's structured confirm paths, not the collector).
         """
-        raise NotImplementedError("the workbench never sends mutating ops")
+        raise NotImplementedError("the interface never sends mutating ops")
 
 
 def _valid_engagement_id(engagement_id: str) -> bool:

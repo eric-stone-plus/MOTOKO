@@ -136,7 +136,7 @@ parallel fan-out, and host-resource budgeting live in the operator shell.
 | `engine/core/rules/` | Rule packs (JSON): chain / context / scan / tech / vuln |
 | `engine/core/parsers/` | Tool-output parsers (nuclei, httpx, katana, sqlmap, strix, …) |
 | `engine/core/verification/` | Deterministic validators (replay / dom / oob), plus the interactsh canary manager that supplies the OOB leg's IO |
-| `engine/motoko_workbench/` | Read-only terminal workbench (Textual; the `workbench` optional extra) |
+| `engine/interface/` | Read-only terminal interface (Textual; the `interface` optional extra) |
 | `engine/pyproject.toml` | Packaging manifest; provides the `motoko` console script |
 | `engine/integrations/` | Standalone host client, Hermes plugin and Pi extension |
 | `HOSTS.md` | Host boundaries, remote protocol and installation contract |
@@ -151,8 +151,8 @@ parallel fan-out, and host-resource budgeting live in the operator shell.
 pip install ./engine        # stdlib-only, Python >= 3.11; provides `motoko`
 motoko --help
 
-# optional: the read-only terminal workbench
-pip install './engine[workbench]'
+# optional: the read-only terminal interface
+pip install './engine[interface]'
 motoko                      # opens it; `motoko status` / `motoko watch` stay stdlib
 
 # without installing, from the source tree:

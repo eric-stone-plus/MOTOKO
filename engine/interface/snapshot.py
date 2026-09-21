@@ -1,4 +1,4 @@
-"""Snapshot contract for the MOTOKO workbench.
+"""Snapshot contract for the MOTOKO interface.
 
 The UI layer only ever reads frozen snapshots produced by the collector
 thread (see design/DESIGN.md section 8 for the rationale). Every field here
@@ -7,7 +7,7 @@ sides code against this file, which is owned by the design (not by either
 agent).
 
 All target-identifying content is redacted upstream, in the collectors, via
-motoko_workbench.render.redact. A snapshot must be safe to render as-is.
+interface.render.redact. A snapshot must be safe to render as-is.
 """
 
 from __future__ import annotations
@@ -135,8 +135,8 @@ class EngagementSnapshot:
 
 
 @dataclass(frozen=True)
-class WorkbenchSnapshot:
-    """One frame of the whole workbench; posted to the UI via call_from_thread."""
+class InterfaceSnapshot:
+    """One frame of the whole interface; posted to the UI via call_from_thread."""
 
     taken_at: float
     engagements: tuple[EngagementSnapshot, ...]

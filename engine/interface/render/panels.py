@@ -24,12 +24,12 @@ from rich.console import Group
 from rich.table import Table
 from rich.text import Text
 
-from motoko_workbench.render.theme import Theme, letter_flags
-from motoko_workbench.snapshot import (
+from interface.render.theme import Theme, letter_flags
+from interface.snapshot import (
     STUCK_AFTER_S,
     EngagementSnapshot,
     Event,
-    WorkbenchSnapshot,
+    InterfaceSnapshot,
 )
 
 # Block glyphs for bars, with ASCII fallback ladder (DESIGN section 7).
@@ -139,11 +139,11 @@ def engagement_row_cells(eng: EngagementSnapshot, theme: Theme) -> tuple[Text, .
     )
 
 
-def topbar(snapshot: WorkbenchSnapshot | None, theme: Theme, *, theme_name: str,
+def topbar(snapshot: InterfaceSnapshot | None, theme: Theme, *, theme_name: str,
            watched: str | None, uptime_s: float) -> Text:
     """The one-line header strip (DESIGN section 3.1 mockup, sanitized)."""
     stamp = Text()
-    stamp.append("MOTOKO workbench", style=f"bold {theme.style('panel.title')}")
+    stamp.append("MOTOKO", style=f"bold {theme.style('panel.title')}")
     stamp.append("  ─  ")
     stamp.append(_timestamp(), style=theme.style("feed.ts"))
     stamp.append(f"  ─  theme {theme_name}", style=theme.style("text.muted"))
@@ -280,7 +280,7 @@ def hypotheses(eng: EngagementSnapshot, theme: Theme) -> Group:
 
 def finding_funnel(eng: EngagementSnapshot, theme: Theme) -> Group:
     """FINDING FUNNEL panel body (x2): the 10-state finding machine."""
-    from motoko_workbench.snapshot import FINDING_STATES
+    from interface.snapshot import FINDING_STATES
 
     order = list(FINDING_STATES)
     total = max(1, sum(eng.findings.get(s, 0) for s in order))
@@ -402,7 +402,7 @@ def detail_section(section: str, eng: EngagementSnapshot | None, theme: Theme) -
         return _waves(eng, theme)
     if section == "evidence/obs":
         return Group(Text(
-            "obs/*.out|*.err are 0600 captures; the workbench never reads them (P5).",
+            "Raw evidence stays on the engine host; MOTOKO displays redacted summaries.",
             style=theme.style("text.muted"),
         ))
     return Group(Text(f"unknown section {section!r}", style=theme.style("state.warn")))
@@ -440,7 +440,7 @@ def _waves(eng: EngagementSnapshot, theme: Theme) -> Group:
     return Group(line)
 
 
-def report_body(kind: str, snapshot: WorkbenchSnapshot | None, theme: Theme,
+def report_body(kind: str, snapshot: InterfaceSnapshot | None, theme: Theme,
                 arg: str | None = None) -> Group:
     """REPORTS screen body for ``:doctor`` / ``:rules`` / ``:digest <id>``.
 
@@ -533,7 +533,7 @@ def report_body(kind: str, snapshot: WorkbenchSnapshot | None, theme: Theme,
     return Group(stub, Text(), Text(f"unknown report {kind!r}", style=theme.style("state.warn")))
 
 
-def _adapter_report_text(snapshot: WorkbenchSnapshot, kind: str,
+def _adapter_report_text(snapshot: InterfaceSnapshot, kind: str,
                          arg: str | None) -> str | None:
     """Resolve the requested report kind from the snapshot's reports mapping.
 
@@ -554,14 +554,14 @@ def _adapter_report_text(snapshot: WorkbenchSnapshot, kind: str,
     return reports.get(kind)
 
 
-def _by_id(snapshot: WorkbenchSnapshot, eng_id: str) -> EngagementSnapshot | None:
+def _by_id(snapshot: InterfaceSnapshot, eng_id: str) -> EngagementSnapshot | None:
     for eng in snapshot.engagements:
         if eng.id == eng_id:
             return eng
     return None
 
 
-def pick_engagement(snapshot: WorkbenchSnapshot | None,
+def pick_engagement(snapshot: InterfaceSnapshot | None,
                     watched: str | None) -> EngagementSnapshot | None:
     """Which engagement the RUN PROGRESS / FEED panels follow right now."""
     if snapshot is None or not snapshot.engagements:

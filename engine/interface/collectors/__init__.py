@@ -1,4 +1,4 @@
-'Snapshot assembly: three collectors -> one frozen WorkbenchSnapshot.\n\n``build_workbench_snapshot`` is the single entry point the UI (and the\ndemo path) consumes. It wires FileCollector (filesystem facts),\nGraphCollector (ro-SQLite facts) and the same installation\'s\nAdapterClient (doctor/rules gates + REPORTS screen texts) into\nper-engagement EngagementSnapshot frames. Every failure degrades: a locked\ndatabase yields empty graph facts, a missing adapter yields ``gates=None``\nand an empty ``reports`` mapping, a doctor op that fails while rules data is\nvalid yields a rules-only ``GatesSummary`` with ``doctor_available=False``\n(never a pass verdict), a missing runtime root yields an empty engagement\nlist with a ``collector_error`` — nothing raises into the UI\n(design/DESIGN.md section 2, crash isolation).\n\nAdapter request budget (verified against engine/core/adapter.py): one\nprocess serves at most 32 requests. Per 15s window this collector spends\nexactly 3 — doctor (1), rules (1) and one digest (1) for the live-or-first\nengagement — plus a single capabilities handshake at spawn. That is ~10\nwindows (~150s) per adapter process, after which AdapterClient transparently\nrespawns. The doctor/rules responses are fetched ONCE and shared between the\nGatesSummary projection and the report texts, so adding the reports cost\nexactly one extra request per window (the digest); no interval was lowered.\n\nThe engine\'s motoko/1 protocol carries STRUCTURED JSON only — there is no\ntext op. Observed shapes (core/adapter.py ``_read``): doctor ->\n``{"checks": [{"category", "counts": {OK, WARN, FAIL}}], "failures"}`` (the\nper-check diagnostic MESSAGES are projected away engine-side and never ride\nthe wire), rules -> ``{"rules_total", "fireable", "counts", "by_code"}``,\ndigest -> ``{"counts": {kind: {state: n}}, "last_event", "latest_wave"}`` and\n``{"error": "engagement_not_found"}`` (exit 2) for unknown engagements. The\n"full report text" stored in ``WorkbenchSnapshot.reports`` is therefore a\nlocal text projection of those payloads — deterministic, redacted, capped —\nnot the engine CLI\'s printed output. A missing/failed op simply leaves its\nkey out (fail-closed).\n'
+'Snapshot assembly: three collectors -> one frozen InterfaceSnapshot.\n\n``build_interface_snapshot`` is the single entry point the UI (and the\ndemo path) consumes. It wires FileCollector (filesystem facts),\nGraphCollector (ro-SQLite facts) and the same installation\'s\nAdapterClient (doctor/rules gates + REPORTS screen texts) into\nper-engagement EngagementSnapshot frames. Every failure degrades: a locked\ndatabase yields empty graph facts, a missing adapter yields ``gates=None``\nand an empty ``reports`` mapping, a doctor op that fails while rules data is\nvalid yields a rules-only ``GatesSummary`` with ``doctor_available=False``\n(never a pass verdict), a missing runtime root yields an empty engagement\nlist with a ``collector_error`` — nothing raises into the UI\n(design/DESIGN.md section 2, crash isolation).\n\nAdapter request budget (verified against engine/core/adapter.py): one\nprocess serves at most 32 requests. Per 15s window this collector spends\nexactly 3 — doctor (1), rules (1) and one digest (1) for the live-or-first\nengagement — plus a single capabilities handshake at spawn. That is ~10\nwindows (~150s) per adapter process, after which AdapterClient transparently\nrespawns. The doctor/rules responses are fetched ONCE and shared between the\nGatesSummary projection and the report texts, so adding the reports cost\nexactly one extra request per window (the digest); no interval was lowered.\n\nThe engine\'s motoko/1 protocol carries STRUCTURED JSON only — there is no\ntext op. Observed shapes (core/adapter.py ``_read``): doctor ->\n``{"checks": [{"category", "counts": {OK, WARN, FAIL}}], "failures"}`` (the\nper-check diagnostic MESSAGES are projected away engine-side and never ride\nthe wire), rules -> ``{"rules_total", "fireable", "counts", "by_code"}``,\ndigest -> ``{"counts": {kind: {state: n}}, "last_event", "latest_wave"}`` and\n``{"error": "engagement_not_found"}`` (exit 2) for unknown engagements. The\n"full report text" stored in ``InterfaceSnapshot.reports`` is therefore a\nlocal text projection of those payloads — deterministic, redacted, capped —\nnot the engine CLI\'s printed output. A missing/failed op simply leaves its\nkey out (fail-closed).\n'
 
 from __future__ import annotations
 
@@ -6,19 +6,19 @@ import time
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-from motoko_workbench.collectors.adapter import AdapterClient
-from motoko_workbench.collectors.demo import DemoCollector
-from motoko_workbench.collectors.files import EngagementFiles, FileCollector
-from motoko_workbench.collectors.graph import GraphCollector, GraphFacts
-from motoko_workbench.render.redact import redact_text
-from motoko_workbench.snapshot import (
+from interface.collectors.adapter import AdapterClient
+from interface.collectors.demo import DemoCollector
+from interface.collectors.files import EngagementFiles, FileCollector
+from interface.collectors.graph import GraphCollector, GraphFacts
+from interface.render.redact import redact_text
+from interface.snapshot import (
     EngagementSnapshot,
     GatesSummary,
+    InterfaceSnapshot,
     WaveProgress,
-    WorkbenchSnapshot,
 )
 
-__all__ = ["build_workbench_snapshot"]
+__all__ = ["build_interface_snapshot"]
 
 GATES_TTL_S = 15.0
 """Heavy adapter report ops run at most this often (GATES panel x15 lane)."""
@@ -74,7 +74,7 @@ _SESSIONS: dict[tuple[str, str, bool], _CollectorSession] = {}
 
 
 def close_sessions() -> None:
-    """Reap this workbench's adapter children on a normal CLI exit."""
+    """Reap this interface's adapter children on a normal CLI exit."""
     sessions = list(_SESSIONS.values())
     _SESSIONS.clear()
     for session in sessions:
@@ -276,10 +276,10 @@ def _assemble(files: EngagementFiles, graph: GraphFacts,
     )
 
 
-def build_workbench_snapshot(root: Path | None, demo: bool, *,
+def build_interface_snapshot(root: Path | None, demo: bool, *,
                              use_adapter: bool = True,
-                             runtime_root: Path | None = None) -> WorkbenchSnapshot:
-    """Collect one consistent frame for the whole workbench.
+                             runtime_root: Path | None = None) -> InterfaceSnapshot:
+    """Collect one consistent frame for the whole interface.
 
     ``demo=True`` ignores ``root`` and returns DemoCollector output.
     Otherwise ``root`` is the installation home. ``runtime_root`` selects
@@ -291,7 +291,7 @@ def build_workbench_snapshot(root: Path | None, demo: bool, *,
     if demo:
         return DemoCollector().snapshot(now=now)
     if root is None:
-        return WorkbenchSnapshot(taken_at=now, engagements=(),
+        return InterfaceSnapshot(taken_at=now, engagements=(),
                                  collector_error="no runtime root configured")
     runtime_root = Path(runtime_root) if runtime_root is not None else root / "runtime"
     key = (str(root), str(runtime_root), use_adapter)
@@ -318,7 +318,7 @@ def build_workbench_snapshot(root: Path | None, demo: bool, *,
     engagements.sort(key=lambda snap: (not snap.live, not snap.sealed, snap.id))
     reports_age = (max(0.0, now - session.reports_at)
                    if session.reports_at is not None else None)
-    return WorkbenchSnapshot(
+    return InterfaceSnapshot(
         taken_at=now,
         engagements=tuple(engagements),
         collector_error="; ".join(errors) if errors else None,

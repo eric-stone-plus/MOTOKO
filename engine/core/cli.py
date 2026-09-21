@@ -1,9 +1,9 @@
 """MOTOKO CLI — single-writer process entry point.
 
 Commands:
-    workbench open the terminal workbench (also the default without a command)
-    status    print a read-only workbench snapshot
-    watch     watch read-only workbench snapshots
+    interface open the terminal interface (also the default without a command)
+    status    print a read-only interface snapshot
+    watch     watch read-only interface snapshots
     init      create an engagement (dir + graph.db + scope row)
     run       run the six-beat main loop with the real tool executor
     adapter   dispatch one host-neutral, bounded JSON request
@@ -833,44 +833,44 @@ def cmd_adapter(args) -> int:
     return int(result.get("exit_code") or 0)
 
 
-def cmd_workbench(args) -> int:
+def cmd_interface(args) -> int:
     """Launch the optional UI against the same runtime as the engine."""
-    from motoko_workbench.cli import run
+    from interface.cli import run
 
     args.root = (args.root or db.default_root()).expanduser().resolve()
     return run(args)
 
 
-def _workbench_options(parser: argparse.ArgumentParser) -> None:
+def _interface_options(parser: argparse.ArgumentParser) -> None:
     # Suppressed defaults preserve top-level options before a subcommand.
     parser.add_argument("--demo", action="store_true", default=argparse.SUPPRESS,
-                        help="show synthetic workbench data")
+                        help="show synthetic MOTOKO data")
     parser.add_argument("--root", type=Path, default=argparse.SUPPRESS, metavar="PATH",
                         help="engagement runtime directory (default: MOTOKO_HOME "
                              "or the engine runtime/ directory)")
     parser.add_argument("--theme", default=argparse.SUPPRESS, metavar="NAME",
-                        help="workbench theme name or theme file")
+                        help="MOTOKO theme name or theme file")
 
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="motoko", description="MOTOKO attack-graph orchestrator",
-        epilog="Without a command, open the workbench (print status when output is redirected).")
-    p.set_defaults(func=cmd_workbench, mode="tui", root=None, demo=False,
+        epilog="Without a command, open MOTOKO (print status when output is redirected).")
+    p.set_defaults(func=cmd_interface, mode="tui", root=None, demo=False,
                    theme="motoko-dark")
-    _workbench_options(p)
+    _interface_options(p)
     sub = p.add_subparsers(dest="command")
 
-    workbench = sub.add_parser("workbench", help="open the read-only terminal workbench")
-    _workbench_options(workbench)
-    workbench.set_defaults(func=cmd_workbench, mode="tui")
-    workbench_modes = workbench.add_subparsers(dest="workbench_mode")
+    interface = sub.add_parser("interface", help="open MOTOKO in the terminal")
+    _interface_options(interface)
+    interface.set_defaults(func=cmd_interface, mode="tui")
+    interface_modes = interface.add_subparsers(dest="interface_mode")
     for name, description in (("status", "print a read-only snapshot"),
                               ("watch", "watch read-only snapshots")):
-        for commands in (sub, workbench_modes):
+        for commands in (sub, interface_modes):
             view = commands.add_parser(name, help=description)
-            _workbench_options(view)
-            view.set_defaults(func=cmd_workbench, mode=name)
+            _interface_options(view)
+            view.set_defaults(func=cmd_interface, mode=name)
 
     pi = sub.add_parser("init", help="initialize an engagement")
     pi.add_argument("engagement_id")
@@ -1043,8 +1043,8 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    if args.func != cmd_workbench and (args.demo or args.theme != "motoko-dark"):
-        parser.error("--demo and --theme apply only to workbench, status, and watch")
+    if args.func != cmd_interface and (args.demo or args.theme != "motoko-dark"):
+        parser.error("--demo and --theme apply only to interface, status, and watch")
     if args.root is None:
         return args.func(args)
     # A global runtime override must select the same data for every command

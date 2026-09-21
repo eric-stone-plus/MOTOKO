@@ -1,21 +1,21 @@
-'DemoCollector — fully synthetic, deterministic workbench data (--demo).\n\nThree synthetic engagements so every panel has something to show on a\nmachine with no MOTOKO runtime (design section 8, demo mode):\n\nThe ``reports`` mapping is filled with clearly-labelled synthetic adapter\ntexts (doctor/rules/digest) so the REPORTS screen shows real content shape\nwithout any adapter process.\n\nEverything is a pure function of ``time.time()`` (or an injected ``now``):\nthe same instant always yields the same snapshot, and successive instants\nstream — event seq numbers advance, cooldowns count down, tool durations\ngrow. Fixture-style target identifiers use ``example.invalid`` and\n``203.0.113.0/24`` only, and every summary/origin/report passes through\n``render.redact`` exactly like the real collectors do.\n'
+'DemoCollector — fully synthetic, deterministic interface data (--demo).\n\nThree synthetic engagements so every panel has something to show on a\nmachine with no MOTOKO runtime (design section 8, demo mode):\n\nThe ``reports`` mapping is filled with clearly-labelled synthetic adapter\ntexts (doctor/rules/digest) so the REPORTS screen shows real content shape\nwithout any adapter process.\n\nEverything is a pure function of ``time.time()`` (or an injected ``now``):\nthe same instant always yields the same snapshot, and successive instants\nstream — event seq numbers advance, cooldowns count down, tool durations\ngrow. Fixture-style target identifiers use ``example.invalid`` and\n``203.0.113.0/24`` only, and every summary/origin/report passes through\n``render.redact`` exactly like the real collectors do.\n'
 
 from __future__ import annotations
 
 import time
 
-from motoko_workbench.render.redact import origin_label, redact_text, redact_url
-from motoko_workbench.snapshot import (
+from interface.render.redact import origin_label, redact_text, redact_url
+from interface.snapshot import (
     FINDING_STATES,
     HYP_STATES,
     Cooldown,
     EngagementSnapshot,
     Event,
     GatesSummary,
+    InterfaceSnapshot,
     LegStatus,
     ToolRun,
     WaveProgress,
-    WorkbenchSnapshot,
 )
 
 DEMO_EPOCH = 1758300000.0
@@ -247,9 +247,9 @@ def _demo_reports(engagements: tuple[EngagementSnapshot, ...]) -> dict[str, str]
 
 
 class DemoCollector:
-    """Produce a fully synthetic WorkbenchSnapshot; stdlib-only, no I/O."""
+    """Produce a fully synthetic InterfaceSnapshot; stdlib-only, no I/O."""
 
-    def snapshot(self, *, now: float | None = None) -> WorkbenchSnapshot:
+    def snapshot(self, *, now: float | None = None) -> InterfaceSnapshot:
         """One demo frame. Deterministic for a given ``now``."""
         current = time.time() if now is None else now
         engagements = (
@@ -257,7 +257,7 @@ class DemoCollector:
             _sealed_engagement(current, stale=False, canary=True),
             _sealed_engagement(current, stale=True),
         )
-        return WorkbenchSnapshot(
+        return InterfaceSnapshot(
             taken_at=current,
             engagements=engagements,
             reports=_demo_reports(engagements),

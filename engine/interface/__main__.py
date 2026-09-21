@@ -7,4 +7,4 @@ import sys
 from core.cli import main
 
 if __name__ == "__main__":
-    raise SystemExit(main(["workbench", *sys.argv[1:]]))
+    raise SystemExit(main(["interface", *sys.argv[1:]]))

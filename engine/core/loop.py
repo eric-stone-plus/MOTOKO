@@ -1103,7 +1103,7 @@ class LoopRunner:
         something other than what it says": undefined names, repeated dict keys,
         unused locals, f-strings with nothing in them. ``tests/
         test_lint_engine.py`` fails the suite on the same classes across core/,
-        motoko_workbench/, tests/ and scripts/, so a non-zero here is residue
+        interface/, tests/ and scripts/, so a non-zero here is residue
         that gate cannot see — which is worth a round record, not a shrug.
 
         Falls back to (0, 0) when pyflakes is unavailable or the walk finds

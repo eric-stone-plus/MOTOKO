@@ -1,4 +1,4 @@
-"""Redaction helpers — the workbench's P5 doctrine, in one place.
+"""Redaction helpers — the interface's P5 doctrine, in one place.
 
 Every string that leaves a collector toward the UI passes through here.
 Design rules (design/DESIGN.md section 9):

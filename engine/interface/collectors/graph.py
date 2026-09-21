@@ -29,8 +29,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import quote
 
-from motoko_workbench.render.redact import origin_label, redact_text, short_id
-from motoko_workbench.snapshot import (
+from interface.render.redact import origin_label, redact_text, short_id
+from interface.snapshot import (
     FINDING_STATES,
     HYP_STATES,
     Event,
