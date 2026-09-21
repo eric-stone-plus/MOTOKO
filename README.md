@@ -177,8 +177,9 @@ endpoints, a config file in which credentials are referenced by variable
 
 | Variable | Purpose | Default |
 |---|---|---|
-| `MOTOKO_HOME` | Engagement data root (SQLite graphs, artifacts) | `<motoko_root>/runtime` |
+| `MOTOKO_HOME` | Engagement data root (SQLite graphs, artifacts) | `<motoko_root>/tasks` |
 | `MOTOKO_TOOLS` | Toolbox directory holding the instrument binaries | `<motoko_root>/tools` |
+| `MOTOKO_TOOL_DIRS` | Optional absolute, `PATH`-separated extra tool directories | unset |
 | `MOTOKO_WORDLIST_DIR` | Wordlists for brute-force rules | `~/.motoko/wordlists` |
 | `MOTOKO_CONFIG` | Loop endpoint config (auditors + adjudicator) | in-tree `engine/loop/loop.yaml` when present, else `~/.motoko/loop.yaml` |
 | `MOTOKO_EGRESS_MODE` | `proxy` = every tool rides the configured egress; unset/`direct` = per-tool policy | unset |
@@ -190,11 +191,15 @@ endpoints, a config file in which credentials are referenced by variable
 | `MOTOKO_ALLOW_DIRECT_REPLAY` | Set to `1` to assert the host route is already anonymous, permitting raw-socket replay validation | unset (replay fails closed) |
 | `MOTOKO_SECRET_*` | Per-action secrets; argv carries only an `@env:NAME` reference, never the value | — |
 
-Tool resolution (first executable hit wins): caller-supplied dirs →
-`~/.local/bin` → `$MOTOKO_TOOLS/bin` → `$MOTOKO_TOOLS/nuclei` → `PATH`.
-A `tool` value that looks like a path (`/`, `\`, `..`) is refused
-outright — actions name a bare binary, never a path. `motoko doctor`
-prints which binaries actually resolve.
+Tool resolution (first executable hit wins) is adapted in memory for the
+account running MOTOKO, so a gateway with a minimal inherited `PATH` still
+sees owner-local installs: caller-supplied dirs → `~/.local/bin` → Go bins
+(`~/.local/share/go/bin`, `~/.local/go/bin`, `~/go/bin`) → `~/.cargo/bin` →
+`$MOTOKO_TOOLS/bin` → `$MOTOKO_TOOLS/nuclei` → `PATH`. Set
+`MOTOKO_TOOL_DIRS` for additional absolute directories; it never writes a
+shell profile or reads credentials. A `tool` value that looks like a path
+(`/`, `\`, `..`) is refused outright — actions name a bare binary, never a
+path. `motoko doctor` prints which binaries actually resolve.
 
 For an authorized engagement, initialize with both scope and starting assets:
 
@@ -254,3 +259,13 @@ including commercial use. See `NOTICE`.
 - Shirow Masamune《攻殻機動隊》— prosthetic body, cyberbrain, the ghost question
 - Oshii Mamoru *Ghost in the Shell* (1995), *Innocence* (2004)
 - *Stand Alone Complex* — copies without an original
+
+The default engagement directory is `tasks/`. Existing installations using
+`runtime/` should move their active engagements into `tasks/`, or keep an explicit
+`MOTOKO_HOME`/`--root` override. Sealed evidence belongs in its campaign archive.
+
+`motoko doctor` checks the full deployment, including audit-loop configuration.
+`motoko doctor --scope scan` checks scan-wave dependencies. Host adapters default
+to scan scope and return the scope with their counts; they do not inherit model
+credentials. A passing doctor and zero HIGH rule findings still require campaign
+authorization, an unsealed engagement and verification of the actual outbound route.

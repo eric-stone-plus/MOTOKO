@@ -247,10 +247,11 @@ export default function motoko(pi: ExtensionAPI) {
 			name: "motoko_status",
 			label: "MOTOKO status",
 			description:
-				"Read MOTOKO capabilities and aggregate state without raw evidence. Check doctor and rules before a run.",
+				"Read MOTOKO capabilities and aggregate state without raw evidence. Doctor defaults to scan scope; full also checks audit-loop dependencies. Check failures=0, rules HIGH=0, authorization and actual egress before a run.",
 			parameters: Type.Object(
 				{
 					operation: StringEnum(OPERATIONS),
+					scope: Type.Optional(StringEnum(["scan", "full"] as const)),
 					engagement_id: Type.Optional(engagement),
 					kind: Type.Optional(StringEnum(KINDS)),
 					state: Type.Optional(StringEnum(STATES)),

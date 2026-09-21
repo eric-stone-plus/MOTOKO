@@ -97,13 +97,15 @@ def validate(request: AdapterRequest) -> dict:
         except (ValueError, TypeError):
             raise AdapterError("invalid engagement identifier") from None
     allowed = {
-        "capabilities": set(), "doctor": set(), "rules": {"json"}, "digest": set(),
+        "capabilities": set(), "doctor": {"scope"}, "rules": {"json"}, "digest": set(),
         "health": set(), "query": {"kind", "state", "limit", "after"},
         "events": {"limit", "after"},
         "run": {"max_cycles", "wave_cycles", "max_waves", "timeout", "wall_timeout"},
     }[op]
     if set(options) - allowed:
         raise AdapterError("unsupported option")
+    if op == "doctor" and options.get("scope", "full") not in ("full", "scan"):
+        raise AdapterError("invalid doctor scope")
     if "json" in options and options["json"] is not True:
         raise AdapterError("rules always returns JSON")
     if op in {"query", "events"}:
@@ -200,12 +202,13 @@ def _read(request, options):
         from .doctor import check_environment
         checks = []
         failures = 0
-        for category, rows in check_environment():
+        scope = options.get("scope", "full")
+        for category, rows in check_environment(scope):
             counts = {level: sum(row[0] == level for row in rows)
                       for level in ("OK", "WARN", "FAIL")}
             failures += counts["FAIL"]
             checks.append({"category": category, "counts": counts})
-        return int(bool(failures)), {"checks": checks, "failures": failures}
+        return int(bool(failures)), {"scope": scope, "checks": checks, "failures": failures}
     if op == "rules":
         from .rulecheck import check_corpus
         report = check_corpus(util.default_rules_dir())

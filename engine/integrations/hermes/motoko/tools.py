@@ -14,8 +14,11 @@ def _schema(name, description, properties, required):
 ENGAGEMENT = {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
               "description": "Existing, authorized engagement identifier. Never a path."}
 STATUS = _schema("motoko_status", "Inspect MOTOKO capabilities and aggregate engagement state. "
-    "No raw evidence is returned. Use doctor and rules to check deployment readiness.", {
+    "No raw evidence is returned. Doctor defaults to scan scope; full also checks the audit loop. "
+    "Check failures=0 and rules HIGH=0, then verify authorization and actual egress.", {
     "operation": {"type": "string", "enum": sorted(client.OPERATIONS - {"run"})},
+    "scope": {"type": "string", "enum": ["scan", "full"],
+              "description": "Doctor only: scan (default) or full, including audit-loop dependencies."},
     "engagement_id": ENGAGEMENT, "kind": {"type": "string", "enum": sorted(client.KINDS)},
     "state": {"type": "string", "enum": sorted(client.STATES)},
     "limit": {"type": "integer", "minimum": 1, "maximum": 100},

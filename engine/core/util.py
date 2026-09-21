@@ -11,6 +11,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import parse_qsl, urlsplit, urlunsplit
 
+
+_MISSING = object()
+
 KALI_CONTAINER = "kali-recon"
 KALI_IMAGE = os.environ.get("MOTOKO_KALI_IMAGE") or "localhost/kali-recon:latest"
 
@@ -38,6 +41,152 @@ def default_rules_dir() -> Path:
     if installed.is_dir():
         return installed
     return src
+
+
+def default_root_path() -> Path:
+    """Resolve the live task root without importing the database layer."""
+    value = os.environ.get("MOTOKO_HOME")
+    return Path(value).expanduser() if value else motoko_root() / "tasks"
+
+
+def tool_search_dirs(tools_root: Path | None = None) -> tuple[Path, ...]:
+    """Return owner-local tool directories MOTOKO should search automatically.
+
+    A service or gateway often starts with a deliberately small ``PATH``.  A
+    scan should still find tools installed for the same account, without
+    mutating the service unit or trusting a directory from the current
+    working directory.  Explicit ``MOTOKO_TOOL_DIRS`` entries come first;
+    then the conventional user bin, toolbox, Go and Cargo locations.  Missing
+    directories are retained so callers can use the result to build a stable
+    child ``PATH``; executable resolution still checks the file and execute
+    bit before using an entry.
+
+    The function is deliberately read-only and deployment-neutral.  It does
+    not run ``go env``, source shell startup files, or write a profile.  A
+    deployment can pin a different toolbox with ``MOTOKO_TOOLS`` and add
+    owner-controlled directories with ``MOTOKO_TOOL_DIRS`` (``os.pathsep``
+    separated).
+    """
+    home = Path.home()
+    candidates: list[Path] = []
+
+    configured = os.environ.get("MOTOKO_TOOL_DIRS", "")
+    if configured:
+        for raw in configured.split(os.pathsep):
+            raw = raw.strip()
+            if not raw:
+                continue
+            path = Path(raw).expanduser()
+            # Relative search roots make a service depend on its working
+            # directory and can accidentally select a checkout-local binary.
+            if path.is_absolute():
+                candidates.append(path)
+
+    # Keep the historical wrapper directory first.  The remaining entries
+    # cover the layouts used by Go/Cargo installers without requiring PATH to
+    # be expanded by systemd, Telegram, or another host gateway.
+    candidates.extend([
+        home / ".local" / "bin",
+        home / ".local" / "share" / "go" / "bin",
+        home / ".local" / "go" / "bin",
+        home / "go" / "bin",
+        home / ".cargo" / "bin",
+    ])
+
+    gobin = os.environ.get("GOBIN", "").strip()
+    if gobin:
+        path = Path(gobin).expanduser()
+        if path.is_absolute():
+            candidates.append(path)
+    gopath = os.environ.get("GOPATH", "")
+    if gopath:
+        for raw in gopath.split(os.pathsep):
+            raw = raw.strip()
+            if raw:
+                path = Path(raw).expanduser()
+                if path.is_absolute():
+                    candidates.append(path / "bin")
+
+    if tools_root is None:
+        configured_root = os.environ.get("MOTOKO_TOOLS", "")
+        tools_root = Path(configured_root).expanduser() if configured_root else (
+            motoko_root() / "tools")
+    candidates.extend([Path(tools_root) / "bin", Path(tools_root) / "nuclei"])
+
+    result: list[Path] = []
+    seen: set[str] = set()
+    for path in candidates:
+        try:
+            key = str(path.resolve(strict=False))
+        except OSError:
+            key = str(path)
+        if key not in seen:
+            seen.add(key)
+            result.append(path)
+    return tuple(result)
+
+
+def effective_path(path: str | None = None) -> str:
+    """Prepend discovered tool directories to a child process ``PATH``.
+
+    The caller's existing path remains intact and keeps its original order;
+    only unique, absolute MOTOKO search roots are added ahead of it.  This is
+    an in-memory value for a subprocess environment, never a shell/profile
+    mutation.
+    """
+    base = path if path is not None else os.environ.get("PATH", "")
+    parts = [str(p) for p in tool_search_dirs()]
+    parts.extend(item for item in base.split(os.pathsep) if item)
+    result: list[str] = []
+    seen: set[str] = set()
+    for item in parts:
+        if item and item not in seen:
+            seen.add(item)
+            result.append(item)
+    return os.pathsep.join(result)
+
+
+def adapt_local_environment() -> dict[str, str | object]:
+    """Apply non-secret local defaults for the lifetime of one CLI process.
+
+    This is the local-runtime bridge between portable configuration and the
+    actual host process.  It fills only missing, derived values, prepends the
+    discovered tool roots to ``PATH`` in memory, and returns the previous
+    values so :func:`restore_local_environment` can undo the change when the
+    CLI is embedded in a test or another Python process.  It never writes a
+    profile, reads credential values, starts a service, or asserts an egress
+    route.
+
+    Explicit deployment variables always win.  The resulting environment is
+    therefore suitable for a gateway with a minimal PATH while remaining
+    relocatable on a fresh checkout or wheel install.
+    """
+    defaults = {
+        "MOTOKO_HOME": str(default_root_path()),
+        "MOTOKO_TOOLS": str(motoko_root() / "tools"),
+        "MOTOKO_WORDLIST_DIR": str(Path("~/.motoko/wordlists").expanduser()),
+    }
+    previous: dict[str, str | object] = {}
+    for key, value in defaults.items():
+        if key in os.environ and os.environ[key]:
+            continue
+        previous[key] = os.environ.get(key, _MISSING)
+        os.environ[key] = value
+    current_path = os.environ.get("PATH", "")
+    adapted_path = effective_path(current_path)
+    if adapted_path != current_path:
+        previous["PATH"] = current_path if "PATH" in os.environ else _MISSING
+        os.environ["PATH"] = adapted_path
+    return previous
+
+
+def restore_local_environment(previous: dict[str, str | object]) -> None:
+    """Restore the keys returned by :func:`adapt_local_environment`."""
+    for key, value in previous.items():
+        if value is _MISSING:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = str(value)
 
 # Entity ID prefixes. One prefix per entity kind, so a bare ID is
 # self-describing (mirrors the `kind` column; keep them in sync with

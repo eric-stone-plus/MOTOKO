@@ -847,7 +847,7 @@ def _interface_options(parser: argparse.ArgumentParser) -> None:
                         help="show synthetic MOTOKO data")
     parser.add_argument("--root", type=Path, default=argparse.SUPPRESS, metavar="PATH",
                         help="engagement runtime directory (default: MOTOKO_HOME "
-                             "or the engine runtime/ directory)")
+                             "or the engine tasks/ directory)")
     parser.add_argument("--theme", default=argparse.SUPPRESS, metavar="NAME",
                         help="MOTOKO theme name or theme file")
 
@@ -993,6 +993,8 @@ def build_parser() -> argparse.ArgumentParser:
     pdoc = sub.add_parser(
         "doctor", help="read-only environment self-check "
                        "(python, root, tools, config, key envs)")
+    pdoc.add_argument("--scope", choices=["full", "scan"], default="full",
+                      help="full includes audit-loop dependencies; scan checks scan-wave dependencies")
     pdoc.set_defaults(func=cmd_doctor)
 
     prules = sub.add_parser(
@@ -1045,19 +1047,28 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.func != cmd_interface and (args.demo or args.theme != "motoko-dark"):
         parser.error("--demo and --theme apply only to interface, status, and watch")
-    if args.root is None:
-        return args.func(args)
-    # A global runtime override must select the same data for every command
-    # and any adapter child, then leave an embedding caller's env unchanged.
-    previous = os.environ.get("MOTOKO_HOME")
-    os.environ["MOTOKO_HOME"] = str(Path(args.root).expanduser().resolve())
+    # Resolve owner-local defaults once for the complete CLI lifetime.  A
+    # gateway deliberately supplies a small environment, so tool discovery
+    # and the default tasks root must be identical for direct commands,
+    # adapter children, and the interface.  The helper is reversible because
+    # tests and embedding hosts call ``main`` in their own Python process.
+    previous_local = util.adapt_local_environment()
+    previous_root = None
+    if args.root is not None:
+        # A global runtime override must select the same data for every
+        # command and any adapter child, then leave an embedding caller's env
+        # unchanged.  Apply it after local defaults so an explicit root wins.
+        previous_root = os.environ.get("MOTOKO_HOME", util._MISSING)
+        os.environ["MOTOKO_HOME"] = str(Path(args.root).expanduser().resolve())
     try:
         return args.func(args)
     finally:
-        if previous is None:
-            os.environ.pop("MOTOKO_HOME", None)
-        else:
-            os.environ["MOTOKO_HOME"] = previous
+        if previous_root is not None:
+            if previous_root is util._MISSING:
+                os.environ.pop("MOTOKO_HOME", None)
+            else:
+                os.environ["MOTOKO_HOME"] = str(previous_root)
+        util.restore_local_environment(previous_local)
 
 
 if __name__ == "__main__":

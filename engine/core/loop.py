@@ -67,8 +67,8 @@ def _expand_value(value: str) -> str:
 
     Unset variables are a hard error — a loop leg silently pointing at a
     literal ``${UNSET}`` base_url would fail much later and much further
-    from the cause. ``api_key_env`` is exempted by the caller: it holds a
-    variable *name*, resolved at call time by ``LLMEndpoint.resolve_key``.
+    from the cause. For ``api_key_env``, expansion selects the variable
+    *name*; ``LLMEndpoint.resolve_key`` reads its secret only at call time.
     """
     def _lookup(m: re.Match) -> str:
         var = m.group(1)
@@ -422,8 +422,9 @@ def _parse_minimal_yaml(text: str) -> dict:
         if m:                              # key: value in current item/map
             key, value = m.group(1), m.group(2).strip()
             value = value.strip("\"'")
-            if key != "api_key_env":       # holds a variable NAME, not a value
-                value = _expand_value(value)
+            value = _expand_value(value)
+            if key == "api_key_env" and not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value):
+                raise ValueError("api_key_env must resolve to an environment variable name")
             if key == "command":
                 if value.startswith("["):
                     try:

@@ -42,7 +42,12 @@ must be owned by the user or root and not writable by other users. Deployment
 paths are operator inputs, never model inputs.
 
 Local configuration requires `executable` and `runtime_root`. The latter is a
-private 0700 directory used as engine data root and for process records. SSH
+private 0700 directory used as engine data root and for process records. The
+engine automatically adds the account's conventional Go/Cargo and user-bin
+directories to child-process discovery, so a host gateway does not need to
+copy a shell profile into its environment. `MOTOKO_TOOL_DIRS` can add
+owner-selected absolute directories when a deployment uses a non-standard
+layout. SSH
 configuration sets `transport: "ssh"`, a local private `runtime_root`, and
 `remote_host`, `remote_executable`, `remote_root`, `known_hosts`, `identity_file`.
 The key and known-hosts paths are local owner-only regular files. Optional

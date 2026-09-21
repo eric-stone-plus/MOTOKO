@@ -40,13 +40,13 @@ def _wrapper_death(exit_code: int, err_path: Path) -> str | None:
 
 def _known_tool_dirs() -> tuple[Path, ...]:
     'Deploy-host pin dirs, in precedence order.'
-    env = os.environ.get("MOTOKO_TOOLS")
-    tools_root = Path(env).expanduser() if env else _TOOLS
-    return (
-        Path.home() / ".local" / "bin",
-        tools_root / "bin",
-        tools_root / "nuclei",
-    )
+    # Keep resolution independent of the service's inherited PATH.  Gateway
+    # units intentionally start with a small environment, while Go/Cargo
+    # installs are still valid owner-local tool roots.  ``tool_search_dirs``
+    # also keeps the explicit MOTOKO_TOOLS roots in the precedence order that
+    # older deployments relied on.
+    return util.tool_search_dirs(_TOOLS if not os.environ.get("MOTOKO_TOOLS")
+                                 else None)
 
 _KILL_GRACE_S = 5
 
@@ -221,6 +221,11 @@ class SubprocessExecutor:
             self._finish_tool_run(action, status="error", exit_code=-2)
             return
         env = dict(os.environ)
+        # A gateway/service may provide only a minimal PATH.  Keep the
+        # process relocatable by deriving the same owner-local tool roots used
+        # by resolve_tool(); this is an in-memory child setting, never a
+        # profile mutation.
+        env["PATH"] = util.effective_path(env.get("PATH", ""))
         stripped_host_secrets = egress.strip_host_secrets(env, strip_engine_secrets=True)
         if not _inherits_proxy(tool):
             egress.strip_host_proxy(env)

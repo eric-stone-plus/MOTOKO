@@ -95,7 +95,7 @@ def default_fetcher(url: str, bind_ip: str | None = None):
     '    Any transport error returns None as well; tests inject a stub instead.\n    '
     if not bind_ip:
         return None
-    if not os.environ.get("MOTOKO_ALLOW_DIRECT_REPLAY"):
+    if not egress.replay_asserted():
         return None
     u = urlparse(url)
     if u.scheme not in ("http", "https") or not u.hostname:

@@ -225,7 +225,8 @@ class AdapterClient:
     def doctor(self) -> dict | None:
         """Doctor report: ``{"checks": [{"category", "counts"}], "failures"}``."""
         response = self._request("doctor")
-        return response.get("result") if response and response.get("ok") else None
+        # A failed doctor is a report, not a failed transport.
+        return response.get("result") if response else None
 
     def rules(self) -> dict | None:
         """Static rules report: totals, fireable, severity counts, by_code."""

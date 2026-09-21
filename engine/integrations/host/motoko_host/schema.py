@@ -92,7 +92,8 @@ def check_result(operation, data, ok):
             and data["max_request_bytes"] == 65536 and data["max_response_bytes"] == 65536
             and _integer(data["max_requests_per_process"], 2, 32))
     if operation == "doctor":
-        return (obj(data, ("checks", "failures")) and count(data["failures"])
+        return (obj(data, ("checks", "failures"), ("scope",)) and count(data["failures"])
+            and ("scope" not in data or enum(data["scope"], {"scan", "full"}))
             and items(data["checks"], lambda v: obj(v, ("category", "counts"))
                 and enum(v["category"], DOCTOR_CATEGORIES)
                 and obj(v["counts"], ("OK", "WARN", "FAIL")) and all(count(n) for n in v["counts"].values())))

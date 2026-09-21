@@ -22,11 +22,11 @@ from . import schema, state_machine, util
 
 
 def default_root() -> Path:
-    'Data root for live campaigns (runtime/).\n\n    Honors ``MOTOKO_HOME``; otherwise ``<motoko_root>/runtime``, which\n    stays inside the authorized Development tree (this host is zero-write\n    outside it). On a headless deploy server, set MOTOKO_HOME to the\n    persistent runtime root.'
+    'Data root for live campaigns (tasks/).\n\n    Honors ``MOTOKO_HOME``; otherwise ``<motoko_root>/tasks``, which\n    stays inside the authorized Development tree (this host is zero-write\n    outside it). On a headless deploy server, set MOTOKO_HOME to the\n    persistent runtime root.'
     env = os.environ.get("MOTOKO_HOME")
     if env:
         return Path(env).expanduser()
-    return util.motoko_root() / "runtime"
+    return util.motoko_root() / "tasks"
 
 
 def engagement_dir(root: Path, engagement_id: str) -> Path:

@@ -335,21 +335,21 @@ def time_now() -> float:
 
 
 class FileCollector:
-    """Filesystem-only facts for every engagement under ``<root>/runtime``."""
+    """Filesystem-only facts for every engagement under ``<root>/tasks``."""
 
     def __init__(self, root: Path, *, now: float | None = None,
                  runtime_root: Path | None = None,
                  live_window_s: float = LIVE_WINDOW_S,
                  stale_after_s: float = _STALE_HEARTBEAT_S) -> None:
         self.root = Path(root)
-        self.runtime_root = Path(runtime_root) if runtime_root is not None else self.root / "runtime"
+        self.runtime_root = Path(runtime_root) if runtime_root is not None else self.root / "tasks"
         self._now = now  # None -> live clock on every call
         self._live_window_s = live_window_s
         self._stale_after_s = stale_after_s
 
     # -- discovery ------------------------------------------------------
     def engagement_ids(self) -> list[str]:
-        """Engagement ids = child directories under ``<root>/runtime``.
+        """Engagement ids = child directories under ``<root>/tasks``.
 
         Dot-prefixed entries are engine-internal (e.g. ``.host-processes``)
         and never engagements; engine ids must start with ``[A-Za-z0-9]``.
@@ -400,7 +400,7 @@ class FileCollector:
     def _runner_dirs(self, eng_id: str, *, sealed: bool) -> list[Path]:
         """Runner-state search path for one engagement.
 
-        Per-engagement artifacts (``runtime/<eng>/heartbeat``, ``runner.pid``,
+        Per-engagement artifacts (``tasks/<eng>/heartbeat``, ``runner.pid``,
         ``ALL_DONE``, TSVs) always win. The engine-owned global directory
         (``RUNNER_STATE_FALLBACK`` — org-level backfill lineage, research/04)
         is consulted only for UNSEALED engagements without their own files:
@@ -408,7 +408,7 @@ class FileCollector:
         wrongly flag it stale.
         """
         dirs = [self.runtime_root / eng_id]
-        if not sealed and self.runtime_root == self.root / "runtime":
+        if not sealed and self.runtime_root == self.root / "tasks":
             dirs.append(self.root / RUNNER_STATE_FALLBACK)
         return dirs
 

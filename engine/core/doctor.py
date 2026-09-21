@@ -752,27 +752,34 @@ def _check_egress() -> list[tuple[str, str]]:
     return [first, second]
 
 
-def check_environment() -> list[tuple[str, list[tuple[str, str]]]]:
+def check_environment(scope: str = "full") -> list[tuple[str, list[tuple[str, str]]]]:
     """Named sections let supervisors report status without diagnostic text."""
-    return [
+    if scope not in {"full", "scan"}:
+        raise ValueError("doctor scope must be full or scan")
+    checks = [
         ("python", [_check_python()]), ("storage", [_check_root(), *_check_disk()]),
         ("temporary_storage", [_check_tmp_litter()]), ("tools", _check_tools()),
         ("verification_backends", _check_backends()), ("container", _check_kali_container()),
-        ("audit_config", [_check_loop_config()]), ("linter", [_check_pyflakes()]),
-        ("credentials", _check_key_envs()), ("reflector", [_check_reflector()]),
         ("wordlists", [_check_wordlists()]), ("engagements", _check_engagements()),
         ("egress", _check_egress()),
     ]
+    if scope == "full":
+        checks.extend([("audit_config", [_check_loop_config()]),
+                       ("linter", [_check_pyflakes()]), ("credentials", _check_key_envs()),
+                       ("reflector", [_check_reflector()])])
+    return checks
 
 
-def doctor() -> tuple[int, list[tuple[str, str]]]:
-    lines = [line for _category, checks in check_environment() for line in checks]
+def doctor(scope: str = "full") -> tuple[int, list[tuple[str, str]]]:
+    lines = [line for _category, checks in check_environment(scope) for line in checks]
     rc = 1 if any(level == FAIL for level, _ in lines) else 0
     return rc, lines
 
 
 def cmd_doctor(args) -> int:
-    rc, lines = doctor()
+    scope = getattr(args, "scope", "full")
+    rc, lines = doctor(scope)
+    print(f"doctor scope: {scope}")
     for level, msg in lines:
         print(f"{level:4} {msg}")
     print(f"--- {'FAILURES PRESENT' if rc else 'no failures'} "

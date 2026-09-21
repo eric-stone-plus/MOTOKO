@@ -703,14 +703,21 @@ class EventLogOverlay(ModalScreen):
               for event in tail])
 
 
+class ConfirmButton(Button):
+    """Pointer entry selects the same answer as keyboard navigation."""
+
+    def on_enter(self) -> None:
+        self.focus()
+
+
 class ConfirmDialog(ModalScreen):
     """Structured confirm dialog (DESIGN section 5.3, oh-my-pi ``ask`` pattern).
 
     Buttons + impact text. Fail-closed: esc or
     30s of silence resolve as Cancel — never as action.
 
-    Focus starts on Cancel without a colored choice. Navigation reveals the
-    focused choice in yellow; only activation resolves the dialog.
+    Cancel starts selected in yellow. Keyboard and pointer selection share
+    the same full-button highlight; only activation resolves the dialog.
     """
 
     BINDINGS = [
@@ -729,8 +736,8 @@ class ConfirmDialog(ModalScreen):
             yield Static(self._title, id="confirm-title")
             yield Static(self._impact, id="confirm-impact")
             with Horizontal(id="confirm-buttons"):
-                yield Button("Cancel", id="btn-cancel")
-                yield Button("Confirm", id="btn-confirm")
+                yield ConfirmButton("Cancel", id="btn-cancel")
+                yield ConfirmButton("Confirm", id="btn-confirm")
             yield Static("← → choose · Enter accept · Esc cancel", id="confirm-hint")
 
     def on_mount(self) -> None:
@@ -750,7 +757,6 @@ class ConfirmDialog(ModalScreen):
         way to change the answer. With two buttons left and right are the same
         move, which is what "cycle" means here.
         """
-        self.add_class("choosing")
         buttons = (self.query_one("#btn-cancel", Button),
                    self.query_one("#btn-confirm", Button))
         try:
@@ -758,13 +764,6 @@ class ConfirmDialog(ModalScreen):
         except ValueError:
             idx = 0                  # focus is nowhere in particular: Cancel
         buttons[(idx + 1) % len(buttons)].focus()
-
-    def on_key(self, event) -> None:
-        if event.key in {"tab", "shift+tab"}:
-            self.add_class("choosing")
-
-    def on_mouse_down(self) -> None:
-        self.add_class("choosing")
 
     @on(Button.Pressed, "#btn-cancel")
     def _cancel(self) -> None:
@@ -920,8 +919,7 @@ class InterfaceApp(App[None]):
         min-width: 12; margin: 0 1; background: $panel; color: $text;
         border: tall $border-blurred; text-style: none; background-tint: transparent;
     }
-    #confirm-buttons Button:hover { border: tall $warning; }
-    ConfirmDialog.choosing #confirm-buttons Button:focus {
+    #confirm-buttons Button:focus {
         background: $warning; color: $background;
         border: tall $warning; text-style: bold;
     }
@@ -1070,7 +1068,18 @@ class InterfaceApp(App[None]):
     def _apply_snapshot(self, frame: InterfaceSnapshot) -> None:
         """Single mutation path for snapshot data (bubbletea discipline)."""
         previous_error = self.snapshot.collector_error if self.snapshot else None
+        previous_ids = {eng.id for eng in self.snapshot.engagements} if self.snapshot else set()
+        current_ids = {eng.id for eng in frame.engagements}
         self.snapshot = frame
+        if self._watched not in current_ids:
+            self._watched = None
+        if self._follow_key not in current_ids:
+            self._follow_key = None
+        if self._engagement_id is not None and self._engagement_id not in current_ids:
+            self._engagement_id = None
+            self._engagement.engagement_id = None
+            if self.screen is self._engagement:
+                self.goto_screen("overview")
         self._last_data_mono = time.monotonic()
         if frame.collector_error:
             self._show_banner(f"COLLECTOR ERROR: {frame.collector_error}")
@@ -1084,7 +1093,7 @@ class InterfaceApp(App[None]):
         self._flush_audit()
         if not self._hydrated:
             self._hydrated = self._overview_hydrated() or not frame.engagements
-        self._update_due(force=not self._hydrated)
+        self._update_due(force=not self._hydrated or previous_ids != current_ids)
         self._apply_panel_titles()
         self._bell_on_gate_flip()
 

@@ -103,11 +103,13 @@ def strip_host_secrets(env: dict, *, strip_engine_secrets: bool = False) -> list
 def replay_asserted() -> bool:
     """Whether the deployment asserts its host route as the anonymous lane.
 
-    Any non-empty value asserts — the var is a switch, not a boolean, and
-    `export MOTOKO_ALLOW_DIRECT_REPLAY=` in a shell profile must not read as
-    an assertion.
+    The value crosses a process boundary, so it uses an explicit boolean
+    vocabulary.  In particular, the host adapter must be able to send a
+    false setting without accidentally turning the string ``"0"`` into a
+    truthy Python value.  Unknown values fail closed.
     """
-    return bool(os.environ.get(DIRECT_REPLAY_ENV))
+    value = os.environ.get(DIRECT_REPLAY_ENV, "").strip().lower()
+    return value in {"1", "true", "yes", "on"}
 
 
 def summary() -> dict:

@@ -323,7 +323,7 @@ class GraphCollector:
                  runtime_root: Path | None = None,
                  tail_size: int = TAIL_SIZE) -> None:
         self.root = Path(root)
-        self.runtime_root = Path(runtime_root) if runtime_root is not None else self.root / "runtime"
+        self.runtime_root = Path(runtime_root) if runtime_root is not None else self.root / "tasks"
         self._now = now
         self._tail_size = tail_size
         self._cursors: dict[str, int] = {}
@@ -337,6 +337,12 @@ class GraphCollector:
         # a restart rescans the newest TAIL_SIZE events, so a trip older
         # than that window resets the flag (documented v1 gap, not faked).
         self._canary: dict[str, bool] = {}
+
+    def retain_engagements(self, engagement_ids: set[str]) -> None:
+        """Forget streams removed from the task root before reusing their ids."""
+        for cache in (self._cursors, self._tails, self._stuck_cache, self._canary):
+            for gone in cache.keys() - engagement_ids:
+                del cache[gone]
 
     def _stuck_age(self, conn: sqlite3.Connection, eng_id: str,
                    now: float) -> float | None:

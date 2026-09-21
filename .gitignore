@@ -23,3 +23,7 @@ engine/loop/
 
 # Local receipt for the one-way source export.
 engine/PUBLISHED_FROM
+
+# Engagement data; reserve the former default as well.
+/tasks/
+/runtime/

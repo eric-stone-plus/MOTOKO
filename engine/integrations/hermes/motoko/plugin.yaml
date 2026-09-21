@@ -1,10 +1,10 @@
 manifest_version: 2
 name: motoko
-version: 1.1.0
+version: 1.2.0
 description: Supervise local or SSH-reachable MOTOKO scan waves through a bounded stdio protocol.
 kind: standalone
 platforms: [linux]
-python_dependencies: ["motoko-host==1.0.0"]
+python_dependencies: ["motoko-host==1.1.0"]
 provides_tools: [motoko_status, motoko_run]
 config_schema:
   transport:

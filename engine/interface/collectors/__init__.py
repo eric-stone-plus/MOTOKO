@@ -45,6 +45,7 @@ class _CollectorSession:
         self.reports: dict[str, str] = {}
         self.reports_at: float | None = None
         self.gates_at = 0.0
+        self.engagement_ids: set[str] | None = None
 
     def gates_refresh(self, now: float,
                       files: Sequence[EngagementFiles] = ()) -> GatesSummary | None:
@@ -137,7 +138,8 @@ def _render_doctor_report(doctor: dict) -> str:
         return ""
     failures = doctor.get("failures")
     failures = failures if isinstance(failures, int) else "?"
-    lines = [f"MOTOKO doctor — {len(checks)} categories, {failures} FAIL"]
+    scope = doctor.get("scope", "full")
+    lines = [f"MOTOKO doctor — {scope} scope, {len(checks)} categories, {failures} FAIL"]
     for check in checks:
         if not isinstance(check, dict):
             continue
@@ -283,7 +285,7 @@ def build_interface_snapshot(root: Path | None, demo: bool, *,
 
     ``demo=True`` ignores ``root`` and returns DemoCollector output.
     Otherwise ``root`` is the installation home. ``runtime_root`` selects
-    the engagement directory; absent an override it is ``root/runtime``.
+    the engagement directory; absent an override it is ``root/tasks``.
     The CLI always supplies the engine's resolved runtime. ``use_adapter=False``
     skips the subprocess for collector tests. Sessions persist across calls.
     """
@@ -293,7 +295,7 @@ def build_interface_snapshot(root: Path | None, demo: bool, *,
     if root is None:
         return InterfaceSnapshot(taken_at=now, engagements=(),
                                  collector_error="no runtime root configured")
-    runtime_root = Path(runtime_root) if runtime_root is not None else root / "runtime"
+    runtime_root = Path(runtime_root) if runtime_root is not None else root / "tasks"
     key = (str(root), str(runtime_root), use_adapter)
     session = _SESSIONS.get(key)
     if session is None:
@@ -305,7 +307,16 @@ def build_interface_snapshot(root: Path | None, demo: bool, *,
     # lane; its single result is shared by every engagement frame below.
     collected: list[tuple[EngagementFiles, GraphFacts]] = []
     errors: list[str] = []
-    for eng_id in session.file_collector.engagement_ids():
+    engagement_ids = session.file_collector.engagement_ids()
+    current_ids = set(engagement_ids)
+    session.graph_collector.retain_engagements(current_ids)
+    if session.engagement_ids is not None and session.engagement_ids != current_ids:
+        # Digest reports belong to the discovered set, not to the cache TTL.
+        session.gates_at = float("-inf")
+        session.reports = {}
+        session.reports_at = None
+    session.engagement_ids = current_ids
+    for eng_id in engagement_ids:
         files = session.file_collector.collect(eng_id)
         graph = session.graph_collector.collect(eng_id, sealed=files.sealed)
         if graph.error:

@@ -66,7 +66,10 @@ runtime dependencies, and a packaging manifest (`pyproject.toml` with a
   home paths are hardcoded in the tree.
 - Toolbox versions are not pinned here: `MOTOKO_TOOLS` points at whatever
   binaries the deploy host provides, and `motoko doctor` reports which ones
-  resolve. Pinning tool revisions is an operator concern, outside this tree.
+  resolve. The CLI also derives owner-local Go/Cargo and user-bin search
+  directories for child processes, even when a gateway supplies a minimal
+  `PATH`; `MOTOKO_TOOL_DIRS` adds absolute directories for non-standard
+  layouts. Pinning tool revisions is an operator concern, outside this tree.
 
 ## For contributors
 

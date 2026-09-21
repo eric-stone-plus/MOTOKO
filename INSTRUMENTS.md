@@ -14,6 +14,7 @@ Citations are **upstream**. Operator forks, if any, are out of scope here.
 | MOTOKO (this repo) | Ontology + graph contract | [eric-stone-plus/MOTOKO](https://github.com/eric-stone-plus/MOTOKO) | AGPL-3.0-or-later |
 | Hermes Agent | Runtime, IM gateway, graph invoker | [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) | MIT |
 | Pi | Agent shell / lightweight host; typed extension | [earendil-works/pi](https://github.com/earendil-works/pi) | MIT |
+| Security Agent | Reference architecture for a single-agent planning/execution loop | [wr0ld/security-agent](https://github.com/wr0ld/security-agent) | Upstream terms; reference only |
 | Strix | Autonomous pentest; PoC-validated findings | [usestrix/strix](https://github.com/usestrix/strix) | Apache-2.0 |
 | Nuclei | Template CVE / misconfig scanner | [projectdiscovery/nuclei](https://github.com/projectdiscovery/nuclei) | MIT |
 | LangGraph | Graph *contract* runtime, if compiled | [langchain-ai/langgraph](https://github.com/langchain-ai/langgraph) | MIT |
@@ -96,6 +97,58 @@ The control flow is the graph in [GRAPH.md](GRAPH.md). Short form:
 6. `report` → hashed evidence. Destructive edges `interrupt` for IM confirmation.
 
 Katana is the security crawler.
+
+### Reference architecture: `wr0ld/security-agent`
+
+MOTOKO reviewed commit `1b039e9ed509de6f5dceb065d27d659109e7a223`
+(`2026-08-05`) on 2026-09-21. The review was read-only; no source was copied
+and the project is not a dependency. Its useful shape is a small control loop:
+parse or resume state, plan a bounded action batch, execute one action at a
+time, synchronize durable facts, and route again. It also separates control
+state, checkpoints, long-lived facts, vulnerability records, raw artifacts,
+and telemetry instead of putting every lifecycle into one model context.
+
+MOTOKO adopts those mechanisms in its own terms where they fit: the
+event-sourced `graph.db` is the durable engagement state, hypotheses and scan
+waves are the bounded action queue, `motoko/core` performs execution-time
+scope and tool checks, and loop bundles retain round evidence before any
+truncation. Finding identity and evidence references stay governed by the
+MOTOKO graph and seal rules. The host adapters expose aggregate state over
+`motoko/1`, never the reference project's web runtime or raw artifact store.
+
+The orchestration decision remains MOTOKO-specific. Its six deterministic
+beats (`SYNC → VALIDATE → EXPAND → PRIORITIZE → ACT → REFLECT`) own scheduling;
+the reflector and audit loop can propose hypotheses or priorities but cannot
+transition findings. `motoko loop` separately runs lens-differentiated audit
+legs, adjudication, and deterministic evaluation. LangGraph/LangChain is not
+the shipped orchestration substrate, and MOTOKO does not turn into a single
+LLM planner: scope gates, rule predicates, cooldowns, budgets, writer leases,
+and the deterministic evaluator remain authoritative. These boundaries keep
+the reference's useful feedback loop without importing its dependency stack,
+web lifecycle, or model-controlled scheduler.
+
+### Version matrix
+
+The following versions were checked on 2026-09-21. They describe the pieces
+that are installed or exported together; they are not a promise that the
+scanner binaries in `MOTOKO_TOOLS` share one release cycle.
+
+| Component | Version or revision | Source of truth | Status |
+|---|---|---|---|
+| Hermes Agent | `0.21.3` | Hermes checkout `pyproject.toml` | gateway runtime |
+| Hermes MOTOKO plugin | `1.2.0` | `engine/integrations/hermes/motoko/plugin.yaml` | deployed byte-identical |
+| `motoko-host` | `1.1.0` | `engine/integrations/host/pyproject.toml` | plugin dependency |
+| MOTOKO engine | `0.7.0` | `engine/pyproject.toml` | engine package |
+| Pi MOTOKO package / skill | `1.0.0` | `package.json` / `SKILL.md` | package release line |
+| Security Agent reference | `1b039e9ed509de6f5dceb065d27d659109e7a223` | upstream commit | reviewed reference |
+| Strix source / deployed tool | `1.5.3` / `1.6.2` | `tools/strix/pyproject.toml` / `strix --version` | mismatch remains a doctor WARN |
+
+The Hermes plugin and host versions are deliberately bumped together: the
+plugin requires the matching `motoko-host` release. The Pi package stays on
+its own release line because its manifest is consumed by Pi, not by the
+Hermes plugin. A Strix mismatch is recorded as an environment warning until
+the source checkout and deployed tool are reconciled; it is not silently
+treated as aligned.
 
 ## License boundary
 

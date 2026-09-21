@@ -91,10 +91,14 @@ def request(operation, engagement_id=None, options=None):
             raise ClientError("invalid_arguments")
     elif not isinstance(engagement_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", engagement_id):
         raise ClientError("invalid_arguments")
-    allowed = {"query": {"kind", "state", "limit", "after"}, "events": {"limit", "after"},
+    allowed = {"doctor": {"scope"}, "query": {"kind", "state", "limit", "after"}, "events": {"limit", "after"},
                "run": {"max_cycles", "wave_cycles", "max_waves", "timeout", "wall_timeout"}}
     if set(opts) - allowed.get(operation, set()):
         raise ClientError("invalid_arguments")
+    if operation == "doctor":
+        opts.setdefault("scope", "scan")
+        if opts["scope"] not in ("scan", "full"):
+            raise ClientError("invalid_arguments")
     for key, high in (("max_cycles", 1000), ("wave_cycles", 100), ("max_waves", 100), ("limit", 100)):
         if key in opts and not _integer(opts[key], 1, high):
             raise ClientError("invalid_arguments")
@@ -177,7 +181,8 @@ def child_env(config):
         if key in config:
             env[target] = config[key]
     if config["transport"] == "local":
-        env["MOTOKO_ALLOW_DIRECT_REPLAY"] = "1" if config["allow_direct_replay"] else "0"
+        if config["allow_direct_replay"]:
+            env["MOTOKO_ALLOW_DIRECT_REPLAY"] = "1"
     return env
 
 
@@ -194,8 +199,9 @@ def _ssh_argv(config):
         argv.extend(["-o", f"UserKnownHostsFile={config['known_hosts']}"])
     argv.extend(["-p", str(config["ssh_port"]), config["remote_host"], "exec", "env",
                  f"MOTOKO_HOME={config['remote_root']}",
-                 f"MOTOKO_EGRESS_MODE={config['egress_mode']}",
-                 "MOTOKO_ALLOW_DIRECT_REPLAY=" + ("1" if config["allow_direct_replay"] else "0")])
+                 f"MOTOKO_EGRESS_MODE={config['egress_mode']}" ])
+    if config["allow_direct_replay"]:
+        argv.append("MOTOKO_ALLOW_DIRECT_REPLAY=1")
     if config.get("remote_tools_root"):
         argv.append(f"MOTOKO_TOOLS={config['remote_tools_root']}")
     if config.get("remote_wordlist_dir"):
