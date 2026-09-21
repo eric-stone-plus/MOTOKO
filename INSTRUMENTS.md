@@ -141,14 +141,14 @@ scanner binaries in `MOTOKO_TOOLS` share one release cycle.
 | MOTOKO engine | `0.7.0` | `engine/pyproject.toml` | engine package |
 | Pi MOTOKO package / skill | `1.0.0` | `package.json` / `SKILL.md` | package release line |
 | Security Agent reference | `1b039e9ed509de6f5dceb065d27d659109e7a223` | upstream commit | reviewed reference |
-| Strix source / deployed tool | `1.5.3` / `1.6.2` | `tools/strix/pyproject.toml` / `strix --version` | mismatch remains a doctor WARN |
+| Strix | deployment-selected | host deployment manifest and `strix --version` | doctor compares source and deployed bytes |
 
 The Hermes plugin and host versions are deliberately bumped together: the
 plugin requires the matching `motoko-host` release. The Pi package stays on
 its own release line because its manifest is consumed by Pi, not by the
-Hermes plugin. A Strix mismatch is recorded as an environment warning until
-the source checkout and deployed tool are reconciled; it is not silently
-treated as aligned.
+Hermes plugin. Strix is intentionally deployment-selected: the engine records
+and reports a source/deployed mismatch through `doctor` rather than exporting
+one host's tool revision as a public requirement.
 
 ## License boundary
 
