@@ -508,6 +508,12 @@ def _check_reflector() -> tuple[str, str]:
         if level != OK:
             return level, msg
     if len(have) == 2:
+        base = os.environ.get("MOTOKO_REFLECTOR_BASE_URL", "").rstrip("/")
+        if base.endswith("/v1"):
+            return FAIL, ("MOTOKO_REFLECTOR_BASE_URL must not end in /v1 — "
+                          "the reflector appends /v1/messages (one "
+                          "convention across every anthropic adapter); a "
+                          "doubled segment 404s at launch")
         return OK, "reflector env: configured"
     return WARN, ("reflector env incomplete (optional — "
                   "`motoko run --reflector` needs MOTOKO_REFLECTOR_*)")

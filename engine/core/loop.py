@@ -356,7 +356,7 @@ def _call_anthropic(ep: LLMEndpoint, prompt: str) -> str:
     body["thinking"] = {"type": "enabled", "budget_tokens": 8192}
     wire = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(
-        ep.base_url.rstrip("/") + "/messages", data=wire,
+        ep.base_url.rstrip("/") + "/v1/messages", data=wire,
         headers={"x-api-key": ep.resolve_key(),
                  "anthropic-version": "2023-06-01",
                  "Content-Type": "application/json"}, method="POST")
@@ -941,6 +941,9 @@ class LoopRunner:
         'Map the adjudicated fix list onto loop_evaluate findings.'
         sev = {"p0": "CRITICAL", "high": "HIGH",
                "medium": "MEDIUM", "low": "LOW"}
+        # Tolerant match: adjudicators write "both", "both legs", "multi"…
+        # a single-leg report ("a leg only", "single") carries neither
+        # token and stays excluded.
         def _confirmed(f: dict) -> bool:
             c = str(f.get("consensus", "")).lower()
             return "both" in c or "multi" in c

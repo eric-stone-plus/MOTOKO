@@ -423,6 +423,17 @@ REQUIRED_LOOP_KEYS = {
 }
 
 
+def _base_url_dialect_problem(label: str, ep: dict) -> str | None:
+    ''
+    if ep.get("protocol") != "anthropic":
+        return None
+    base = str(ep.get("base_url") or "").rstrip("/")
+    if base.endswith("/v1"):
+        return (f"{label}: anthropic base_url must not end in /v1 — every "
+                f"adapter appends /v1/messages (drop the suffix)")
+    return None
+
+
 def validate_loop_config(cfg: dict) -> list[str]:
     """Return a list of human-readable config problems (empty = valid)."""
     problems: list[str] = []
@@ -442,6 +453,9 @@ def validate_loop_config(cfg: dict) -> list[str]:
             if a.get("protocol") == "anthropic" and not a.get("base_url"):
                 problems.append(f"auditors[{i}]: anthropic protocol needs "
                                 f"'base_url'")
+            dialect = _base_url_dialect_problem(f"auditors[{i}]", a)
+            if dialect:
+                problems.append(dialect)
             if a.get("protocol") == "cli" and not a.get("command"):
                 problems.append(f"auditors[{i}]: cli protocol needs "
                                 f"'command'")
@@ -455,6 +469,9 @@ def validate_loop_config(cfg: dict) -> list[str]:
         if adj.get("protocol") == "anthropic" and not adj.get("base_url"):
             problems.append("adjudicator: anthropic protocol needs "
                             "'base_url'")
+        dialect = _base_url_dialect_problem("adjudicator", adj)
+        if dialect:
+            problems.append(dialect)
         if adj.get("protocol") == "cli" and not adj.get("command"):
             problems.append("adjudicator: cli protocol needs 'command'")
     return problems
