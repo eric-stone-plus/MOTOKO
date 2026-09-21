@@ -186,6 +186,7 @@ endpoints, a config file in which credentials are referenced by variable
 | `MOTOKO_EGRESS_PROXY_TOOLS` | Extra tool names (comma-separated) routed through the egress proxy | `gau` |
 | `MOTOKO_UA` | User-Agent for engine probes | a stock browser UA |
 | `MOTOKO_REFLECTOR_MODEL` | Enables the optional LLM reflector | unset (reflector off) |
+| `MOTOKO_REFLECTOR_PROTOCOL` | Reflector wire (`anthropic` or `openai`) | `anthropic` |
 | `MOTOKO_REFLECTOR_BASE_URL` | Reflector endpoint; the provider is an operator decision | unset (reflector off) |
 | `MOTOKO_REFLECTOR_KEY_ENV` | *Name* of the env var holding the reflector key | unset (reflector off) |
 | `MOTOKO_ALLOW_DIRECT_REPLAY` | Set to `1` to assert the host route is already anonymous, permitting raw-socket replay validation | unset (replay fails closed) |
@@ -239,8 +240,8 @@ docs and test suite are maintained outside this export by policy.
 on every push and pull request, on Python 3.11 / 3.12 / 3.13: a clean
 `uv` venv install of `engine/`, `motoko --help`, `motoko doctor`, an
 assertion from the *installed* site-packages tree that the rule packs
-actually shipped (a floor of 31 against the 32 that ship today — it guards
-accidental shrinkage, and a deliberate retirement lowers it on purpose),
+actually shipped (a floor of 31, matching the current 31-pack corpus — it
+guards accidental shrinkage, and a deliberate retirement lowers it on purpose),
 and a check that no build artifacts are tracked.
 
 ## License

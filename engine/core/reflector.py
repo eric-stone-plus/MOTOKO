@@ -67,9 +67,9 @@ def parse_proposals(text: str) -> list[dict]:
     return out
 
 
-# --- LLM call (anthropic messages wire; endpoint-agnostic) -------------
-def _call_llm(prompt: str, *, model: str, base_url: str, api_key: str,
-              timeout: float = 120) -> str | None:
+# --- LLM call -----------------------------------------------------------
+def _call_anthropic(prompt: str, *, model: str, base_url: str, api_key: str,
+                    timeout: float = 120) -> str | None:
     url = base_url.rstrip("/") + "/v1/messages"
     body = {
         "model": model,
@@ -96,6 +96,46 @@ def _call_llm(prompt: str, *, model: str, base_url: str, api_key: str,
              if isinstance(c, dict) and c.get("type") == "text"
              and isinstance(c.get("text"), str)]
     return "".join(parts) or None
+
+
+def _call_openai(prompt: str, *, model: str, base_url: str, api_key: str,
+                 timeout: float = 120) -> str | None:
+    """Call an OpenAI-compatible chat-completions endpoint.
+
+    The reflector does not need streaming: it consumes one bounded JSON
+    proposal document.  Keeping this wire separate from the Anthropic
+    adapter matters because the two lanes use different auth headers and
+    response envelopes, even when they belong to the same subscription.
+    """
+    url = base_url.rstrip("/") + "/chat/completions"
+    body = {
+        "model": model,
+        "max_tokens": 4096,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    req = urllib.request.Request(
+        url, data=json.dumps(body).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "content-type": "application/json",
+        }, method="POST")
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        with opener.open(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except (urllib.error.URLError, OSError, json.JSONDecodeError,
+            ValueError, TimeoutError):
+        return None
+    if not isinstance(data, dict) or not isinstance(data.get("choices"), list):
+        return None
+    choices = data["choices"]
+    if not choices or not isinstance(choices[0], dict):
+        return None
+    message = choices[0].get("message")
+    if not isinstance(message, dict):
+        return None
+    content = message.get("content")
+    return content if isinstance(content, str) and content else None
 
 
 # --- prompt (machine state only, <=2KB digest spirit) ------------------
@@ -135,9 +175,13 @@ def build_prompt(view, engagement_id: str,
 
 
 def make_reflector(*, model: str, base_url: str, api_key: str,
-                   timeout: float = 120, _call=None):
+                   protocol: str = "anthropic", timeout: float = 120,
+                   _call=None):
     'Factory: returns a reflector callable with the given endpoint config.\n\n    Nothing is hardcoded — swap model/base_url/key per deployment. The\n    callable signature matches what the orchestrator injects:\n    ``reflector(view, engagement_id)``. ``_call`` is a test seam for the\n    LLM transport (defaults to the real anthropic-messages HTTP call).'
-    _transport = _call or _call_llm
+    if protocol not in {"anthropic", "openai"}:
+        raise ValueError("reflector protocol must be 'anthropic' or 'openai'")
+    _transport = _call or (_call_openai if protocol == "openai"
+                           else _call_anthropic)
 
     def _reflect(view, engagement_id: str,
                  failure_lines: list[str] | None = None) -> None:
@@ -157,6 +201,9 @@ def make_reflector(*, model: str, base_url: str, api_key: str,
 
 def reflector_from_env():
     'Config from the environment (no hardcoded model/endpoint/key).'
+    protocol = os.environ.get("MOTOKO_REFLECTOR_PROTOCOL", "anthropic").strip().lower()
+    if protocol not in {"anthropic", "openai"}:
+        return None
     model = os.environ.get("MOTOKO_REFLECTOR_MODEL", "").strip()
     if not model:
         return None
@@ -169,4 +216,5 @@ def reflector_from_env():
     api_key = os.environ.get(key_env, "").strip()
     if not api_key:
         return None
-    return make_reflector(model=model, base_url=base_url, api_key=api_key)
+    return make_reflector(model=model, base_url=base_url, api_key=api_key,
+                          protocol=protocol)

@@ -238,7 +238,8 @@ class OverviewScreen(InterfaceScreen):
         yield Static(id="banner")
         with Horizontal(id="body"):
             with Vertical(id="left"):
-                yield DataTable(id="engagements", cursor_type="row")
+                yield DataTable(id="engagements", cursor_type="row",
+                                zebra_stripes=True)
                 yield RichLog(id="feed", max_lines=FEED_LIMIT, markup=False,
                               wrap=False, auto_scroll=False)
             with Vertical(id="right"):
@@ -292,9 +293,7 @@ class OverviewScreen(InterfaceScreen):
         if frame is None:
             return
         app._sort_active = (key, reverse)
-        ordered = sorted(app._visible_engagements(), key=_sort_order_key(key),
-                         reverse=reverse)
-        app._rebuild_engagements(ordered)
+        app._rebuild_engagements(app._ordered_engagements())
         app.notify(f"sort: {key}{' desc' if reverse else ''}")
 
 
@@ -489,7 +488,7 @@ class EngagementScreen(InterfaceScreen):
         yield Footer()
 
     def on_mount(self) -> None:
-        self.query_one("#sidebar").border_title = "SECTIONS · ↑↓ / 1–9"
+        self.query_one("#sidebar").border_title = "SECTIONS"
         self.rerender()
         self.focus_body()
 
@@ -634,10 +633,15 @@ class HelpOverlay(ModalScreen):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="help-box"):
-            yield Static("KEYBINDINGS — generated from the live keymap",
-                         id="help-title")
+            yield Static(id="help-title")
             yield VerticalScroll(Static(self._build_table(), id="help-table"))
             yield Static("esc close · overlays: ? help  ⌃P palette  : command", id="help-foot")
+
+    def on_mount(self) -> None:
+        theme: Theme = self.app.ui_theme
+        title = Text("KEYBINDINGS", style=f"bold {theme.style('panel.title')}")
+        title.append("  ·  live keymap", style=theme.style("text.muted"))
+        self.query_one("#help-title", Static).update(title)
 
     def _build_table(self) -> Table:
         theme: Theme = self.app.ui_theme
@@ -868,19 +872,25 @@ class InterfaceApp(App[None]):
                     severity="information", timeout=5)
 
     CSS = """
+    Screen { background: $background; }
     #topbar { height: 1; padding: 0 1; color: $text; }
     #banner { display: none; height: 1; padding: 0 1; }
-    #banner.visible { display: block; color: $error; }
+    #banner.visible { display: block; color: $error; text-style: bold; }
     #body { height: 1fr; }
     #left { width: 1fr; }
     #right { width: 1fr; }
-    #progress { height: 2fr; }
+    #progress { height: 2fr; padding: 0 1; }
     #mid-row, #bot-row { height: 1fr; }
-    #hyp, #funnel, #legs, #gates { width: 1fr; }
+    #hyp, #funnel, #legs, #gates { width: 1fr; padding: 0 1; }
     #engagements { height: 2fr; }
-    #feed { height: 1fr; }
+    #feed { height: 1fr; padding: 0 1; }
     #engagements, #feed, #progress, #hyp, #funnel, #legs, #gates {
         border: tall $border-blurred;
+        background: $panel;
+    }
+    #engagements > .datatable--header {
+        text-style: none;
+        color: $text-muted;
         background: $panel;
     }
     .stale-warn { border: tall $warning; }
@@ -889,14 +899,14 @@ class InterfaceApp(App[None]):
     #command-bar.visible { display: block; }
     #filter-bar { display: none; dock: bottom; border: tall $border; }
     #filter-bar.visible { display: block; }
-    #eventlog-box { width: 100; height: 80%; border: tall $border;
+    #eventlog-box { width: 100; max-width: 95%; height: 80%; border: tall $border;
                     background: $panel; padding: 1 2; }
     #eventlog-title { color: $text; margin-bottom: 1; }
     #eventlog-scroll { height: 1fr; }
     #eventlog-foot { color: $text-muted; padding-top: 1; }
     #drill-head { height: 1; padding: 0 1; color: $text; }
     #drill { height: 1fr; }
-    #sidebar { width: 26; height: 1fr; border: tall $border-blurred; background: $panel; }
+    #sidebar { width: 22; height: 1fr; border: tall $border-blurred; background: $panel; }
     #sidebar:focus, #detail-scroll:focus, #engagements:focus, #feed:focus {
         border: tall $accent;
     }
@@ -904,7 +914,7 @@ class InterfaceApp(App[None]):
     #detail { padding: 0 1; }
     #report-head { height: 1; padding: 0 1; }
     #report-scroll { height: 1fr; border: tall $border-blurred; background: $panel; }
-    #report-body { padding: 0 1; }
+    #report-body { padding: 1; }
     #help-box { width: 72; max-width: 95%; height: 70%; border: tall $border;
                 background: $panel; padding: 1 2; }
     #help-title { color: $text; }
@@ -924,7 +934,6 @@ class InterfaceApp(App[None]):
         border: tall $warning; text-style: bold;
     }
     #confirm-hint { color: $text-muted; text-align: center; margin-top: 1; }
-    #eventlog-box { max-width: 95%; }
     /* ModalScreen has no alignment of its own, so every overlay was pinned to
        the top-left corner of the terminal and read as a stray panel rather
        than a dialog. Centering is one rule for all three because they share
@@ -958,6 +967,7 @@ class InterfaceApp(App[None]):
         self._engagement = EngagementScreen()
         self._reports = ReportsScreen()
         self._bell_on_error = True
+        self._collector_error_active = False
         self._last_gates_ok: bool | None = None
         self._sort_active: tuple[str, bool] | None = None
         self._hydrated = False
@@ -1031,7 +1041,7 @@ class InterfaceApp(App[None]):
             background=tokens.get("bg", "#101418"),
             surface=tokens.get("panel.bg", "#141a20"),
             panel=tokens.get("panel.bg", "#141a20"),
-            dark=True,
+            dark=render_theme.name != "motoko-light",
         )
         self.register_theme(ttheme)
         self.theme = ttheme.name
@@ -1067,7 +1077,6 @@ class InterfaceApp(App[None]):
 
     def _apply_snapshot(self, frame: InterfaceSnapshot) -> None:
         """Single mutation path for snapshot data (bubbletea discipline)."""
-        previous_error = self.snapshot.collector_error if self.snapshot else None
         previous_ids = {eng.id for eng in self.snapshot.engagements} if self.snapshot else set()
         current_ids = {eng.id for eng in frame.engagements}
         self.snapshot = frame
@@ -1081,14 +1090,8 @@ class InterfaceApp(App[None]):
             if self.screen is self._engagement:
                 self.goto_screen("overview")
         self._last_data_mono = time.monotonic()
-        if frame.collector_error:
-            self._show_banner(f"COLLECTOR ERROR: {frame.collector_error}")
-            if not previous_error and self._bell_on_error:
-                self.bell()
-        else:
-            self._hide_banner()
-            if previous_error and self._bell_on_error:
-                self.bell()  # collector recovered: one ring (DESIGN section 6)
+        self._set_collector_error(
+            f"COLLECTOR ERROR: {frame.collector_error}" if frame.collector_error else None)
         self._write_new_feed_events()
         self._flush_audit()
         if not self._hydrated:
@@ -1109,8 +1112,18 @@ class InterfaceApp(App[None]):
 
     def _apply_error(self, exc: Exception) -> None:
         """Provider raised: keep the last frame, escalate visibility."""
-        self._show_banner(f"COLLECTOR THREAD ERROR: {exc!r}")
-        if self._bell_on_error:
+        self._set_collector_error(f"COLLECTOR THREAD ERROR: {exc!r}")
+
+    def _set_collector_error(self, message: str | None) -> None:
+        """Ring once on failure and recovery across both provider error paths."""
+        active = message is not None
+        if active:
+            self._show_banner(message)
+        else:
+            self._hide_banner()
+        previous = self._collector_error_active
+        self._collector_error_active = active
+        if previous != active and self._bell_on_error:
             self.bell()
 
     def _bell_on_gate_flip(self) -> None:
@@ -1179,33 +1192,39 @@ class InterfaceApp(App[None]):
         widget = self._overview_widget("#progress")
         if widget is None:
             return
-        eng = self.current_engagement()
-        widget.update(panels.run_progress(eng, self.ui_theme))
+        if self.snapshot is None:
+            widget.update(panels.empty_note("hydrating…", self.ui_theme))
+            return
+        widget.update(panels.run_progress(self.current_engagement(), self.ui_theme))
 
     def _update_small(self, panel_id: str) -> None:
         widget = self._overview_widget(f"#{panel_id}")
         if widget is None:
             return
+        if self.snapshot is None:
+            widget.update(panels.empty_note("hydrating…", self.ui_theme))
+            return
         eng = self.current_engagement()
         if eng is None:
-            widget.update(Text("no data yet", style=self.ui_theme.style("text.muted")))
+            widget.update(panels.empty_note("no engagements", self.ui_theme))
             return
         if panel_id == "hyp":
-            widget.update(panels.hypotheses(eng, self.ui_theme))
+            widget.update(panels.hypotheses(eng, self.ui_theme, compact=True))
         elif panel_id == "funnel":
-            widget.update(panels.finding_funnel(eng, self.ui_theme))
+            widget.update(panels.finding_funnel(eng, self.ui_theme, compact=True))
         elif panel_id == "legs":
             widget.update(panels.legs_panel(eng, self.ui_theme, compact=True))
         elif panel_id == "gates":
             widget.update(panels.gates_panel(eng, self.ui_theme))
 
     def _update_engagements(self) -> None:
-        """ENGAGEMENTS table with stable row keys + update_cell (no rebuild).
+        """Refresh ENGAGEMENTS cells while preserving the active row order.
 
         Filter-aware: only engagements matching the active ``/`` regex get
         rows; rows that stopped matching are removed. Matching ids keep
         their row keys, so the ``update_cell`` stream and follow-mode keep
-        working across refreshes.
+        working across refreshes. A sorted table is rebuilt only when the
+        freshly computed order differs from the current order.
         """
         table = self._overview_widget("#engagements")
         frame = self.snapshot
@@ -1213,7 +1232,6 @@ class InterfaceApp(App[None]):
             return
         assert isinstance(table, DataTable)
         seen: set[str] = set()
-        added_new = False
         for eng in frame.engagements:
             if not self._matches_filter(eng):
                 continue
@@ -1221,19 +1239,20 @@ class InterfaceApp(App[None]):
             cells = panels.engagement_row_cells(eng, self.ui_theme)
             if eng.id not in self._row_keys:
                 self._row_keys[eng.id] = table.add_row(*cells, key=eng.id)
-                added_new = True
                 continue
             for (col_key, _label), value in zip(panels.ENGAGEMENT_COLUMNS, cells):
                 table.update_cell(eng.id, self._overview.col_keys[col_key], value,
                                   update_width=True)
         for gone in [k for k in self._row_keys if k not in seen]:
             table.remove_row(self._row_keys.pop(gone))
-        if added_new and self._sort_active:
-            key, reverse = self._sort_active
-            self._rebuild_engagements(
-                sorted(self._visible_engagements(), key=_sort_order_key(key),
-                       reverse=reverse))
-            return
+        if self._sort_active:
+            # Incremental cell updates keep the common path cheap, but a
+            # sorted table must be rebuilt whenever a changed value alters
+            # the order (including newly discovered rows).
+            ordered = self._ordered_engagements()
+            if self._visible_row_keys() != [eng.id for eng in ordered]:
+                self._rebuild_engagements(ordered)
+                return
         self._apply_follow()
 
     # -- overview table: filter / follow / cursor (DESIGN section 5.1) ---------
@@ -1243,6 +1262,14 @@ class InterfaceApp(App[None]):
         if self.snapshot is None:
             return []
         return [e for e in self.snapshot.engagements if self._matches_filter(e)]
+
+    def _ordered_engagements(self) -> list[EngagementSnapshot]:
+        """Return visible engagements in the active display order."""
+        values = self._visible_engagements()
+        if self._sort_active is None:
+            return values
+        key, reverse = self._sort_active
+        return sorted(values, key=_sort_order_key(key), reverse=reverse)
 
     def _matches_filter(self, eng: EngagementSnapshot) -> bool:
         """Case-insensitive regex match on engagement id and its flag string."""
@@ -1269,7 +1296,7 @@ class InterfaceApp(App[None]):
                         severity="error")
             return
         self._filter_text = pattern
-        self._rebuild_engagements(self._visible_engagements())
+        self._rebuild_engagements(self._ordered_engagements())
         self._apply_panel_titles()
         self.notify(f"filter: {pattern}")
 
@@ -1278,7 +1305,7 @@ class InterfaceApp(App[None]):
         had_filter = self._filter_re is not None
         self._filter_re = None
         self._filter_text = ""
-        self._rebuild_engagements(self._visible_engagements())
+        self._rebuild_engagements(self._ordered_engagements())
         self._apply_panel_titles()
         if had_filter:
             self.notify("filter cleared")
@@ -1293,12 +1320,22 @@ class InterfaceApp(App[None]):
         table = self._overview_widget("#engagements")
         if table is None or not isinstance(table, DataTable):
             return
-        table.clear()
-        self._row_keys.clear()
-        for eng in ordered:
-            cells = panels.engagement_row_cells(eng, self.ui_theme)
-            self._row_keys[eng.id] = table.add_row(*cells, key=eng.id)
-        self._apply_follow()
+        cursor = table.cursor_coordinate
+        scroll_x, scroll_y = table.scroll_x, table.scroll_y
+        # Intermediate highlights from clear/add_row are not user movement;
+        # letting them reach the handler would overwrite the follow latch.
+        with table.prevent(DataTable.RowHighlighted):
+            table.clear()
+            self._row_keys.clear()
+            for eng in ordered:
+                cells = panels.engagement_row_cells(eng, self.ui_theme)
+                self._row_keys[eng.id] = table.add_row(*cells, key=eng.id)
+            table.move_cursor(row=cursor.row, column=cursor.column, scroll=False)
+            self._apply_follow()
+        if not self._follow or self._follow_key not in self._row_keys:
+            # Restore after Textual recomputes dimensions and cursor scrolling.
+            table.call_after_refresh(table.scroll_to, x=scroll_x, y=scroll_y,
+                                     animate=False)
 
     def _overview_cursor_key(self) -> str | None:
         """The row key currently under the ENGAGEMENTS cursor (None if empty)."""
@@ -1354,15 +1391,22 @@ class InterfaceApp(App[None]):
                 continue
             title = Text(PANEL_TITLES[panel_id], style=self.ui_theme.style("panel.title"))
             if panel_id == "feed":
-                title.append(f" ─ newest first · polled {age:.0f}s ago",
+                title.append(f"  ·  newest ↑  {age:.0f}s",
                              style=self.ui_theme.style("text.muted"))
             if panel_id == "engagements":
+                n_visible = len(self._visible_engagements()) if self.snapshot else 0
+                title = Text(f"ENGAGEMENTS ({n_visible})",
+                             style=self.ui_theme.style("panel.title"))
                 # OVERVIEW table-verb state hints (DESIGN section 5.1).
                 if self._filter_text:
-                    title.append(f" ─ filter: {self._filter_text}",
+                    title.append(f"  ·  filter: {self._filter_text}",
                                  style=self.ui_theme.style("text.muted"))
                 if self._follow:
                     title.append("  ● follow", style=self.ui_theme.style("accent"))
+            if panel_id == "progress":
+                eng = self.current_engagement()
+                if eng is not None:
+                    title.append(f"  ·  {eng.id}", style=self.ui_theme.style("accent"))
             if age > STALE_CRIT_X * mult:
                 title.append("  ■ STALE", style=f"bold {self.ui_theme.style('state.crit')}")
                 widget.add_class("stale-crit")
@@ -1418,8 +1462,13 @@ class InterfaceApp(App[None]):
         # RichLog appends only. Rebuild the bounded view when content changes;
         # idle polls leave it intact. Keep the viewport on the newest rows.
         feed.clear()
-        for _stamp, _seq, line in rows[:FEED_LIMIT]:
-            feed.write(line, scroll_end=False)
+        visible = rows[:FEED_LIMIT]
+        if not visible:
+            feed.write(panels.empty_note("no events yet", self.ui_theme),
+                       scroll_end=False)
+        else:
+            for _stamp, _seq, line in visible:
+                feed.write(line, scroll_end=False)
         feed.scroll_home(animate=False)
         self._feed_dirty = False
 
@@ -1470,13 +1519,14 @@ class InterfaceApp(App[None]):
     def action_help_overlay(self) -> None:
         self.push_screen(HelpOverlay(self.screen))
 
-    def open_engagement(self, eng_id: str) -> None:
+    def open_engagement(self, eng_id: str) -> bool:
         if self.current_engagement(eng_id) is None:
             self.notify(f"unknown engagement: {eng_id}", severity="error")
-            return
+            return False
         self._engagement_id = eng_id
         self._engagement.set_engagement(eng_id)
         self.goto_screen("engagement")
+        return True
 
     def show_report(self, kind: str, arg: str | None) -> None:
         self._reports.set_report(kind, arg)
@@ -1522,8 +1572,8 @@ class InterfaceApp(App[None]):
             if not arg:
                 self.notify("usage: :engagement <engagement-id>", severity="warning")
                 return
-            self._remember_command(cmd)
-            self.open_engagement(arg)
+            if self.open_engagement(arg):
+                self._remember_command(cmd)
         elif cmd == "watch":
             if not arg:
                 self.notify("usage: :watch <engagement-id>", severity="warning")
@@ -1547,8 +1597,8 @@ class InterfaceApp(App[None]):
             if not arg:
                 self.notify("usage: :theme <name|file>", severity="warning")
                 return
-            self._remember_command(cmd)
-            self._command_theme(arg)
+            if self._command_theme(arg):
+                self._remember_command(cmd)
         else:
             self.notify(f"unknown command: {cmd}", severity="error")
             self.audit(f"ui.error unknown command '{cmd}'")
@@ -1563,10 +1613,10 @@ class InterfaceApp(App[None]):
             self._recent_commands.remove(cmd)
         self._recent_commands.append(cmd)
 
-    def _command_theme(self, arg: str | None) -> None:
+    def _command_theme(self, arg: str | None) -> bool:
         if not arg:
             self.notify("usage: :theme <name|file>", severity="warning")
-            return
+            return False
         builtin = get_builtin_theme(arg)
         if builtin is not None:
             self.ui_theme, self.theme_name = builtin, builtin.name
@@ -1575,13 +1625,17 @@ class InterfaceApp(App[None]):
                 loaded, warnings = load_theme_file(arg)
             except OSError as exc:
                 self.notify(f"theme load failed: {exc}", severity="error")
-                return
+                return False
             for warning in warnings:
                 self.notify(warning, severity="warning")
             self.ui_theme, self.theme_name = loaded, loaded.name
         self._activate_theme(self.ui_theme)
         self.audit(f"ui.theme '{self.theme_name}'")
+        self._update_due(force=True)
+        self._apply_panel_titles()
+        self._update_topbar()
         self.notify(f"theme: {self.theme_name}")
+        return True
 
     def action_confirm_quit(self) -> None:
         ''

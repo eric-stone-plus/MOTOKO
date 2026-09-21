@@ -38,8 +38,42 @@ BAR_EMPTY = "░"
 
 EVENT_KIND_STYLES: tuple[tuple[str, str], ...] = (
     ("opsec", "feed.kind_opsec"),
+    ("waf", "feed.kind_opsec"),
     ("rule", "feed.kind_rule"),
+    ("ui.", "feed.kind_rule"),
+    ("entity", "feed.kind_entity"),
+    ("finding", "feed.kind_entity"),
+    ("edge", "feed.kind_entity"),
+    ("act", "feed.kind_act"),
+    ("scan", "feed.kind_act"),
 )
+
+#: Overview cells are short; drill-down keeps the contract state names.
+_FUNNEL_SHORT = {
+    "candidate": "cand",
+    "triaged": "triaged",
+    "reproduced": "repro",
+    "verified": "verified",
+    "exploitable": "exploit",
+    "confirmed_impact": "confirm",
+    "wont_test": "wont",
+    "retired": "retired",
+    "no_target": "none",
+    "duplicate": "dup",
+}
+
+_FUNNEL_TOKEN = {
+    "candidate": "funnel.bar",
+    "triaged": "funnel.bar",
+    "reproduced": "state.info",
+    "verified": "state.info",
+    "exploitable": "state.ok",
+    "confirmed_impact": "state.ok",
+    "wont_test": "text.muted",
+    "retired": "text.muted",
+    "no_target": "text.muted",
+    "duplicate": "text.muted",
+}
 
 #: Column model for the ENGAGEMENTS panel; shared by the Textual DataTable in
 #: app.py (stable row keys + update_cell) and by pure-Rich consumers.
@@ -89,6 +123,29 @@ def fmt_count(count: int | None) -> str:
     return "—" if count is None else str(count)
 
 
+def fmt_clock(ts: str) -> str:
+    """HH:MM:SS from an ISO-ish timestamp; otherwise the original string.
+
+    Activity lines are scanned by clock time (DESIGN section 3.1). Full
+    ISO stamps stay on the snapshot; only the display is shortened.
+    """
+    if not ts:
+        return ts
+    t_at = ts.find("T")
+    if t_at >= 0:
+        clock = ts[t_at + 1: t_at + 9]
+        if len(clock) == 8 and clock[2] == ":" and clock[5] == ":":
+            return clock
+    if len(ts) >= 8 and ts[2] == ":" and ts[5] == ":":
+        return ts[:8]
+    return ts
+
+
+def empty_note(message: str, theme: Theme) -> Text:
+    """Muted one-line empty / loading / unavailable copy (P6: never fake data)."""
+    return Text(message, style=theme.style("text.muted"))
+
+
 def derive_flags(eng: EngagementSnapshot, *, paused: bool = False) -> dict[str, bool]:
     """Letter flags derivable from the frozen snapshot contract.
 
@@ -133,8 +190,8 @@ def engagement_row_cells(eng: EngagementSnapshot, theme: Theme) -> tuple[Text, .
         Text(eng.id, style=theme.style("text.primary")),
         state,
         dot,
-        Text(str(hyps)),
-        Text(str(finds)),
+        Text(f"{hyps:>4}", style=theme.style("text.primary")),
+        Text(f"{finds:>4}", style=theme.style("text.primary")),
         letter_flags(derive_flags(eng), theme),
     )
 
@@ -143,16 +200,26 @@ def topbar(snapshot: InterfaceSnapshot | None, theme: Theme, *, theme_name: str,
            watched: str | None, uptime_s: float) -> Text:
     """The one-line header strip (DESIGN section 3.1 mockup, sanitized)."""
     stamp = Text()
-    stamp.append("MOTOKO", style=f"bold {theme.style('panel.title')}")
-    stamp.append("  ─  ")
-    stamp.append(_timestamp(), style=theme.style("feed.ts"))
-    stamp.append(f"  ─  theme {theme_name}", style=theme.style("text.muted"))
+    stamp.append("MOTOKO", style=f"bold {theme.style('accent')}")
+    stamp.append("  ")
+    stamp.append(_timestamp(), style=theme.style("text.primary"))
+    if snapshot is None:
+        stamp.append("  ·  hydrating…", style=theme.style("state.stale"))
+    else:
+        n_eng = len(snapshot.engagements)
+        n_live = sum(1 for eng in snapshot.engagements if eng.live)
+        stamp.append(f"  ·  {n_eng} eng", style=theme.style("text.muted"))
+        if n_live:
+            stamp.append(f"  {n_live} live", style=theme.style("live.dot"))
+        else:
+            stamp.append("  none live", style=theme.style("text.muted"))
+    stamp.append(f"  ·  {theme_name}", style=theme.style("text.muted"))
     if watched:
-        stamp.append("  ─  watch ", style=theme.style("text.muted"))
+        stamp.append("  ·  watch ", style=theme.style("text.muted"))
         stamp.append(watched, style=theme.style("accent"))
-    stamp.append(f"  ─  up {fmt_duration(uptime_s)}", style=theme.style("text.muted"))
+    stamp.append(f"  ·  up {fmt_duration(uptime_s)}", style=theme.style("text.muted"))
     if snapshot is not None and snapshot.collector_error:
-        stamp.append("  ─  COLLECTOR ERROR", style=f"bold {theme.style('state.crit')}")
+        stamp.append("  ·  COLLECTOR ERROR", style=f"bold {theme.style('state.crit')}")
     return stamp
 
 
@@ -190,7 +257,7 @@ def run_progress_header(eng: EngagementSnapshot | None, theme: Theme) -> Text:
 def run_progress(eng: EngagementSnapshot | None, theme: Theme) -> Group:
     """RUN PROGRESS panel body (multiplier x1): wave bar, tools, rates, ETA."""
     if eng is None:
-        return Group(Text("no engagement selected", style=theme.style("text.muted")))
+        return Group(empty_note("no engagements", theme))
     lines: list[Text] = []
     header = Text()
     if eng.live:
@@ -199,30 +266,50 @@ def run_progress(eng: EngagementSnapshot | None, theme: Theme) -> Group:
         header.append("○ sealed", style=theme.style("sealed.dot"))
     else:
         header.append("○ idle", style=theme.style("text.muted"))
+    header.append(f"  {eng.id}", style=theme.style("text.primary"))
     if eng.heartbeat_age_s is not None:
-        header.append(f"  heartbeat {fmt_duration(eng.heartbeat_age_s)} old",
+        header.append(f"  hb {fmt_duration(eng.heartbeat_age_s)}",
                       style=theme.style("text.muted"))
     if eng.runner_alive:
         header.append("  runner alive", style=theme.style("state.ok"))
+    else:
+        header.append("  runner down", style=theme.style("text.muted"))
+    if eng.stale:
+        header.append("  ▲ stale", style=theme.style("state.warn"))
     lines.append(header)
     wave = eng.wave
     if wave is None:
-        lines.append(Text("no wave data", style=theme.style("text.muted")))
+        lines.append(empty_note("no wave data", theme))
     else:
+        total = max(1, wave.total)
+        ratio = wave.current / total
+        complete = wave.current >= wave.total and wave.total > 0
+        fill = "state.ok" if complete else "progress.fill"
         line = Text()
         line.append(f"wave {wave.current}/{wave.total} ")
-        line.append_text(bar(wave.current / max(1, wave.total), 24, theme,
-                             token="progress.fill"))
-        eta = f" ~{fmt_duration(wave.eta_s)} eta" if wave.eta_s is not None else " eta —"
-        line.append(eta, style=theme.style("text.muted"))
+        line.append_text(bar(ratio, 18, theme, token=fill))
+        pct = round(min(1.0, max(0.0, ratio)) * 100)
+        line.append(f"  {pct}%",
+                    style=theme.style("state.ok" if complete else "text.primary"))
+        if complete:
+            line.append("  done", style=f"bold {theme.style('state.ok')}")
+        elif wave.eta_s is not None:
+            line.append(f"  ~{fmt_duration(wave.eta_s)} eta",
+                        style=theme.style("text.muted"))
+        else:
+            line.append("  eta —", style=theme.style("text.muted"))
         lines.append(line)
         line2 = Text()
         line2.append(f"tools {wave.tools_done}/{wave.tools_total}")
+        findings_style = "state.ok" if wave.findings_new else "text.muted"
         line2.append(f"   findings +{wave.findings_new}",
-                     style=theme.style("state.ok"))
-        if eng.cooldowns:
-            n429 = sum(1 for c in eng.cooldowns if c.reason == "429")
-            line2.append(f"   429:{n429}", style=theme.style("opsec.cooldown"))
+                     style=theme.style(findings_style))
+        n_cd = len(eng.cooldowns)
+        if n_cd:
+            n429 = sum(1 for cooldown in eng.cooldowns if cooldown.reason == "429")
+            line2.append(f"   cd {n_cd}", style=theme.style("opsec.cooldown"))
+            if n429:
+                line2.append(f"  429:{n429}", style=theme.style("opsec.cooldown"))
         lines.append(line2)
     if eng.heartbeat_msg:
         lines.append(Text(eng.heartbeat_msg, style=theme.style("text.muted")))
@@ -236,25 +323,58 @@ def event_line(event: Event, theme: Theme) -> Text:
     the DESIGN feeds the panel from ro-SQLite for exactly this reason).
     """
     line = Text()
-    line.append(f"{event.ts} ", style=theme.style("feed.ts"))
-    kind_style = theme.style("feed.kind_act")
+    line.append(f"{fmt_clock(event.ts)}  ", style=theme.style("feed.ts"))
+    kind_style = theme.style("text.primary")
     for prefix, token in EVENT_KIND_STYLES:
         if event.kind.startswith(prefix):
             kind_style = theme.style(token)
             break
-    line.append(f"{event.kind:<22}", style=kind_style)
+    line.append(f"{event.kind:<22} ", style=kind_style)
     line.append(event.summary, style=theme.style("text.primary"))
     return line
 
 
-def hypotheses(eng: EngagementSnapshot, theme: Theme) -> Group:
-    """HYPOTHESES panel body (x2): per-state counts + mini bars."""
+def hypotheses(eng: EngagementSnapshot, theme: Theme, *, compact: bool = False) -> Group:
+    """HYPOTHESES panel body (x2): per-state counts + mini bars.
+
+    ``compact=True`` uses a two-column count grid so the overview cell stays
+    readable at 80×24; the drill-down keeps the per-state bars.
+    """
     total = max(1, sum(eng.hyps.values()))
+    note = Text()
+    if eng.hyps.get("testing"):
+        note.append("testing held ", style=theme.style("text.muted"))
+        note.append(f"{eng.hyps['testing']}", style=theme.style("accent"))
+        if eng.stuck_testing_s is not None:
+            stuck = eng.stuck_testing_s > STUCK_AFTER_S
+            note.append(" · oldest ", style=theme.style("text.muted"))
+            note.append(fmt_duration(eng.stuck_testing_s),
+                        style=theme.style("state.warn" if stuck else "accent"))
+        else:
+            note.append(" · S n/a", style=theme.style("text.muted"))
+    else:
+        note.append("no open testing", style=theme.style("text.muted"))
+    states = ("proposed", "testing", "done", "rejected")
+    if compact:
+        rows = Table.grid(padding=(0, 1))
+        rows.add_column()
+        rows.add_column(justify="right")
+        rows.add_column()
+        rows.add_column(justify="right")
+        cells = []
+        for state in states:
+            count = eng.hyps.get(state, 0)
+            style = theme.style("accent") if state == "testing" else theme.style("text.primary")
+            cells.append(Text(state, style=theme.style("text.muted")))
+            cells.append(Text(str(count), style=style))
+        rows.add_row(*cells[:4])
+        rows.add_row(*cells[4:])
+        return Group(rows, note)
     rows = Table.grid(padding=(0, 2))
-    rows.add_column(justify="right")
+    rows.add_column()
     rows.add_column(justify="right")
     rows.add_column()
-    for state in ("proposed", "testing", "done", "rejected"):
+    for state in states:
         count = eng.hyps.get(state, 0)
         style = theme.style("accent") if state == "testing" else theme.style("text.primary")
         rows.add_row(
@@ -262,38 +382,53 @@ def hypotheses(eng: EngagementSnapshot, theme: Theme) -> Group:
             Text(str(count), style=style),
             bar(count / total, 10, theme),
         )
-    note = Text()
-    if eng.hyps.get("testing"):
-        note.append("testing held ", style=theme.style("text.muted"))
-        note.append(f"{eng.hyps['testing']}", style=theme.style("accent"))
-        if eng.stuck_testing_s is not None:
-            stuck = eng.stuck_testing_s > STUCK_AFTER_S
-            note.append(" · oldest stuck ", style=theme.style("text.muted"))
-            note.append(fmt_duration(eng.stuck_testing_s),
-                        style=theme.style("state.warn" if stuck else "accent"))
-        else:
-            note.append(" · S n/a", style=theme.style("text.muted"))
-    else:
-        note.append("no open testing", style=theme.style("text.muted"))
-    return Group(rows, Text(), note)
+    return Group(rows, note)
 
 
-def finding_funnel(eng: EngagementSnapshot, theme: Theme) -> Group:
-    """FINDING FUNNEL panel body (x2): the 10-state finding machine."""
+def finding_funnel(eng: EngagementSnapshot, theme: Theme, *, compact: bool = False) -> Group:
+    """FINDING FUNNEL panel body (x2): the 10-state finding machine.
+
+    ``compact=True`` is a two-column count grid for the overview cell; the
+    drill-down keeps one bar per state.
+    """
     from interface.snapshot import FINDING_STATES
 
     order = list(FINDING_STATES)
-    total = max(1, sum(eng.findings.get(s, 0) for s in order))
+    total = max(1, sum(eng.findings.get(state, 0) for state in order))
+    if compact:
+        rows = Table.grid(padding=(0, 1))
+        rows.add_column()
+        rows.add_column(justify="right")
+        rows.add_column()
+        rows.add_column(justify="right")
+        for index in range(0, len(order), 2):
+            left = order[index]
+            right = order[index + 1] if index + 1 < len(order) else None
+            left_count = eng.findings.get(left, 0)
+            cells = [
+                Text(_FUNNEL_SHORT.get(left, left), style=theme.style("text.muted")),
+                Text(str(left_count), style=theme.style(_FUNNEL_TOKEN.get(left, "text.primary"))),
+            ]
+            if right is not None:
+                right_count = eng.findings.get(right, 0)
+                cells.extend([
+                    Text(_FUNNEL_SHORT.get(right, right), style=theme.style("text.muted")),
+                    Text(str(right_count),
+                         style=theme.style(_FUNNEL_TOKEN.get(right, "text.primary"))),
+                ])
+            rows.add_row(*cells)
+        return Group(rows)
     rows = Table.grid(padding=(0, 2))
     rows.add_column()
     rows.add_column(justify="right")
     rows.add_column()
     for state in order:
         count = eng.findings.get(state, 0)
+        token = _FUNNEL_TOKEN.get(state, "funnel.bar")
         rows.add_row(
             Text(state, style=theme.style("text.muted")),
-            Text(str(count)),
-            bar(count / total, 10, theme),
+            Text(str(count), style=theme.style("text.primary")),
+            bar(count / total, 10, theme, token=token),
         )
     return Group(rows)
 
@@ -309,32 +444,32 @@ def legs_panel(eng: EngagementSnapshot, theme: Theme, *, compact: bool = False) 
     would violate P6.
     """
     lines: list[Text] = []
-    note = Text("token burn: no engine instrumentation (estimated n/a)",
-                style=theme.style("text.muted"))
+    note = empty_note(
+        "token burn: n/a (no engine counters)" if compact
+        else "token burn: no engine instrumentation (estimated n/a)",
+        theme,
+    )
     if not eng.legs:
-        lines.append(Text("no loop legs observed", style=theme.style("text.muted")))
+        lines.append(empty_note("no loop legs observed", theme))
     dot_for = {"ok": "state.ok", "busy": "state.busy", "idle": "state.idle",
                "error": "state.crit"}
     for leg in eng.legs:
         line = Text()
         dot_style = theme.style(dot_for.get(leg.state, "state.idle"))
-        if compact:
-            line.append(f"{leg.name[:10]:<10}", style=theme.style("text.primary"))
-            line.append(f"●{leg.state:<4}", style=dot_style)
-        else:
-            line.append(f"{leg.name:<12}", style=theme.style("text.primary"))
-            line.append(f"●{leg.state:<6}", style=dot_style)
-            if leg.last_round is not None:
-                line.append(f" r{leg.last_round}", style=theme.style("text.muted"))
+        name = leg.name[:10] if compact else leg.name
+        width = 10 if compact else 12
+        line.append(f"{name:<{width}} ", style=theme.style("text.primary"))
+        line.append("● ", style=dot_style)
+        line.append(f"{leg.state:<5}" if compact else f"{leg.state:<6}",
+                    style=dot_style)
+        if not compact and leg.last_round is not None:
+            line.append(f" r{leg.last_round}", style=theme.style("text.muted"))
         if leg.verdict:
             verdict_style = ("state.ok" if leg.verdict == "CONTINUE"
                              else "state.warn" if leg.verdict == "ROLLBACK"
                              else "state.crit")
             line.append(f" {leg.verdict}", style=theme.style(verdict_style))
         lines.append(line)
-    if compact:
-        note = Text("token burn: n/a (no engine counters)",
-                    style=theme.style("text.muted"))
     return Group(note, *lines)
 
 
@@ -342,7 +477,7 @@ def gates_panel(eng: EngagementSnapshot, theme: Theme) -> Group:
     """GATES panel body (x15): doctor sections + rules ratchet counts."""
     gates = eng.gates
     if gates is None:
-        return Group(Text("adapter unavailable", style=theme.style("text.muted")))
+        return Group(empty_note("adapter unavailable", theme))
     line = Text()
     line.append("doctor ", style=theme.style("text.muted"))
     if not gates.doctor_available:
@@ -364,9 +499,9 @@ def gates_panel(eng: EngagementSnapshot, theme: Theme) -> Group:
 def cooldowns_panel(eng: EngagementSnapshot | None, theme: Theme) -> Group:
     """COOLDOWNS drill-down body (x2): countdown bars per masked origin."""
     if eng is None:
-        return Group(Text("no engagement selected", style=theme.style("text.muted")))
+        return Group(empty_note("no engagements", theme))
     if not eng.cooldowns:
-        return Group(Text("no active cooldowns", style=theme.style("text.muted")))
+        return Group(empty_note("no active cooldowns", theme))
     longest = max((c.remaining_s for c in eng.cooldowns), default=1) or 1
     lines: list[Text] = []
     for cd in eng.cooldowns:
@@ -385,7 +520,7 @@ def cooldowns_panel(eng: EngagementSnapshot | None, theme: Theme) -> Group:
 def detail_section(section: str, eng: EngagementSnapshot | None, theme: Theme) -> Group:
     """ENGAGEMENT drill-down detail body for one sidebar section (x2)."""
     if eng is None:
-        return Group(Text("no data yet", style=theme.style("text.muted")))
+        return Group(empty_note("no data yet", theme))
     if section == "overview":
         return run_progress(eng, theme)
     if section == "hypotheses":
@@ -401,16 +536,16 @@ def detail_section(section: str, eng: EngagementSnapshot | None, theme: Theme) -
     if section == "waves/rounds":
         return _waves(eng, theme)
     if section == "evidence/obs":
-        return Group(Text(
+        return Group(empty_note(
             "Raw evidence stays on the engine host; MOTOKO displays redacted summaries.",
-            style=theme.style("text.muted"),
+            theme,
         ))
     return Group(Text(f"unknown section {section!r}", style=theme.style("state.warn")))
 
 
 def _tool_runs(eng: EngagementSnapshot, theme: Theme) -> Group:
     if not eng.inflight:
-        return Group(Text("no tool runs in flight", style=theme.style("text.muted")))
+        return Group(empty_note("no tool runs in flight", theme))
     rows = Table.grid(padding=(0, 2))
     rows.add_column(justify="right")
     rows.add_column()
@@ -431,12 +566,16 @@ def _tool_runs(eng: EngagementSnapshot, theme: Theme) -> Group:
 
 def _waves(eng: EngagementSnapshot, theme: Theme) -> Group:
     if eng.wave is None:
-        return Group(Text("no wave data", style=theme.style("text.muted")))
+        return Group(empty_note("no wave data", theme))
     wave = eng.wave
+    complete = wave.current >= wave.total and wave.total > 0
     line = Text()
     line.append(f"wave {wave.current}/{wave.total}  ")
-    line.append_text(bar(wave.current / max(1, wave.total), 30, theme))
+    line.append_text(bar(wave.current / max(1, wave.total), 30, theme,
+                         token="state.ok" if complete else "funnel.bar"))
     line.append(f"  tools {wave.tools_done}/{wave.tools_total}")
+    if complete:
+        line.append("  done", style=f"bold {theme.style('state.ok')}")
     return Group(line)
 
 

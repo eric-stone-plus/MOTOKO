@@ -11,6 +11,24 @@ from . import db
 from .parsers import _REGISTRY
 
 
+RUNTIME_ERROR_KINDS: tuple[tuple[str, str, str], ...] = (
+    ("rule_attempts_bump_error", "HIGH",
+     "the retry guard could not persist; inspect the writer/schema before rerunning"),
+    ("hypothesis_retire_error", "HIGH",
+     "a completed action may remain in testing; inspect the hypothesis and tool_run rows"),
+    ("rule_hit_class_error", "HIGH",
+     "a declared finding-class chain failed; inspect the rule-hit event and parser evidence"),
+    ("act.executor_error", "MEDIUM",
+     "an action executor raised; inspect the hypothesis and its tool-run evidence"),
+    ("opsec_cooldown_restore_error", "HIGH",
+     "cooldowns may have lifted after restart; verify the persisted cooldown snapshot"),
+    ("opsec_cooldown_persist_error", "HIGH",
+     "cooldowns may be lost on restart; repair the engagement write path"),
+    ("reflector.error", "LOW",
+     "the optional reflector failed; the deterministic scheduler remains authoritative"),
+)
+
+
 @dataclass
 class HealthIssue:
     severity: str          # HIGH / MEDIUM / LOW
@@ -84,6 +102,7 @@ def check_health(engagement_id: str, *, root: Path | None = None,
         _check_verification_blocked(con, engagement_id, report)
         _check_dangling_edges(con, report)
         _check_uningested_observations(con, engagement_id, report)
+        _check_runtime_errors(con, engagement_id, report)
     finally:
         con.close()
     return report
@@ -248,7 +267,41 @@ def _check_uningested_observations(con, engagement_id: str, report: HealthReport
             "LOW", "uningested_observations",
             f"{n} observations never ingested (processed_at NULL)",
             suggestion="they were recorded after the last SYNC — one more "
-                      "run cycle ingests them"))
+                       "run cycle ingests them"))
+
+
+def _check_runtime_errors(con, engagement_id: str, report: HealthReport) -> None:
+    """Aggregate safety-relevant error events without exposing their payloads.
+
+    Events are stored in the engagement's own database, and their
+    ``entity_id`` is sometimes an entity id and sometimes the engagement id
+    itself.  One issue per event kind avoids turning a repeated failure into
+    an unreadable event dump while retaining the count and a few opaque ids
+    for audit lookup.
+    """
+    specs = {kind: (severity, suggestion)
+             for kind, severity, suggestion in RUNTIME_ERROR_KINDS}
+    placeholders = ",".join("?" for _ in specs)
+    rows = con.execute(
+        f"SELECT kind, entity_id, COUNT(*) AS n FROM events "
+        f"WHERE kind IN ({placeholders}) "
+        "GROUP BY kind, entity_id ORDER BY kind, entity_id",
+        sorted(specs)).fetchall()
+    grouped: dict[str, list[tuple[str | None, int]]] = {}
+    for row in rows:
+        grouped.setdefault(row["kind"], []).append((row["entity_id"], row["n"]))
+    for kind, entries in grouped.items():
+        severity, suggestion = specs[kind]
+        count = sum(n for _entity_id, n in entries)
+        ids = [str(entity_id) for entity_id, _n in entries if entity_id]
+        evidence = ", ".join(ids[:6])
+        if len(ids) > 6:
+            evidence += ", ..."
+        report.issues.append(HealthIssue(
+            severity, "runtime_error_event",
+            f"{count} {kind} event(s) recorded",
+            evidence=evidence,
+            suggestion=suggestion))
 
 
 # What a parked finding is waiting for, per reason code. The point of the

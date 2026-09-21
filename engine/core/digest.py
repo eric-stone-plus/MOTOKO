@@ -26,9 +26,21 @@ def build_digest(db, engagement_id: str) -> str:
 
     top_hyps = sorted(hypotheses, key=lambda h: h.get("priority", 0) or 0, reverse=True)[:3]
     n_events = db.conn.execute("SELECT COUNT(*) AS c FROM events").fetchone()["c"]
+    # Keep the context honest when a safety guard itself failed.  The health
+    # sweep expands these into actionable issues; the digest carries only
+    # bounded counts so the reflector never receives raw exception payloads.
+    from .graph_health import RUNTIME_ERROR_KINDS
+    error_kinds = {kind for kind, _severity, _suggestion in RUNTIME_ERROR_KINDS}
+    placeholders = ",".join("?" for _ in error_kinds)
+    error_rows = db.conn.execute(
+        f"SELECT kind, COUNT(*) AS c FROM events WHERE kind IN ({placeholders}) "
+        "GROUP BY kind ORDER BY kind", sorted(error_kinds)).fetchall()
 
     lines: list[str] = []
     lines.append(f"## MOTOKO digest ({engagement_id}, events {n_events})")
+    if error_rows:
+        lines.append("- runtime errors: " + " | ".join(
+            f"{row['kind']}x{row['c']}" for row in error_rows))
     lines.append(
         f"- assets {len(assets)} (frontier {frontier}) | findings {len(findings)} "
         f"(cand {by_state.get('candidate', 0)} / triaged {by_state.get('triaged', 0)} / "

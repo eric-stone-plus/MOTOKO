@@ -500,6 +500,10 @@ def _check_key_envs() -> list[tuple[str, str]]:
 
 
 def _check_reflector() -> tuple[str, str]:
+    protocol = os.environ.get("MOTOKO_REFLECTOR_PROTOCOL", "anthropic").strip().lower()
+    if protocol not in {"anthropic", "openai"}:
+        return FAIL, ("MOTOKO_REFLECTOR_PROTOCOL must be 'anthropic' or "
+                      "'openai'")
     have = [v for v in ("MOTOKO_REFLECTOR_MODEL", "MOTOKO_REFLECTOR_BASE_URL")
             if os.environ.get(v)]
     key_env = os.environ.get("MOTOKO_REFLECTOR_KEY_ENV")
@@ -509,12 +513,12 @@ def _check_reflector() -> tuple[str, str]:
             return level, msg
     if len(have) == 2:
         base = os.environ.get("MOTOKO_REFLECTOR_BASE_URL", "").rstrip("/")
-        if base.endswith("/v1"):
+        if protocol == "anthropic" and base.endswith("/v1"):
             return FAIL, ("MOTOKO_REFLECTOR_BASE_URL must not end in /v1 — "
                           "the reflector appends /v1/messages (one "
                           "convention across every anthropic adapter); a "
                           "doubled segment 404s at launch")
-        return OK, "reflector env: configured"
+        return OK, f"reflector env: configured ({protocol})"
     return WARN, ("reflector env incomplete (optional — "
                   "`motoko run --reflector` needs MOTOKO_REFLECTOR_*)")
 

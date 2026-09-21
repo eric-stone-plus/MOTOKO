@@ -277,12 +277,22 @@ def _rich_status(snapshot: InterfaceSnapshot) -> str | None:
     except ImportError:  # pragma: no cover - guarded by the _HAVE_RICH probe
         return None
     header, rows, notes = _status_parts(snapshot)
-    table = Table(box=box.SIMPLE, pad_edge=False)
+    table = Table(box=box.SIMPLE, pad_edge=False, collapse_padding=True, expand=False)
     for index, name in enumerate(STATUS_HEADERS):
-        table.add_column(name, justify="right" if index in _RIGHT_ALIGNED else "left")
+        kwargs: dict[str, object] = {
+            "justify": "right" if index in _RIGHT_ALIGNED else "left",
+            "no_wrap": True,
+            "overflow": "fold",
+        }
+        if index == 0:
+            kwargs["min_width"] = 12
+        table.add_column(name, **kwargs)
     for row in rows:
         table.add_row(*row)
-    console = Console(file=StringIO(), width=110, highlight=False)
+    console = Console(
+        file=StringIO(), width=120, highlight=False, color_system=None,
+        legacy_windows=False, force_terminal=False,
+    )
     console.print(Group(Text(header, style="bold"), table,
                         *(Text(note) for note in notes)))
     return console.file.getvalue()
