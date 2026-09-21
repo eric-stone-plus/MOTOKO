@@ -2,9 +2,11 @@
 
 The loop is the feedback regulator of MOTOKO itself: after every run wave
 (or tooling change), the engine bundles its own code + wave graph data,
-sends the bundle to N independent auditor endpoints, aggregates the audit
-reports, and has one adjudicator rank the findings into a fix list. The fix
-list lands under ``plans/`` and feeds the next wave.
+sends the bundle to N auditor legs — each through its own analysis lens
+(``LENS_NAMES``), so ONE substrate still yields genuinely different failure
+modes — aggregates the audit reports, and has one adjudicator rank the
+findings into a fix list. The fix list lands under ``plans/`` and feeds the
+next wave.
 
 Generic by construction:
 * No vendor or model name is hardcoded. Every model is an
@@ -122,60 +124,219 @@ def _load_prompt(name: str) -> str:
         "audit.md": AUDIT_PROMPT,
         "adjudicate.md": ADJUDICATE_PROMPT,
     }
+    fallback.update({f"audit-{lens}.md": text
+                     for lens, text in LENS_PROMPTS.items()})
     return fallback[name]
 
 
 ADJUDICATE_PROMPT = """\
-你是渗透引擎的 loop 裁决者。N 个独立审计员已审完同一批代码与数据，报告在下方。
-请裁决：
+You are the loop adjudicator of the penetration engine. N audit legs have
+reviewed the same code and data through different lenses (e.g. coverage
+breadth, adversarial verification); their reports follow below, each
+section labeled with the leg name and its lens. On ONE substrate,
+cross-lens corroboration is WEAKER than cross-vendor independent discovery
+(the blind spots are correlated) — label consensus accordingly. Adjudicate:
 
-1. 去重合并（指针级）：每条 finding 保留来源标注，不合并不抹掉各腿的
-   原始判定；单腿 HIGH 不丢弃，标低共识度交 VERIFY 复现。
-2. 修复范围：只把"下一波数据有无信息量"的分水岭项列入本轮；其余排期。
-3. 修复顺序按依赖链排（P0 依赖排序不受"不重排"约束）。
-4. 输出严格的修复清单，每项：编号 / 一句话内容 / 为什么这个顺序。
-5. 每项必须标注：severity（P0|HIGH|MEDIUM|LOW）、evidence（文件:行或数据
-   引用，不得空泛）、consensus（哪些审计腿独立发现了它，如 "both" / "a leg
-   only" / "single"）。你只有编排权，没有真伪终审权。
+1. Dedup and merge (pointer-level): every finding keeps its source label;
+   merging never erases a leg's original judgment; a single-leg HIGH is
+   never dropped — mark its consensus low and hand it to VERIFY.
+2. Fix scope: only the watershed items — those deciding whether the next
+   wave's data carries information — enter this round; schedule the rest.
+3. Order fixes by the dependency chain (P0 dependency ordering is not
+   bound by the "no reordering" constraint).
+4. Output a strict fix list; per item: id / one-line content / why this
+   position in the order.
+5. Every item MUST carry: severity (P0|HIGH|MEDIUM|LOW), evidence
+   (file:line or data reference, never vague), consensus (which audit
+   lenses corroborate it, e.g. "both" / "a leg only" / "single"). You hold
+   orchestration authority only — never final judgment on truth.
 
-最后一行输出 JSON（其余内容可自由发挥），fixes 每项字段严格如下：
+Output JSON on the LAST line (the rest is free-form); each fixes item strictly:
 {"verdict": "go|no_go", "fixes": [{"id": "...", "summary": "...",
   "severity": "P0|HIGH|MEDIUM|LOW", "evidence": "file:line", "consensus": "both"}],
  "deferred": [{"id": "...", "when": "..."}]}
 """
 
 
-AUDIT_PROMPT = """\
-你是资深代码审计员，独立审计一个代码库的**已落地代码实现**（不是设计稿）。
-你的审计报告会被收束模型去重合并，驱动下一轮修复。
+_AUDIT_HEADER = """\
+You are a senior code auditor. Audit the LANDED code implementation of this
+repository (not a design draft), independently. Your report is deduplicated
+and merged by the convergence model and drives the next round of fixes.
 
-## 报告必须按双轴组织（skilleval-20260914 裁决，STANDING）
+## The report MUST be organized on two axes (skilleval-20260914 ruling, STANDING)
 
-每条发现必须带轴标签，两条轴看同一份材料，不要只报一条轴：
+Every finding carries an axis label; both axes look at the same material —
+never report on only one:
 
-- **[轴:standards]** —— 违反本仓纪律：the internal design notes 执行纪律（反模式/OPSEC
-  不变量）、the internal design notes 已知坑、既有架构契约。
-- **[轴:spec]** —— 偏离本轮任务意图：任务书/待修清单是否被忠实实现
-  （包括"修了但修歪"）。
+- **[axis:standards]** — violates this repo's discipline: the internal design notes execution
+  discipline (anti-patterns / OPSEC invariants), known the internal design notes, existing
+  architecture contracts.
+- **[axis:spec]** — deviates from this round's task intent: whether the task
+  brief / fix list was faithfully implemented (including "fixed but fixed
+  wrong").
 
-归不了轴的发现放 [轴:spec] 并在正文说明原因。
-
-# 审计重点
-
-1. 调度正确性（优先级/配额/预算/饿死）
-2. 规则触发正确性（误点火/爆炸/断链）
-3. 解析与图一致性（工具输出 -> 资产/发现 的链路完整）
-4. 安全边界（scope guard、注入面、纵深防御）
-5. 新增代码与既有行为（miss 保活、frontier 重开、F 系列不变量）的冲突
-
-# 输出格式
-
-- 每个发现给编号（如 B1/A1/S1），标注严重度（P0/P1/P2）和轴
-  （[轴:standards]/[轴:spec]）。
-- 每条附 `文件:行号` 引用、触发条件、一句话修复方向。
-- 最后给"最致命 5 个"排序。
-- 最后一行给出判定：本轮可继续（0 条 P0）或需先修 N 条。
+A finding that fits no axis goes under [axis:spec] with the reason stated in
+the body.
 """
+
+_AUDIT_FOCUS_GENERIC = """\
+# Audit focus
+
+1. Scheduling correctness (priority / quota / budget / starvation)
+2. Rule-firing correctness (misfires / explosions / broken chains)
+3. Parsing and graph integrity (the tool output -> asset/finding chain is
+   complete)
+4. Security boundaries (scope guard, injection surface, defense in depth)
+5. Conflicts between new code and existing behavior (miss keep-alive,
+   frontier re-open, the F-series invariants)
+"""
+
+_AUDIT_FOCUS_BREADTH = """\
+# Audit focus (lens: coverage breadth — what did this round MISS)
+
+1. Untouched surfaces: which assets / endpoints / rules saw no tool or leg
+   coverage this wave
+2. Scheduling blind spots: which hypotheses were starved by priority /
+   quota / budget; frontiers that should have re-opened and did not
+3. Broken chains: where the tool output -> asset/finding parsing chain
+   silently drops data
+4. Silent rules: rules that should have fired and did not (conditions too
+   narrow, missing dependencies, misses not kept alive)
+5. Boundary gaps: corners of the scope guard, injection surface and defense
+   in depth that no existing check covers
+
+Division of labor: adversarial verification of evidence belongs to the
+adversarial lens — do not challenge existing findings point by point;
+focus on "where nobody looked". Findings belonging to other lenses get a
+brief note, not an expansion.
+"""
+
+_AUDIT_FOCUS_ADVERSARIAL = """\
+# Audit focus (lens: adversarial verification — does what was SAID hold up)
+
+1. Challenge every evidence chain: is each finding/hypothesis's evidence
+   reproducible, or overclaimed
+2. False-positive hunt: misfires, parsing mismatches, tool noise reported
+   as findings
+3. "Fixed but fixed wrong": items from the fix list that were implemented
+   incorrectly or introduced new conflicts
+4. Invariant conflicts: contradictions between new code and existing
+   behavior (miss keep-alive, frontier re-open, the F-series invariants)
+5. Boundary pressure: can the scope guard and the write approvals be
+   bypassed on real call paths
+
+Division of labor: coverage breadth belongs to the breadth lens — do not
+enumerate untouched surfaces; focus on challenging "what has already been
+said". Findings belonging to other lenses get a brief note, not an
+expansion.
+"""
+
+_AUDIT_FOCUS_DISCIPLINE = """\
+# Audit focus (lens: repository discipline — deep pass on the standards axis)
+
+1. the internal design notes execution-discipline violations: the anti-pattern list, OPSEC
+   invariants, write-approval boundaries
+2. the internal design notes re-enactments: does new code replay a recorded mechanism
+   (including ones in the retired index)
+3. Architecture-contract drift: module boundaries, data/code separation,
+   directory and naming semantics — still holding?
+4. Gate bypasses: are test / lint / export gates short-circuited by
+   exceptions, skips or ignore rules
+5. Discipline debt: rules promised in documents and ledgers but never
+   landed in code
+
+Division of labor: the other lenses own their specialties — findings
+belonging to them get a brief note, not an expansion.
+"""
+
+_AUDIT_FOCUS_INTENT = """\
+# Audit focus (lens: task-intent fidelity — deep pass on the spec axis)
+
+1. Walk the task brief / fix list item by item: was each faithfully
+   implemented
+2. Fixed but fixed wrong: did a fix introduce a new semantic drift, or only
+   change the surface
+3. Half-fixes and silent abandonment: items claimed done but untouched, or
+   only partly implemented
+4. Intent-level conflicts: does the implementation approach contradict a
+   design decision stated in the task brief
+5. Acceptance drift: was "done" proven with the gate/command the task brief
+   named
+
+Division of labor: the other lenses own their specialties — findings
+belong to them get a brief note, not an expansion.
+"""
+
+_AUDIT_FOCUS_INVARIANTS = """\
+# Audit focus (lens: regression and invariants)
+
+1. Conflicts between new code and existing behavior: miss keep-alive,
+   frontier re-open, the F-series invariants
+2. State-machine integrity: every legal hypothesis/finding transition is
+   still reachable and reversible
+3. Regression surface: which existing paths does the change touch, and do
+   tests actually cover them
+4. Data integrity: do the graph / persistence / seal paths still satisfy
+   foreign keys, manifests and hash chains under the new code
+5. Compatibility: do config/CLI contract changes silently break old
+   deployment shapes
+
+Division of labor: the other lenses own their specialties — findings
+belonging to them get a brief note, not an expansion.
+"""
+
+_AUDIT_FOCUS_RESOURCES = """\
+# Audit focus (lens: concurrency and resources)
+
+1. Races: shared state across threads / processes / legs, timing of
+   concurrent file writes
+2. Slot and budget accounting: do concurrency ceilings, quotas and budget
+   bookkeeping match actual behavior
+3. Descriptor leaks: sockets / pipes / file handles left unclosed (the
+   ResourceWarning class)
+4. Timeout semantics: does every network/subprocess call carry an explicit
+   timeout, and is the post-timeout state recoverable
+5. Disk pressure: /tmp usage, artifact cleanup paths, behavior when the
+   quota is hit
+
+Division of labor: the other lenses own their specialties — findings
+belonging to them get a brief note, not an expansion.
+"""
+
+_AUDIT_FORMAT = """\
+# Output format
+
+- Number every finding (e.g. B1/A1/S1) with severity (P0/P1/P2) and axis
+  ([axis:standards]/[axis:spec]).
+- Each finding carries a `file:line` reference, its trigger condition and
+  a one-line fix direction.
+- End with a ranking of the "5 most lethal".
+- The final line states the verdict: this round may continue (0 P0s) or N
+  items must be fixed first.
+"""
+
+
+def _compose_audit_prompt(focus: str) -> str:
+    return _AUDIT_HEADER + "\n" + focus + "\n" + _AUDIT_FORMAT
+
+
+AUDIT_PROMPT = _compose_audit_prompt(_AUDIT_FOCUS_GENERIC)
+
+LENS_PROMPTS = {
+    "breadth": _compose_audit_prompt(_AUDIT_FOCUS_BREADTH),
+    "adversarial": _compose_audit_prompt(_AUDIT_FOCUS_ADVERSARIAL),
+    "discipline": _compose_audit_prompt(_AUDIT_FOCUS_DISCIPLINE),
+    "intent": _compose_audit_prompt(_AUDIT_FOCUS_INTENT),
+    "invariants": _compose_audit_prompt(_AUDIT_FOCUS_INVARIANTS),
+    "resources": _compose_audit_prompt(_AUDIT_FOCUS_RESOURCES),
+}
+LENS_NAMES = tuple(LENS_PROMPTS)
+
+
+def _audit_prompt_name(lens: str) -> str:
+    """Per-leg prompt file: a known lens gets its own brief; anything else
+    (including the empty default) falls back to the generic audit brief."""
+    return f"audit-{lens}.md" if lens in LENS_NAMES else "audit.md"
 
 
 @dataclass
@@ -194,6 +355,7 @@ class LLMEndpoint:
     # bundles are truncated loudly instead of dying with E2BIG.
     prompt_file_flag: str = ""
     timeout: int = 1800
+    lens: str = ""
 
     def resolve_key(self) -> str:
         if not self.api_key_env:
@@ -210,6 +372,7 @@ class LLMEndpoint:
             api_key_env=str(d.get("api_key_env", "")),
             command=[str(c) for c in (d.get("command") or [])],
             prompt_file_flag=str(d.get("prompt_file_flag", "")),
+            lens=str(d.get("lens", "")),
             timeout=int(d.get("timeout", 1800)),
         )
 
@@ -443,15 +606,17 @@ class LoopRunner:
     # -- audit legs -----------------------------------------------------
     def _run_audit_legs(self, out_dir: Path, bundle: str) -> tuple[list[str], list[dict]]:
         "        A failed leg is isolated: its error goes to leg-meta.json + a\n        stderr file, never into audits[] — a broken leg cannot pollute the\n        adjudicator's input or the round report.\n        "
-        prompt = _load_prompt("audit.md") + "\n\n" + bundle
         out_dir.mkdir(parents=True, exist_ok=True)
 
         def _leg(i: int, ep: LLMEndpoint) -> dict:
             meta: dict = {"index": i + 1, "name": ep.name,
                           "protocol": ep.protocol, "model": ep.model,
+                          "lens": ep.lens or "generic",
                           "exit_code": 0, "stderr": "",
                           "stop_reason": None}
             try:
+                prompt = (_load_prompt(_audit_prompt_name(ep.lens))
+                          + "\n\n" + bundle)
                 out = call_endpoint(ep, prompt)
                 if isinstance(out, dict):        # cli protocol
                     meta["text"] = out["text"]
@@ -585,8 +750,12 @@ class LoopRunner:
         verdict = "no_go"
         if self.adjudicator is not None:
             body = _load_prompt("adjudicate.md")
-            for i, text in enumerate(audits):
-                body += f"\n\n# 审计员 {i + 1}\n\n{text}"
+            for meta in leg_meta:
+                if meta["text"] is None:
+                    continue
+                body += (f"\n\n# Audit leg {meta['index']}"
+                         f" ({meta['name']}, lens {meta['lens']})"
+                         f"\n\n{meta['text']}")
             try:
                 out = call_endpoint(self.adjudicator, body)
                 adjudication = out if isinstance(out, str) else out["text"]
@@ -963,7 +1132,7 @@ class LoopRunner:
             return
         raise LoopEvaluationError(
             f"no_go adjudication but 0 of {len(fixes)} fix(es) carry "
-            "independent confirmation (consensus both/multi) — refusing "
+            "cross-lens confirmation (consensus both/multi) — refusing "
             "to score an empty finding set as converged")
 
     def _load_history(self, out_dir: Path) -> dict:

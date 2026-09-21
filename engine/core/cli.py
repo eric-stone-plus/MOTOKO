@@ -436,6 +436,8 @@ def _base_url_dialect_problem(label: str, ep: dict) -> str | None:
 
 def validate_loop_config(cfg: dict) -> list[str]:
     """Return a list of human-readable config problems (empty = valid)."""
+    from .loop import LENS_NAMES  # lazy: same import shape as doctor's
+
     problems: list[str] = []
     auditors = cfg.get("auditors")
     if not auditors:
@@ -450,6 +452,10 @@ def validate_loop_config(cfg: dict) -> list[str]:
             for key in REQUIRED_LOOP_KEYS["auditors"]:
                 if not a.get(key):
                     problems.append(f"auditors[{i}]: missing '{key}'")
+            lens = str(a.get("lens") or "")
+            if lens and lens not in LENS_NAMES:
+                problems.append(f"auditors[{i}]: unknown lens '{lens}' "
+                                f"(known: {', '.join(LENS_NAMES)})")
             if a.get("protocol") == "anthropic" and not a.get("base_url"):
                 problems.append(f"auditors[{i}]: anthropic protocol needs "
                                 f"'base_url'")
@@ -459,6 +465,14 @@ def validate_loop_config(cfg: dict) -> list[str]:
             if a.get("protocol") == "cli" and not a.get("command"):
                 problems.append(f"auditors[{i}]: cli protocol needs "
                                 f"'command'")
+        if len(auditors) > 1:
+            lenses = [str(x.get("lens") or "") for x in auditors
+                      if isinstance(x, dict)]
+            if len(set(lenses)) != len(lenses):
+                problems.append(
+                    f"auditor lenses collide ({', '.join(lenses)}) — under "
+                    "one substrate the legs differentiate BY lens; two legs "
+                    "on the same lens are the same prompt twice")
     adj = cfg.get("adjudicator")
     if not adj:
         problems.append("missing 'adjudicator' (the converge beat needs one)")
