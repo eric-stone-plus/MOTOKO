@@ -1,6 +1,6 @@
 {
   "id": "R-TECH-WORDPRESS-001",
-  "name": "WordPress 指纹",
+  "name": "WordPress fingerprint",
   "category": "tech",
   "when": {
     "all": [
@@ -12,7 +12,7 @@
     ]
   },
   "then": {
-    "hypothesis": "枚举 WordPress 插件/主题/用户",
+    "hypothesis": "Enumerate WordPress plugins, themes, and users",
     "actions": [
       {
         "tool": "wpscan",

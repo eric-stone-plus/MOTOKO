@@ -1,6 +1,6 @@
 {
   "id": "R-VULN-LFI-001",
-  "name": "LFI 确认后提权",
+  "name": "LFI post-verification escalation",
   "category": "vuln",
   "when": {
     "all": [
@@ -12,7 +12,7 @@
     ]
   },
   "then": {
-    "hypothesis": "LFI 读敏感文件",
+    "hypothesis": "Read a sensitive file through LFI",
     "actions": [
       {
         "tool": "curl",

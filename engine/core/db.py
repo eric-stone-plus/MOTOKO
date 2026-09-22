@@ -300,7 +300,13 @@ class Database:
 
     @staticmethod
     def _hydrate(row: sqlite3.Row) -> dict:
-        d = json.loads(row["data"]) if row["data"] else {}
+        data_error = False
+        try:
+            d = json.loads(row["data"]) if row["data"] else {}
+            if not isinstance(d, dict):
+                d, data_error = {}, True
+        except (json.JSONDecodeError, TypeError):
+            d, data_error = {}, True
         d.update({
             "id": row["id"],
             "kind": row["kind"],
@@ -312,6 +318,8 @@ class Database:
             "created_at": row["created_at"],
             "updated_at": row["updated_at"],
         })
+        if data_error:
+            d["_data_error"] = True
         return d
 
     def advance_and_persist(self, entity_id: str, event: str, *,

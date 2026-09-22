@@ -1,6 +1,6 @@
 {
   "id": "R-VULN-SSRF-CHAIN-001",
-  "name": "SSRF 已确认且云环境",
+  "name": "Confirmed SSRF in a cloud environment",
   "category": "vuln",
   "when": {
     "all": [
@@ -17,7 +17,7 @@
     ]
   },
   "then": {
-    "hypothesis": "SSRF 打 IMDS 元数据",
+    "hypothesis": "Probe IMDS metadata through SSRF",
     "actions": [
       {
         "tool": "curl",

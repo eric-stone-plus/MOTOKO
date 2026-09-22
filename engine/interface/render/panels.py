@@ -56,10 +56,10 @@ _FUNNEL_SHORT = {
     "verified": "verified",
     "exploitable": "exploit",
     "confirmed_impact": "confirm",
-    "wont_test": "wont",
-    "retired": "retired",
-    "no_target": "none",
+    "false_positive": "fp",
     "duplicate": "dup",
+    "out_of_scope": "oos",
+    "wont_test": "wont",
 }
 
 _FUNNEL_TOKEN = {
@@ -69,10 +69,10 @@ _FUNNEL_TOKEN = {
     "verified": "state.info",
     "exploitable": "state.ok",
     "confirmed_impact": "state.ok",
-    "wont_test": "text.muted",
-    "retired": "text.muted",
-    "no_target": "text.muted",
+    "false_positive": "text.muted",
     "duplicate": "text.muted",
+    "out_of_scope": "text.muted",
+    "wont_test": "text.muted",
 }
 
 #: Column model for the ENGAGEMENTS panel; shared by the Textual DataTable in
@@ -552,7 +552,10 @@ def _tool_runs(eng: EngagementSnapshot, theme: Theme) -> Group:
     rows.add_column(justify="right")
     rows.add_column()
     for run in eng.inflight:
-        hyp = f"#{run.hypothesis_id}" if run.hypothesis_id is not None else "—"
+        if isinstance(run.hypothesis_id, int):
+            hyp = f"#{run.hypothesis_id}"
+        else:
+            hyp = run.hypothesis_id or "—"
         state_style = ("state.busy" if run.state in ("running", "inflight")
                        else "text.primary")
         rows.add_row(

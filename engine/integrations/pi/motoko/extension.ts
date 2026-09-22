@@ -203,6 +203,14 @@ async function invoke(
 					throw new Error();
 				if (!result.ok) {
 					const error = result.error ?? result.result?.error;
+					// Doctor deliberately returns a structured report with ok=false
+					// when one or more checks fail. Keep that report available to the
+					// operator; only an envelope-level error is a transport failure.
+					if (!error && operation === "doctor" && result.result &&
+						typeof result.result === "object") {
+						resolve(result);
+						return;
+					}
 					reject(new Error(ERRORS.has(error) ? error : "engine_failed"));
 					return;
 				}

@@ -15,7 +15,7 @@
 # `uv tool upgrade` can silently wipe the three deploy-site patch files
 # (caido_upstream.py / caido_bootstrap.py wiring / docker_client.py
 # publish-ports) and strix then launches with NO caido upstream — a the internal doctrine
-# anonymity violation that still "works" (R6). Anchored patch sources live
+# anonymity violation that still "works". Anchored patch sources live
 # in strix-patches/<version>/ next to this script.
 #
 # The toolbox is NOT in git (200k files, upstream checkouts). What makes it

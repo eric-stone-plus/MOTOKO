@@ -31,7 +31,10 @@ def resolve_theme(name: str):
     builtin = get_builtin_theme(name)
     if builtin is not None:
         return builtin, []
-    return load_theme_file(name)
+    try:
+        return load_theme_file(name)
+    except (OSError, UnicodeError) as exc:
+        return None, [f"theme {name!r} unreadable ({exc}); using motoko-dark"]
 
 
 def run(args: argparse.Namespace) -> int:

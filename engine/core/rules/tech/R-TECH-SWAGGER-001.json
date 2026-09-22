@@ -1,6 +1,6 @@
 {
   "id": "R-TECH-SWAGGER-001",
-  "name": "Swagger/OpenAPI 暴露",
+  "name": "Swagger/OpenAPI exposure",
   "category": "tech",
   "when": {
     "any": [
@@ -17,7 +17,7 @@
     ]
   },
   "then": {
-    "hypothesis": "按 OpenAPI schema 全路由打点",
+    "hypothesis": "Probe every route from the OpenAPI schema",
     "actions": [
       {
         "tool": "kr",

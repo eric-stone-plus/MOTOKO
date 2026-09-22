@@ -222,6 +222,11 @@ def parse_cooldowns(text: str, *, now: float | None = None) -> tuple[Cooldown, .
             if not isinstance(origin, str) or not origin:
                 continue
             remaining_s = max(0, round(float(remaining) - elapsed))
+            if remaining_s <= 0:
+                # A current-format entry is a persisted active cooldown, not
+                # a historical event.  Once its remaining time reaches zero it
+                # must disappear just like an expired legacy entry.
+                continue
             reason = redact_text(str(entry.get("reason") or "unknown"))
             out.append(Cooldown(origin_label(origin), remaining_s, reason))
         return tuple(sorted(out, key=lambda c: c.origin))
@@ -466,7 +471,10 @@ class FileCollector:
         'LegStatus rows from the newest round that carries leg artifacts.'
         waves = edir / _WAVE_ROOT
         for round_dir in self._round_dirs(waves):  # newest first
-            metas = sorted(round_dir.glob("leg-*-meta.json"))
+            # Audit legs use ``leg-N-...-meta.json``; the adjudicator is
+            # intentionally named ``adjudicator-meta.json``.  Both are loop
+            # legs and must be visible in the same panel.
+            metas = sorted(round_dir.glob("*-meta.json"))
             verdict_path = round_dir / "verdict.json"
             if not metas and not verdict_path.is_file():
                 continue
@@ -484,7 +492,7 @@ class FileCollector:
 
     def _round_dirs(self, waves: Path) -> list[Path]:
         """All round-N directories across waves, newest round first."""
-        rounds: list[tuple[int, Path]] = []
+        rounds: list[tuple[float, str, int, str, Path]] = []
         try:
             wave_dirs = [p for p in waves.iterdir() if p.is_dir()]
         except OSError:
@@ -497,8 +505,15 @@ class FileCollector:
             for candidate in candidates:
                 match = _ROUND_RE.match(candidate.name)
                 if candidate.is_dir() and match:
-                    rounds.append((int(match.group(1)), candidate))
-        return [path for _, path in sorted(rounds, reverse=True)]
+                    try:
+                        wave_mtime = wave.stat().st_mtime
+                    except OSError:
+                        wave_mtime = 0.0
+                    # Round numbers restart at 1 for each wave.  Wave
+                    # recency therefore outranks the round number.
+                    rounds.append((wave_mtime, wave.name, int(match.group(1)),
+                                   candidate.name, candidate))
+        return [path for *_key, path in sorted(rounds, reverse=True)]
 
     def _wave_count(self, edir: Path) -> int:
         waves = edir / _WAVE_ROOT

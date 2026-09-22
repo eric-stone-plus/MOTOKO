@@ -1,6 +1,6 @@
 {
   "id": "R-TECH-JENKINS-001",
-  "name": "Jenkins 指纹",
+  "name": "Jenkins fingerprint",
   "category": "tech",
   "when": {
     "all": [
@@ -12,7 +12,7 @@
     ]
   },
   "then": {
-    "hypothesis": "Jenkins 未授权 script console",
+    "hypothesis": "Unauthenticated Jenkins script console",
     "actions": [
       {
         "tool": "nuclei",

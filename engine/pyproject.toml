@@ -25,6 +25,13 @@ include = ["core*", "interface", "interface.collectors", "interface.render"]
 # Rule packs travel inside the wheel and are found beside the installed package.
 [tool.setuptools.package-data]
 "core.rules" = ["*.json", "*/*.json"]
+"core.tools_anchor" = [
+  "provision.sh",
+  "strix-patches/*.md",
+  "strix-patches/*/*.md",
+  "strix-patches/*/*.patch",
+  "strix-patches/*/*.py",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

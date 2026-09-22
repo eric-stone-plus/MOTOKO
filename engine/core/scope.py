@@ -37,7 +37,36 @@ def _domain_matches(host: str, domain: str) -> bool:
     d = (domain or "").lower().rstrip(".")
     if not h or not d:
         return False
+    if d.startswith("*.") and "*" not in d[2:]:
+        suffix = d[2:]
+        if not h.endswith("." + suffix):
+            return False
+        prefix = h[:-(len(suffix) + 1)]
+        return bool(prefix) and "." not in prefix
     return h == d or h.endswith("." + d)
+
+
+def _san_covers(san: str, domain: str) -> bool:
+    """Return whether a certificate SAN covers a scope-domain name.
+
+    Certificate wildcards match exactly one left-most label.  Treating the
+    literal ``*`` as an ordinary label misses an excluded name such as
+    ``partner.example.com`` when the certificate presents ``*.example.com``.
+    """
+    s = (san or "").lower().rstrip(".")
+    d = (domain or "").lower().rstrip(".")
+    if s.startswith("*.") and "*" not in s[2:]:
+        suffix = s[2:]
+        if d == suffix:
+            # The wildcard is subordinate to the scoped base.  A certificate
+            # for ``*.example.com`` is relevant to an ``example.com`` scope
+            # even though the wildcard does not cover the apex itself.
+            return True
+        if not d.endswith("." + suffix):
+            return False
+        prefix = d[:-(len(suffix) + 1)]
+        return bool(prefix) and "." not in prefix
+    return _domain_matches(s, d)
 
 
 def default_resolver(host: str) -> list[str]:
@@ -196,11 +225,31 @@ class ScopeGuard:
         return ScopeDecision(True, f"redirect chain ({len(urls)} hops) in scope")
 
     def check_sans(self, sans: list[str]) -> ScopeDecision:
-        """Certificate SAN check: at least one SAN must match an in-scope domain."""
+        """Require an in-scope SAN while honoring explicit exclusions first.
+
+        A certificate can cover both an authorized host and a deliberately
+        excluded sibling.  Treating the first matching SAN as sufficient would
+        let that excluded name back into the action path.  SANs are therefore
+        evaluated with the same precedence as ``check_host``: any explicit
+        out-of-scope match rejects the certificate, then at least one
+        in-scope match is required.
+        """
         if not sans:
             return ScopeDecision(False, "no SANs to check")
-        for san in sans:
-            for d in self.in_domains:
+        normalized = [str(san).strip().lower().rstrip(".")
+                      for san in sans if isinstance(san, str) and san.strip()]
+        for san in normalized:
+            for d in self.out_domains:
+                # An excluded SAN must be present as a name.  A wildcard SAN
+                # describes its covered children but does not itself assert
+                # the excluded base name; treating it as every sibling would
+                # make a normal ``*.example.com`` certificate unusable for an
+                # otherwise in-scope ``example.com`` engagement.
                 if _domain_matches(san, d):
+                    return ScopeDecision(
+                        False, f"SAN {san} matches out-of-scope {d}")
+        for san in normalized:
+            for d in self.in_domains:
+                if _san_covers(san, d):
                     return ScopeDecision(True, f"SAN {san} matches in-scope {d}")
-        return ScopeDecision(False, f"no SAN matches in-scope domains: {sans[:3]}")
+        return ScopeDecision(False, f"no SAN matches in-scope domains: {normalized[:3]}")

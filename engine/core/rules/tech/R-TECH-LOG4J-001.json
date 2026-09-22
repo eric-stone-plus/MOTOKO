@@ -1,6 +1,6 @@
 {
   "id": "R-TECH-LOG4J-001",
-  "name": "Java 技术栈",
+  "name": "Java technology stack",
   "category": "tech",
   "when": {
     "all": [
@@ -12,7 +12,7 @@
     ]
   },
   "then": {
-    "hypothesis": "Log4Shell 定向检测",
+    "hypothesis": "Targeted Log4Shell detection",
     "actions": [
       {
         "tool": "nuclei",

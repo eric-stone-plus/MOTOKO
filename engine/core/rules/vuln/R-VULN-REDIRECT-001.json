@@ -1,6 +1,6 @@
 {
   "id": "R-VULN-REDIRECT-001",
-  "name": "开放重定向",
+  "name": "Open redirect",
   "category": "vuln",
   "when": {
     "all": [
@@ -12,7 +12,7 @@
     ]
   },
   "then": {
-    "hypothesis": "链到 OAuth token 泄露（观测 Location，不跟随出站）",
+    "hypothesis": "Chain to OAuth token leakage (observe Location without following outbound)",
     "actions": [
       {
         "tool": "curl",

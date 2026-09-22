@@ -1,6 +1,6 @@
 {
   "id": "R-CTX-WAF-001",
-  "name": "WAF 在挡确认（单请求，不施压）",
+  "name": "Confirm an active WAF block (single request, no pressure)",
   "category": "context",
   "when": {
     "all": [
@@ -12,7 +12,7 @@
     ]
   },
   "then": {
-    "hypothesis": "WAF 已在挡（httpx/nuclei 感知到挡板）：单请求确认响应头后收手，origin 已进冷却，不得加压",
+    "hypothesis": "WAF already blocks the origin (observed by httpx/nuclei): confirm response headers once, then stop; the origin is cooling down and must not be pressured",
     "actions": [
       {
         "tool": "curl",

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 from . import IO_ERROR, Verdict
 
 
@@ -33,6 +35,18 @@ def _protocols(interactions, canary: str) -> list[str]:
     return protos or ["unknown"]
 
 
+def _poll(poll_callback, canary: str) -> bool:
+    owner = getattr(poll_callback, "__self__", None)
+    window = float(getattr(owner, "poll_window_s", 0.0) or 0.0)
+    deadline = time.monotonic() + max(0.0, window)
+    while True:
+        if poll_callback(canary):
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(min(0.25, deadline - time.monotonic()))
+
+
 def oob_verdict(finding: dict, issue_canary, trigger, poll_callback,
                 interactions=None) -> Verdict:
     # first canary
@@ -45,7 +59,7 @@ def oob_verdict(finding: dict, issue_canary, trigger, poll_callback,
     except Exception as e:
         return _inconclusive(f"trigger failed: {e}")
     try:
-        got_callback = poll_callback(c1)
+        got_callback = _poll(poll_callback, c1)
     except Exception as e:
         return _inconclusive(f"canary poll failed: {e}")
     if got_callback:
@@ -70,7 +84,7 @@ def oob_verdict(finding: dict, issue_canary, trigger, poll_callback,
     except Exception as e:
         return _inconclusive(f"trigger failed: {e}")
     try:
-        got_callback = poll_callback(c2)
+        got_callback = _poll(poll_callback, c2)
     except Exception as e:
         return _inconclusive(f"canary poll failed: {e}")
     if got_callback:

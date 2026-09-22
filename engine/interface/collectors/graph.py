@@ -241,10 +241,14 @@ def _inflight(conn: sqlite3.Connection, now: float) -> tuple[ToolRun, ...]:
     for tool, hypothesis_id, status, started_at in rows:
         started = _parse_iso_ts(started_at)
         duration = max(0.0, now - started) if started is not None else None
-        hyp_int = (int(hypothesis_id)
-                   if isinstance(hypothesis_id, str) and hypothesis_id.isdigit()
-                   else None)
-        runs.append(ToolRun(tool=str(tool), hypothesis_id=hyp_int,
+        if isinstance(hypothesis_id, str) and hypothesis_id:
+            if hypothesis_id.isdigit():
+                hyp_ref: int | str | None = int(hypothesis_id)
+            else:
+                hyp_ref = _entity_ref(hypothesis_id)
+        else:
+            hyp_ref = None
+        runs.append(ToolRun(tool=str(tool), hypothesis_id=hyp_ref,
                             state=str(status), duration_s=duration))
     return tuple(runs)
 

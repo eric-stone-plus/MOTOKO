@@ -36,7 +36,12 @@ def endpoint_template(url: str) -> str:
     """Normalize a URL to host + path-template (scheme defaulted, no query)."""
     if not url:
         return ""
-    u = urlparse(url)
+    try:
+        u = urlparse(url)
+    except ValueError:
+        # Malformed target output must not discard the rest of an observation.
+        # Keep distinct invalid URLs distinct without treating them as targets.
+        return "invalid-url:" + hashlib.sha256(url.encode("utf-8", "replace")).hexdigest()
     scheme = u.scheme or "https"
     host = normalize_host(u.netloc.split("@")[-1].split(":")[0])
     return f"{scheme}://{host}{normalize_path_template(u.path)}"

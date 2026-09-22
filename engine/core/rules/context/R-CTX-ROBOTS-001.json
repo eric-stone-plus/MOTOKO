@@ -1,6 +1,6 @@
 {
   "id": "R-CTX-ROBOTS-001",
-  "name": "robots.txt 摸底（每 host 一次，先于一切爆破/爬取）",
+  "name": "robots.txt reconnaissance (once per host, before fuzzing or crawling)",
   "category": "context",
   "when": {
     "all": [
@@ -32,7 +32,7 @@
     ]
   },
   "then": {
-    "hypothesis": "取 robots.txt 的 Disallow 陷阱与 Crawl-delay 入图（canary 禁访表的数据源）",
+    "hypothesis": "Capture robots.txt Disallow traps and Crawl-delay facts (source for the canary deny list)",
     "actions": [
       {
         "tool": "curl",

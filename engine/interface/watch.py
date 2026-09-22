@@ -43,7 +43,9 @@ Future cli.py wiring (cli.py is owned by another stream — add exactly this):
 from __future__ import annotations
 
 import argparse
+import os
 import select
+import signal
 import sys
 import threading
 import time
@@ -156,18 +158,63 @@ class WatchLoop:
         self.snapshot: InterfaceSnapshot | None = None
         self.error: str | None = None
         self.stop_requested = False
+        self._worker: threading.Thread | None = None
+        self._worker_outcome: list[tuple[str, object]] = []
+        self._worker_timed_out = False
+
+    def _start_worker(self) -> None:
+        self._worker_outcome = []
+        self._worker_timed_out = False
+
+        def _work() -> None:
+            try:
+                self._worker_outcome.append(("ok", self.provider()))
+            except Exception as exc:  # noqa: BLE001 - collector isolation
+                self._worker_outcome.append(("error", f"{type(exc).__name__}: {exc}"))
+
+        self._worker = threading.Thread(target=_work,
+                                        name="motoko-watch-collector",
+                                        daemon=True)
+        self._worker.start()
 
     def tick(self) -> bool:
         """Run one poll cycle; return False once the loop should stop."""
         if self.stop_requested:
             return False
         self.tick_count += 1
-        snapshot, error = poll_once(self.provider, timeout_s=self.poll_timeout_s)
-        if error is None and snapshot is not None:
-            self.snapshot = snapshot
-            self.error = snapshot.collector_error or None
-        elif error is not None:
-            self.error = error  # keep the last good frame on screen
+        if self._worker is None:
+            self._start_worker()
+            self._worker.join(self.poll_timeout_s)
+        elif self._worker.is_alive():
+            # A timed-out collector remains the sole owner of the provider.
+            # Do not start another worker on the next tick: GraphCollector's
+            # cursor/tail state is not safe for overlapping reads.
+            if not self._worker_timed_out:
+                self._worker_timed_out = True
+                self.error = f"collector stalled > {self.poll_timeout_s:.0f}s"
+            return True
+        if self._worker is not None and self._worker.is_alive():
+            self._worker_timed_out = True
+            self.error = f"collector stalled > {self.poll_timeout_s:.0f}s"
+            return True
+        outcome = self._worker_outcome[:1]
+        timed_out = self._worker_timed_out
+        self._worker = None
+        self._worker_outcome = []
+        if timed_out:
+            # The result belongs to a stale poll and must not replace a newer
+            # frame.  The next tick starts a fresh worker only after this one
+            # has actually exited.
+            return True
+        if not outcome:
+            self.error = "collector failed without a result"
+            return True
+        kind, payload = outcome[0]
+        if kind == "ok" and payload is not None:
+            self.snapshot = payload  # type: ignore[assignment]
+            self.error = self.snapshot.collector_error or None
+        else:
+            self.error = str(payload)
         return not self.stop_requested
 
     @property
@@ -196,7 +243,7 @@ def resolve_theme(name: str) -> tuple[Theme | None, list[str]]:
         return builtin, []
     try:
         return load_theme_file(name)
-    except OSError as exc:
+    except (OSError, UnicodeError) as exc:
         return None, [f"theme {name!r} unreadable ({exc}); using motoko-dark"]
 
 
@@ -344,6 +391,15 @@ def run_watch(
         console = Console(theme=_rich_console_theme(theme))
     loop = WatchLoop(resolved, poll_interval_s=poll_interval_s)
     watcher = _spawn_key_watcher(loop.stop)
+    old_handlers = {}
+    for sig in (signal.SIGTERM, getattr(signal, "SIGHUP", None)):
+        if sig is None:
+            continue
+        try:
+            old_handlers[sig] = signal.getsignal(sig)
+            signal.signal(sig, lambda _signum, _frame: loop.stop())
+        except (ValueError, OSError):
+            pass
     started = time.monotonic()
     try:
         # screen=False: inline rendering, no alternate-screen flicker; the
@@ -361,6 +417,11 @@ def run_watch(
     except KeyboardInterrupt:
         pass  # Ctrl-C is a clean exit path
     finally:
+        for sig, handler in old_handlers.items():
+            try:
+                signal.signal(sig, handler)
+            except (ValueError, OSError):
+                pass
         loop.stop()
         if watcher is not None:
             watcher_thread, watcher_stop = watcher
@@ -417,7 +478,7 @@ def _spawn_key_watcher(
                 ready, _, _ = select.select([fd], [], [], 0.2)
                 if not ready:
                     continue
-                char = sys.stdin.read(1)
+                char = os.read(fd, 1).decode("utf-8", "replace")
                 if not char:  # EOF: stop watching, restore the terminal
                     return
                 if char in ("q", "Q"):
@@ -428,7 +489,7 @@ def _spawn_key_watcher(
         finally:
             try:
                 termios.tcsetattr(fd, termios.TCSADRAIN, previous)
-            except termios.error:
+            except (termios.error, OSError, ValueError):
                 pass
 
     thread = threading.Thread(target=_watch, name="motoko-watch-keys", daemon=True)

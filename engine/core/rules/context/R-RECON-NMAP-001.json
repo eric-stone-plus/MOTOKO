@@ -1,6 +1,6 @@
 {
   "id": "R-RECON-NMAP-001",
-  "name": "Nmap 服务/端口指纹（Kali 容器，每 host 一次）",
+  "name": "Nmap service and port fingerprinting (Kali container, once per host)",
   "category": "context",
   "when": {
     "all": [
@@ -22,7 +22,7 @@
     ]
   },
   "then": {
-    "hypothesis": "nmap -sV 低速端口服务枚举（容器执行；T4 教科书签名已降档）",
+    "hypothesis": "Low-rate nmap -sV service enumeration (containerized; T4 textbook signature downgraded)",
     "actions": [
       {
         "tool": "nmap",

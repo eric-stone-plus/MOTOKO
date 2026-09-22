@@ -1,6 +1,6 @@
 {
   "id": "R-CHAIN-ACTUATOR-HEAPDUMP",
-  "name": "Actuator→Heapdump→凭据",
+  "name": "Actuator → heap dump → credentials",
   "category": "chain",
   "when": {
     "all": [
@@ -12,7 +12,7 @@
     ]
   },
   "then": {
-    "hypothesis": "heapdump 提取凭据",
+    "hypothesis": "Extract credentials from a heap dump",
     "actions": [
       {
         "tool": "curl",

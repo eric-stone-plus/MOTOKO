@@ -1,6 +1,6 @@
 {
   "id": "R-TECH-SPRING-001",
-  "name": "Spring Boot 指纹",
+  "name": "Spring Boot fingerprint",
   "category": "tech",
   "when": {
     "all": [
@@ -12,7 +12,7 @@
     ]
   },
   "then": {
-    "hypothesis": "测试 Spring actuator 端点暴露",
+    "hypothesis": "Test for exposed Spring actuator endpoints",
     "actions": [
       {
         "tool": "httpx",

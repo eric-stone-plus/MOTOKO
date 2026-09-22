@@ -1,6 +1,6 @@
 {
   "id": "R-VULN-HIDDEN-PARAM-001",
-  "name": "隐藏参数→注入桥接（R7 bridge）",
+  "name": "Hidden parameter to injection bridge",
   "category": "vuln",
   "when": {
     "all": [
@@ -17,7 +17,7 @@
     ]
   },
   "then": {
-    "hypothesis": "arjun 确认的隐藏参数送 sqlmap/dalfox 精准验证（has_param 门保证 URL 自带查询串，& 追加才合法；参数名经 hyp.param 渲染进命令）",
+    "hypothesis": "Use the confirmed hidden parameter for targeted sqlmap and dalfox verification (the has_param gate guarantees a query string; append with & and render the parameter through hyp.param)",
     "actions": [
       {
         "tool": "sqlmap",

@@ -1,6 +1,6 @@
 {
   "id": "R-TECH-GRAPHQL-001",
-  "name": "GraphQL 端点",
+  "name": "GraphQL endpoint",
   "category": "tech",
   "when": {
     "any": [
@@ -17,7 +17,7 @@
     ]
   },
   "then": {
-    "hypothesis": "GraphQL introspection 探测",
+    "hypothesis": "Probe GraphQL introspection",
     "actions": [
       {
         "tool": "nuclei",

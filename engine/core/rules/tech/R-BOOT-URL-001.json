@@ -1,6 +1,6 @@
 {
   "id": "R-BOOT-URL-001",
-  "name": "裸 URL / 裸主机存活探测（bootstrap）",
+  "name": "Bare URL / bare-host liveness probe (bootstrap)",
   "category": "tech",
   "when": {
     "any": [
@@ -28,7 +28,7 @@
     ]
   },
   "then": {
-    "hypothesis": "httpx 存活探测 + 技术指纹 + HTTP/2 协商，为后续规则生成事实（cloud 走默认开启的 cdncheck，无需加旗）",
+    "hypothesis": "httpx liveness, technology fingerprinting, and HTTP/2 negotiation for downstream facts (cloud uses the default cdncheck without an extra flag)",
     "actions": [
       {
         "tool": "httpx",

@@ -1,6 +1,6 @@
 {
   "id": "R-CHAIN-JWT-ALG-NONE",
-  "name": "JWT→alg none→bypass",
+  "name": "JWT → alg none → bypass",
   "category": "chain",
   "when": {
     "all": [
@@ -12,7 +12,7 @@
     ]
   },
   "then": {
-    "hypothesis": "JWT alg=none 绕过",
+    "hypothesis": "Test JWT alg=none bypass",
     "actions": [
       {
         "tool": "jwt_tool",

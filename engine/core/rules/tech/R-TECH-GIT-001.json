@@ -1,6 +1,6 @@
 {
   "id": "R-TECH-GIT-001",
-  "name": "Git 泄露",
+  "name": "Git exposure",
   "category": "tech",
   "when": {
     "all": [
@@ -12,7 +12,7 @@
     ]
   },
   "then": {
-    "hypothesis": "重建 .git 并扫秘密",
+    "hypothesis": "Reconstruct .git and scan for secrets",
     "actions": [
       {
         "tool": "git-dumper",

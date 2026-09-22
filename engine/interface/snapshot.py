@@ -40,7 +40,7 @@ class ToolRun:
     """One in-flight tool execution (TOOL RUNS panel row)."""
 
     tool: str
-    hypothesis_id: int | None
+    hypothesis_id: int | str | None
     state: str
     duration_s: float | None
 
@@ -89,7 +89,7 @@ work. Lives on the contract so every tier (panels, status, watch) shares one
 threshold definition.
 """
 
-HYP_STATES = ("proposed", "testing", "done", "rejected")
+HYP_STATES = ("proposed", "testing", "done", "rejected", "error", "timeout", "failed")
 FINDING_STATES = (
     "candidate",
     "triaged",
@@ -97,10 +97,10 @@ FINDING_STATES = (
     "verified",
     "exploitable",
     "confirmed_impact",
-    "wont_test",
-    "retired",
-    "no_target",
+    "false_positive",
     "duplicate",
+    "out_of_scope",
+    "wont_test",
 )
 
 

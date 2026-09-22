@@ -1,6 +1,6 @@
 {
   "id": "R-VULN-XSS-VERIFY-001",
-  "name": "XSS 候选 DOM 确认",
+  "name": "DOM verification of an XSS candidate",
   "category": "vuln",
   "when": {
     "all": [
@@ -12,7 +12,7 @@
     ]
   },
   "then": {
-    "hypothesis": "dalfox + Playwright DOM 确认",
+    "hypothesis": "Dalfox plus Playwright DOM verification",
     "actions": [
       {
         "tool": "dalfox",

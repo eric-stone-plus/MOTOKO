@@ -14,6 +14,19 @@ _ALLOWED_ACTIONS = ("propose_hypothesis", "adjust_priority")
 _MAX_PROPOSALS = 8
 
 
+class ReflectorTransportError(RuntimeError):
+    """A provider call failed without exposing endpoint or response data.
+
+    The orchestrator records the exception class as ``reflector.error``.  The
+    message is intentionally operator-safe: HTTP bodies, URLs and credentials
+    never cross the reflector error boundary.
+    """
+
+    def __init__(self, kind: str):
+        self.kind = kind
+        super().__init__(f"reflector transport {kind}")
+
+
 def parse_proposals(text: str) -> list[dict]:
     """Strictly validate an LLM answer into proposal dicts (fail-closed).
 
@@ -87,15 +100,20 @@ def _call_anthropic(prompt: str, *, model: str, base_url: str, api_key: str,
     try:
         with opener.open(req, timeout=timeout) as resp:
             data = json.loads(resp.read().decode("utf-8"))
-    except (urllib.error.URLError, OSError, json.JSONDecodeError,
-            ValueError, TimeoutError):
-        return None
+    except urllib.error.HTTPError:
+        raise ReflectorTransportError("http") from None
+    except (urllib.error.URLError, OSError, TimeoutError):
+        raise ReflectorTransportError("network") from None
+    except (json.JSONDecodeError, ValueError):
+        raise ReflectorTransportError("response") from None
     if not isinstance(data, dict) or not isinstance(data.get("content"), list):
-        return None
+        raise ReflectorTransportError("response")
     parts = [c["text"] for c in data["content"]
              if isinstance(c, dict) and c.get("type") == "text"
              and isinstance(c.get("text"), str)]
-    return "".join(parts) or None
+    if not parts:
+        raise ReflectorTransportError("response")
+    return "".join(parts)
 
 
 def _call_openai(prompt: str, *, model: str, base_url: str, api_key: str,
@@ -123,19 +141,24 @@ def _call_openai(prompt: str, *, model: str, base_url: str, api_key: str,
     try:
         with opener.open(req, timeout=timeout) as resp:
             data = json.loads(resp.read().decode("utf-8"))
-    except (urllib.error.URLError, OSError, json.JSONDecodeError,
-            ValueError, TimeoutError):
-        return None
+    except urllib.error.HTTPError:
+        raise ReflectorTransportError("http") from None
+    except (urllib.error.URLError, OSError, TimeoutError):
+        raise ReflectorTransportError("network") from None
+    except (json.JSONDecodeError, ValueError):
+        raise ReflectorTransportError("response") from None
     if not isinstance(data, dict) or not isinstance(data.get("choices"), list):
-        return None
+        raise ReflectorTransportError("response")
     choices = data["choices"]
     if not choices or not isinstance(choices[0], dict):
-        return None
+        raise ReflectorTransportError("response")
     message = choices[0].get("message")
     if not isinstance(message, dict):
-        return None
+        raise ReflectorTransportError("response")
     content = message.get("content")
-    return content if isinstance(content, str) and content else None
+    if not isinstance(content, str) or not content:
+        raise ReflectorTransportError("response")
+    return content
 
 
 # --- prompt (machine state only, <=2KB digest spirit) ------------------
@@ -203,7 +226,8 @@ def reflector_from_env():
     'Config from the environment (no hardcoded model/endpoint/key).'
     protocol = os.environ.get("MOTOKO_REFLECTOR_PROTOCOL", "anthropic").strip().lower()
     if protocol not in {"anthropic", "openai"}:
-        return None
+        raise ValueError(
+            "MOTOKO_REFLECTOR_PROTOCOL must be 'anthropic' or 'openai'")
     model = os.environ.get("MOTOKO_REFLECTOR_MODEL", "").strip()
     if not model:
         return None

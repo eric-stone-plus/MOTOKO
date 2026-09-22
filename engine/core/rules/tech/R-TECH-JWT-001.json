@@ -1,6 +1,6 @@
 {
   "id": "R-TECH-JWT-001",
-  "name": "JWT 令牌发现",
+  "name": "JWT token discovery",
   "category": "tech",
   "when": {
     "any": [
@@ -17,7 +17,7 @@
     ]
   },
   "then": {
-    "hypothesis": "测试 JWT alg=none / kid 注入",
+    "hypothesis": "Test JWT alg=none / kid injection",
     "actions": [
       {
         "tool": "jwt_tool",

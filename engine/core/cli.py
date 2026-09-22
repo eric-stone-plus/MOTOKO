@@ -106,7 +106,12 @@ def cmd_run(args) -> int:
 
     reflector = None
     if args.reflector:
-        reflector = reflector_mod.reflector_from_env()
+        try:
+            reflector = reflector_mod.reflector_from_env()
+        except ValueError as exc:
+            print(f"--reflector configuration error: {exc}",
+                  file=_sys.stderr)
+            return 2
         if reflector is None:
             print("--reflector requested but MOTOKO_REFLECTOR_MODEL, "
                   "MOTOKO_REFLECTOR_BASE_URL or the key env is unset; "
@@ -160,11 +165,17 @@ def cmd_kali(args) -> int:
     import shutil
     import subprocess
 
+    name = args.container
+    if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", name):
+        print("invalid container name", file=sys.stderr)
+        return 2
+    if not isinstance(args.image, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_./:@-]*", args.image):
+        print("invalid container image reference", file=sys.stderr)
+        return 2
     podman = shutil.which("podman")
     if podman is None:
         print("podman not found", file=sys.stderr)
         return 1
-    name = args.container
 
     if args.action == "status":
         r = subprocess.run(
@@ -456,8 +467,8 @@ def validate_loop_config(cfg: dict) -> list[str]:
             if lens and lens not in LENS_NAMES:
                 problems.append(f"auditors[{i}]: unknown lens '{lens}' "
                                 f"(known: {', '.join(LENS_NAMES)})")
-            if a.get("protocol") == "anthropic" and not a.get("base_url"):
-                problems.append(f"auditors[{i}]: anthropic protocol needs "
+            if a.get("protocol") in {"anthropic", "openai"} and not str(a.get("base_url") or "").strip():
+                problems.append(f"auditors[{i}]: {a['protocol']} protocol needs "
                                 f"'base_url'")
             dialect = _base_url_dialect_problem(f"auditors[{i}]", a)
             if dialect:
@@ -480,14 +491,16 @@ def validate_loop_config(cfg: dict) -> list[str]:
         for key in REQUIRED_LOOP_KEYS["adjudicator"]:
             if not adj.get(key):
                 problems.append(f"adjudicator: missing '{key}'")
-        if adj.get("protocol") == "anthropic" and not adj.get("base_url"):
-            problems.append("adjudicator: anthropic protocol needs "
+        if adj.get("protocol") in {"anthropic", "openai"} and not str(adj.get("base_url") or "").strip():
+            problems.append(f"adjudicator: {adj['protocol']} protocol needs "
                             "'base_url'")
         dialect = _base_url_dialect_problem("adjudicator", adj)
         if dialect:
             problems.append(dialect)
         if adj.get("protocol") == "cli" and not adj.get("command"):
             problems.append("adjudicator: cli protocol needs 'command'")
+    else:
+        problems.append("'adjudicator' must be an endpoint map")
     return problems
 
 
@@ -537,7 +550,11 @@ def cmd_loop(args) -> int:
               f"(pass --config, set MOTOKO_CONFIG, or create "
               f"engine/loop/loop.yaml)", file=sys.stderr)
         return 2
-    cfg = loop.load_loop_config(cfg_path)
+    try:
+        cfg = loop.load_loop_config(cfg_path)
+    except (OSError, ValueError) as exc:
+        print(f"loop config unreadable: {exc}", file=sys.stderr)
+        return 2
     problems = validate_loop_config(cfg)
     if problems:
         print("loop config invalid:", file=sys.stderr)

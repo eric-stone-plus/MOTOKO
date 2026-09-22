@@ -1,6 +1,6 @@
 {
   "id": "R-TECH-HTTP2-001",
-  "name": "HTTP/2 支持",
+  "name": "HTTP/2 support",
   "category": "tech",
   "when": {
     "all": [
@@ -12,7 +12,7 @@
     ]
   },
   "then": {
-    "hypothesis": "HTTP/2 请求走私探测",
+    "hypothesis": "Probe HTTP/2 request smuggling",
     "actions": [
       {
         "tool": "h2csmuggler",

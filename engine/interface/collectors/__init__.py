@@ -102,11 +102,17 @@ def _gates_from_payloads(doctor: dict, rules: dict) -> GatesSummary | None:
                             rules_never_fires=max(0, never_fires),
                             rules_high=high,
                             ok=False, doctor_available=False)
+    # ``checks`` is a list of categories.  Each category carries its own
+    # OK/WARN/FAIL row counts; summing the OK rows and comparing that with the
+    # number of categories mixes units (a healthy doctor used to render 26/13
+    # and FAIL).  The badge is about category health, so count categories with
+    # zero FAIL rows instead.
     sections_ok = 0
     for check in checks:
         check_counts = check.get("counts") if isinstance(check, dict) else None
-        if isinstance(check_counts, dict):
-            sections_ok += _int_or_0(check_counts, "OK")
+        if (isinstance(check_counts, dict)
+                and _int_or_0(check_counts, "FAIL") == 0):
+            sections_ok += 1
     failures = doctor.get("failures")
     failures = failures if isinstance(failures, int) else None
     return GatesSummary(sections_ok=sections_ok, sections_total=len(checks),
@@ -296,6 +302,9 @@ def build_interface_snapshot(root: Path | None, demo: bool, *,
         return InterfaceSnapshot(taken_at=now, engagements=(),
                                  collector_error="no runtime root configured")
     runtime_root = Path(runtime_root) if runtime_root is not None else root / "tasks"
+    if not runtime_root.is_dir():
+        return InterfaceSnapshot(taken_at=now, engagements=(),
+                                 collector_error=f"runtime root unavailable: {runtime_root}")
     key = (str(root), str(runtime_root), use_adapter)
     session = _SESSIONS.get(key)
     if session is None:

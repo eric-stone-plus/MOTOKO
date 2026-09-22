@@ -821,8 +821,7 @@ class LoopRunner:
                     "stop_reason": out.get("stop_reason"),
                     "duration_ms": out.get("duration_ms"),
                     "usage": out.get("usage")})
-            except (urllib.error.URLError, urllib.error.HTTPError,
-                    subprocess.SubprocessError, ValueError) as e:
+            except Exception as e:
                 adjudication = (f"(adjudicator failed: "
                                 f"{type(e).__name__}: {e})")
                 exit_code = 1

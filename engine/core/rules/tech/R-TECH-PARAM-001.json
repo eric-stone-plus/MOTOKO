@@ -1,6 +1,6 @@
 {
   "id": "R-TECH-PARAM-001",
-  "name": "有参数面",
+  "name": "Parameter surface",
   "category": "tech",
   "when": {
     "all": [
@@ -12,7 +12,7 @@
     ]
   },
   "then": {
-    "hypothesis": "隐藏参数挖掘",
+    "hypothesis": "Mine hidden parameters",
     "actions": [
       {
         "tool": "arjun",

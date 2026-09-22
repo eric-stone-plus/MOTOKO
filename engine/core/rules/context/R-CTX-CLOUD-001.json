@@ -1,6 +1,6 @@
 {
   "id": "R-CTX-CLOUD-001",
-  "name": "云环境",
+  "name": "Cloud environment",
   "category": "context",
   "when": {
     "all": [
@@ -12,7 +12,7 @@
     ]
   },
   "then": {
-    "hypothesis": "云 metadata 端点可达性探测",
+    "hypothesis": "Probe reachability of cloud metadata endpoints",
     "actions": [
       {
         "tool": "curl",

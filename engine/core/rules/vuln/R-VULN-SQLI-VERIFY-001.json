@@ -1,6 +1,6 @@
 {
   "id": "R-VULN-SQLI-VERIFY-001",
-  "name": "SQLi 确认",
+  "name": "SQLi verification",
   "category": "vuln",
   "when": {
     "all": [
@@ -12,7 +12,7 @@
     ]
   },
   "then": {
-    "hypothesis": "sqlmap 精确验证注入（单线程 + 延迟，sqlmap 默认签名极响）",
+    "hypothesis": "Precise sqlmap injection verification (single thread plus delay; sqlmap defaults are noisy)",
     "actions": [
       {
         "tool": "sqlmap",

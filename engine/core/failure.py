@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,6 +27,7 @@ NEVER_RETRY = frozenset({"scope_blocked", "tool_missing", "spawn_error"})
 # Hypotheses in flight occupy these tool_run statuses; only terminal ones may
 # be recycled, or a live strix session would be re-planned underneath itself.
 _INFLIGHT = ("pending", "running", "queued")
+PIDLESS_GRACE_S = 120.0
 
 _TRANSIENT_MARKERS = (
     "rate limit", "429", "too many requests", "connection reset", "timed out",
@@ -164,6 +166,11 @@ def classify(*, status: str | None, exit_code: int | None = None,
                        + ("; too expensive to blind-retry" if expensive else ""),
                        retryable=not expensive,
                        max_attempts=0 if expensive else 1, tool=tool)
+
+    if status in _INFLIGHT:
+        return Failure("strategy_error",
+                       "tool run remains in-flight; recover its owner before retrying",
+                       retryable=True, max_attempts=1, tool=tool)
 
     if status == "error" or (exit_code not in (0, None)):
         if any(m in err for m in _DETECTED_MARKERS):
@@ -386,14 +393,14 @@ def build_digest(writer, engagement_id: str, *,
     return d
 
 
-def reap_zombie_runs(writer, engagement_id: str) -> int:
+def reap_zombie_runs(writer, engagement_id: str, *, pidless_grace_s: float = PIDLESS_GRACE_S) -> int:
     ''
     import os
     con = _conn_of(writer)
     closed = 0
     try:
         rows = con.execute(
-            """SELECT tr.id, tr.pid FROM tool_run tr
+            """SELECT tr.id, tr.pid, tr.started_at, tr.created_at FROM tool_run tr
                  JOIN entities e ON e.id = tr.hypothesis_id
                 WHERE e.engagement_id = ? AND tr.status IN
                       ('running', 'pending', 'queued')""",
@@ -403,11 +410,26 @@ def reap_zombie_runs(writer, engagement_id: str) -> int:
     for r in rows:
         pid = r["pid"]
         if not pid:
-            continue                    # never registered — not ours to judge
-        try:
-            alive = os.path.exists(f"/proc/{int(pid)}")
-        except (ValueError, OSError):
-            alive = True                # unparseable pid: leave it alone
+            stamp = r["started_at"] or r["created_at"]
+            try:
+                from datetime import datetime, timezone
+                started = datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
+                if started.tzinfo is None:
+                    started = started.replace(tzinfo=timezone.utc)
+                age = time.time() - started.timestamp()
+            except (TypeError, ValueError, OverflowError):
+                continue
+            if age < max(0.0, float(pidless_grace_s)):
+                continue
+            # There is no process to probe after the grace period.  Do not
+            # fall through to int(None); this row is the exact crash window
+            # the grace policy is meant to recover.
+            alive = False
+        else:
+            try:
+                alive = os.path.exists(f"/proc/{int(pid)}")
+            except (ValueError, OSError):
+                alive = True                # unparseable pid: leave it alone
         if alive:
             continue
         try:

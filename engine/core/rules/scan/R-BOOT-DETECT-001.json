@@ -1,6 +1,6 @@
 {
   "id": "R-BOOT-DETECT-001",
-  "name": "检测型技术探测（JWT 泄露 / GraphQL 端点）",
+  "name": "Technical detection (JWT exposure / GraphQL endpoints)",
   "category": "scan",
   "when": {
     "all": [
@@ -24,7 +24,7 @@
     ]
   },
   "then": {
-    "hypothesis": "存活端点检测型探测（jwt-token / graphql-detect，3 请求）",
+    "hypothesis": "Live-endpoint detection (jwt-token / graphql-detect, three requests)",
     "actions": [
       {
         "tool": "nuclei",

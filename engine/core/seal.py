@@ -234,7 +234,7 @@ def verify_seal(engagement_id: str, root: Path | None = None) -> tuple[bool, str
         return False, "byte size mismatch vs manifest"
     ver = None
     try:
-        con = sqlite3.connect(f"file:{graph}?mode=ro&immutable=1", uri=True)
+        con = sqlite3.connect(f"{graph.resolve().as_uri()}?mode=ro&immutable=1", uri=True)
         try:
             row = con.execute(
                 "SELECT value FROM schema_meta WHERE key = 'schema_version'"

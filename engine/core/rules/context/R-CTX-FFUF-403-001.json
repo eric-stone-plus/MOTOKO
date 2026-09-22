@@ -1,6 +1,6 @@
 {
   "id": "R-CTX-FFUF-403-001",
-  "name": "403/401 端点路径爆破找隐藏面",
+  "name": "Find hidden paths behind 403/401 endpoints",
   "category": "context",
   "when": {
     "all": [
@@ -39,7 +39,7 @@
     ]
   },
   "then": {
-    "hypothesis": "ffuf 低线程路径爆破绕过访问控制找到隐藏端点（WAF 资产与未摸底 host 不点火）",
+    "hypothesis": "Low-thread ffuf path discovery for hidden endpoints (skip WAF assets and unprofiled hosts)",
     "actions": [
       {
         "tool": "ffuf",

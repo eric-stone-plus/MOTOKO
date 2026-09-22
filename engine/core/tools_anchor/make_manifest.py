@@ -119,7 +119,12 @@ def scan_entry(path: Path) -> dict:
 
 
 def generate() -> dict:
-    root = Path(os.environ.get("TOOLS_DIR", Path(__file__).resolve().parent.parent.parent.parent / "tools"))
+    # tools_anchor lives at <checkout>/engine/core/tools_anchor.  The
+    # checkout root is ``Path(__file__).resolve().parents[3]``; using
+    # ``parent.parent.parent`` stops at ``<checkout>/engine`` and makes a
+    # clean checkout report a permanently missing ``engine/tools`` tree.
+    root = Path(os.environ.get(
+        "TOOLS_DIR", Path(__file__).resolve().parents[3] / "tools"))
     entries = {}
     for p in sorted(root.iterdir()):
         if p.name in ("manifest.json", "make_manifest.py", "provision.sh",
@@ -158,9 +163,15 @@ def verify(manifest: dict) -> list[str]:
                     problems.append(f"bin/{b}: sha256 drift")
         elif old.get("type") in ("binaries", "containerfile"):
             for f, anchor in old.get("files", {}).items():
-                p = Path(__file__).parent / name / f
-                if not p.exists():
+                actual = new.get("files", {}).get(f)
+                if actual is None:
                     problems.append(f"{name}/{f}: MISSING")
+                elif actual != anchor:
+                    problems.append(f"{name}/{f}: sha256/size drift")
+        elif old.get("type") == "nuclei":
+            for key in ("nuclei_sha256", "template_yaml_count"):
+                if old.get(key) != new.get(key):
+                    problems.append(f"{name}: {key} drift")
     for name in current["entries"]:
         if name not in manifest["entries"]:
             problems.append(f"{name}: NEW entry not in manifest")

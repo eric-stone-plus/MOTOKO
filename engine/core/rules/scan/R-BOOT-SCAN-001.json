@@ -1,6 +1,6 @@
 {
   "id": "R-BOOT-SCAN-001",
-  "name": "通用 nuclei 基线扫描（存活 2xx/3xx 资产）",
+  "name": "General nuclei baseline scan (live 2xx/3xx assets)",
   "category": "scan",
   "when": {
     "all": [
@@ -24,7 +24,7 @@
     ]
   },
   "then": {
-    "hypothesis": "存活端点 nuclei 基线扫描（high/critical，限速执行）",
+    "hypothesis": "Live-endpoint nuclei baseline scan (high/critical, rate-limited)",
     "actions": [
       {
         "tool": "nuclei",

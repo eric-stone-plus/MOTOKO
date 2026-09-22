@@ -1,6 +1,6 @@
 {
   "id": "R-CTX-SMB-001",
-  "name": "SMB 服务枚举（Kali 容器，enum4linux-ng）",
+  "name": "SMB service enumeration (Kali container, enum4linux-ng)",
   "category": "context",
   "when": {
     "all": [
@@ -12,7 +12,7 @@
     ]
   },
   "then": {
-    "hypothesis": "SMB 匿名会话/账户/共享枚举（容器执行；不含 RID 循环）",
+    "hypothesis": "Enumerate anonymous SMB sessions, accounts, and shares (containerized; no RID cycling)",
     "actions": [
       {
         "tool": "enum4linux",

@@ -337,7 +337,7 @@ class Orchestrator:
             return {}
         action = {**(action or {}), **{k: v for k, v in (context or {}).items() if v}}
         err_text = ""
-        err_path = Path(str(raw_path).replace(".out", ".err"))
+        err_path = Path(raw_path).with_suffix(".err")
         try:
             err_text = err_path.read_text(errors="replace")
         except OSError:

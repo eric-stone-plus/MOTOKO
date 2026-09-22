@@ -101,7 +101,7 @@ class StrixParser(Parser):
                     if key in ("Description", "Impact", "Technical Analysis"):
                         section = key
                     elif key in ("Title", "Severity", "CVSS Score", "Target",
-                                 "Endpoint", "Method", "CVSS Vector"):
+                                 "Endpoint", "Method", "CVSS Vector", "CWE"):
                         block[key] = val
                     elif section:
                         desc_lines.append(val)
@@ -120,6 +120,7 @@ class StrixParser(Parser):
                     url=url,
                     severity=sev,
                     extra={
+                        "cwe": block.get("CWE", ""),
                         "cvss": cvss,
                         "vector": block.get("CVSS Vector", ""),
                         "endpoint": block.get("Endpoint", ""),

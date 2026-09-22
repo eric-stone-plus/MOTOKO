@@ -37,6 +37,7 @@ class InteractshCanary:
             "MOTOKO_INTERACTSH_SERVER", _DEFAULT_SERVERS)
         self.count = max(2, int(count))     # the validator needs two distinct
         self.poll_interval = poll_interval
+        self.poll_window_s = max(1.0, float(poll_interval) + 1.0)
         self.startup_timeout = startup_timeout
         # callable(url) -> response|None. Injected by the orchestrator so
         # delivery rides the replay fetcher's egress gate and bind_ip pinning.

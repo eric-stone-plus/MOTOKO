@@ -85,8 +85,14 @@ def tool_search_dirs(tools_root: Path | None = None) -> tuple[Path, ...]:
     # Keep the historical wrapper directory first.  The remaining entries
     # cover the layouts used by Go/Cargo installers without requiring PATH to
     # be expanded by systemd, Telegram, or another host gateway.
+    if tools_root is None:
+        configured_root = os.environ.get("MOTOKO_TOOLS", "")
+        tools_root = Path(configured_root).expanduser() if configured_root else (
+            motoko_root() / "tools")
     candidates.extend([
         home / ".local" / "bin",
+        Path(tools_root) / "bin",
+        Path(tools_root) / "nuclei",
         home / ".local" / "share" / "go" / "bin",
         home / ".local" / "go" / "bin",
         home / "go" / "bin",
@@ -106,12 +112,6 @@ def tool_search_dirs(tools_root: Path | None = None) -> tuple[Path, ...]:
                 path = Path(raw).expanduser()
                 if path.is_absolute():
                     candidates.append(path / "bin")
-
-    if tools_root is None:
-        configured_root = os.environ.get("MOTOKO_TOOLS", "")
-        tools_root = Path(configured_root).expanduser() if configured_root else (
-            motoko_root() / "tools")
-    candidates.extend([Path(tools_root) / "bin", Path(tools_root) / "nuclei"])
 
     result: list[Path] = []
     seen: set[str] = set()

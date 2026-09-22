@@ -1,6 +1,6 @@
 {
   "id": "R-RECON-GAU-001",
-  "name": "历史 URL 收集（gau）",
+  "name": "Historical URL collection (gau)",
   "category": "context",
   "when": {
     "all": [
@@ -17,7 +17,7 @@
     ]
   },
   "then": {
-    "hypothesis": "wayback/OTX/URLScan 历史 URL 挖掘旧端点",
+    "hypothesis": "Mine Wayback/OTX/URLScan history for legacy endpoints",
     "actions": [
       {
         "tool": "gau",

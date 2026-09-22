@@ -200,8 +200,7 @@ def _ssh_argv(config):
     argv.extend(["-p", str(config["ssh_port"]), config["remote_host"], "exec", "env",
                  f"MOTOKO_HOME={config['remote_root']}",
                  f"MOTOKO_EGRESS_MODE={config['egress_mode']}" ])
-    if config["allow_direct_replay"]:
-        argv.append("MOTOKO_ALLOW_DIRECT_REPLAY=1")
+    argv.append(f"MOTOKO_ALLOW_DIRECT_REPLAY={int(config['allow_direct_replay'])}")
     if config.get("remote_tools_root"):
         argv.append(f"MOTOKO_TOOLS={config['remote_tools_root']}")
     if config.get("remote_wordlist_dir"):
@@ -268,7 +267,8 @@ def _stop(proc):
     # The recorded group can outlive its leader.
     with contextlib.suppress(ProcessLookupError):
         os.killpg(proc.pid, signal.SIGKILL)
-    proc.wait(timeout=2)
+    with contextlib.suppress(subprocess.TimeoutExpired, OSError):
+        proc.wait(timeout=2)
 
 
 def _exchange(proc, payload, deadline, interrupted):

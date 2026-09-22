@@ -367,9 +367,9 @@ class OverviewScreen(InterfaceScreen):
         app: InterfaceApp = self.app
         if not app._follow:
             return
-        key = event.row_key.value
-        if key is None:
+        if event.row_key is None or event.row_key.value is None:
             return
+        key = event.row_key.value
         if app._follow_key is not None and app._follow_key not in app._visible_row_keys():
             # The followed row is temporarily hidden (filter/sort rebuild):
             # keep the latch on it instead of re-latching the clamped cursor.
@@ -1623,7 +1623,7 @@ class InterfaceApp(App[None]):
         else:
             try:
                 loaded, warnings = load_theme_file(arg)
-            except OSError as exc:
+            except (OSError, UnicodeError) as exc:
                 self.notify(f"theme load failed: {exc}", severity="error")
                 return False
             for warning in warnings:

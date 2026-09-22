@@ -1,6 +1,6 @@
 {
   "id": "R-RECON-SUB-001",
-  "name": "子域枚举（subfinder + amass passive）",
+  "name": "Subdomain enumeration (subfinder + passive amass)",
   "category": "context",
   "when": {
     "all": [
@@ -17,7 +17,7 @@
     ]
   },
   "then": {
-    "hypothesis": "子域枚举扩大攻击面",
+    "hypothesis": "Subdomain enumeration expands the attack surface",
     "actions": [
       {
         "tool": "subfinder",

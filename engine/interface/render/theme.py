@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from rich.color import Color
 from rich.text import Text
 
 #: Every semantic token a theme must define. Kept as a tuple (order is the
@@ -265,6 +266,11 @@ def load_theme_file(path: str | Path) -> tuple[Theme, list[str]]:
             key, value = key.strip(), value.strip()
             if key not in TOKEN_NAMES:
                 warnings.append(f"{path}:{lineno}: unknown token {key!r}, ignored")
+                continue
+            try:
+                Color.parse(value)
+            except (TypeError, ValueError):
+                warnings.append(f"{path}:{lineno}: invalid color for {key!r}, using default")
                 continue
             base[key] = value
     return Theme(Path(path).stem, base), warnings

@@ -7,16 +7,20 @@ from .client import ERRORS, KINDS, OPERATIONS, STATES, _integer, _number
 STOP_REASONS = {"not_started", "cycle_budget", "wave_budget", "wave_boundary", "waiting", "exhausted", "interrupted", "other"}
 DOCTOR_CATEGORIES = {"python", "storage", "temporary_storage", "tools", "verification_backends",
     "container", "audit_config", "linter", "credentials", "reflector", "wordlists", "engagements", "egress", "other"}
-EVENT_KINDS = {"entity.upsert", "entity.transition", "edge.add", "finding.duplicate_seen",
+EVENT_KINDS = {"entity.upsert", "entity.transition", "entity.priority", "edge.added", "finding.duplicate_seen",
     "scan.wave.completed", "graph_health", "observation_dead_letter", "scope_blocked",
     "verification_blocked", "verification_unblocked", "validation_error", "act.dependency_invalid",
     "act.dependency_blocked", "act.template_invalid", "act.placeholder_refused", "act.executor_error",
     "act.dedup", "reflector.error", "mint.placeholder_unsatisfiable", "mint.tool_broken_skip",
     "tool_run.broken_wrapper", "opsec_canary_skip", "opsec_cooldown_skip", "waf_detected",
-    "completeness_stamp_withheld", "other"}
+    "completeness_stamp_withheld", "scope.set", "failure_recovery",
+    "hypothesis_retire_error", "rule_attempts_bump_error", "rule_hit_class",
+    "rule_hit_class_error", "rule_hit_class_skipped", "sync_runs_failed",
+    "reflector.proposal_refused", "opsec_cooldown_restore_error",
+    "opsec_cooldown_persist_error", "other"}
 HEALTH_KINDS = {"no_graph", "orphan_assets", "tool_without_parser", "dead_letter_volume", "stuck_testing",
     "on_hit_class_orphan", "service_no_consumer", "scope_blocked_volume", "verification_blocked",
-    "dangling_edges", "uningested_observations", "other"}
+    "dangling_edges", "uningested_observations", "runtime_error_event", "other"}
 
 
 def obj(value, required, optional=()):
