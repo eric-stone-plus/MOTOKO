@@ -64,12 +64,14 @@ runtime dependencies, and a packaging manifest (`pyproject.toml` with a
   location) > code defaults derived from the package location. Credentials
   are referenced by environment-variable name and never stored. No absolute
   home paths are hardcoded in the tree.
-- Toolbox versions are not pinned here: `MOTOKO_TOOLS` points at whatever
-  binaries the deploy host provides, and `motoko doctor` reports which ones
-  resolve. The CLI also derives owner-local Go/Cargo and user-bin search
-  directories for child processes, even when a gateway supplies a minimal
-  `PATH`; `MOTOKO_TOOL_DIRS` adds absolute directories for non-standard
-  layouts. Pinning tool revisions is an operator concern, outside this tree.
+- The generic engine does not embed scanner revisions: `MOTOKO_TOOLS` points at
+  the deployment toolbox and `motoko doctor` reports which binaries resolve.
+  The current host's pinned toolbox and Kali image baseline are recorded in
+  `engine/core/tools_anchor/kali/kali-container.md`; they are deployment
+  evidence, not a universal release promise. The CLI derives owner-local
+  Go/Cargo and user-bin search directories for child processes, even when a
+  gateway supplies a minimal `PATH`; `MOTOKO_TOOL_DIRS` adds absolute
+  directories for non-standard layouts.
 
 ## For contributors
 

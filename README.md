@@ -194,9 +194,10 @@ endpoints, a config file in which credentials are referenced by variable
 
 Tool resolution (first executable hit wins) is adapted in memory for the
 account running MOTOKO, so a gateway with a minimal inherited `PATH` still
-sees owner-local installs: caller-supplied dirs → `~/.local/bin` → Go bins
+sees the pinned toolbox and owner-local installs: caller-supplied dirs →
+`~/.local/bin` → `$MOTOKO_TOOLS/bin` → `$MOTOKO_TOOLS/nuclei` → Go bins
 (`~/.local/share/go/bin`, `~/.local/go/bin`, `~/go/bin`) → `~/.cargo/bin` →
-`$MOTOKO_TOOLS/bin` → `$MOTOKO_TOOLS/nuclei` → `PATH`. Set
+`PATH`. Set
 `MOTOKO_TOOL_DIRS` for additional absolute directories; it never writes a
 shell profile or reads credentials. A `tool` value that looks like a path
 (`/`, `\`, `..`) is refused outright — actions name a bare binary, never a

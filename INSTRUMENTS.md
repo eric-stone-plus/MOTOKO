@@ -129,7 +129,7 @@ web lifecycle, or model-controlled scheduler.
 
 ### Version matrix
 
-The following versions were checked on 2026-09-21. They describe the pieces
+The following versions were checked on 2026-09-22. They describe the pieces
 that are installed or exported together; they are not a promise that the
 scanner binaries in `MOTOKO_TOOLS` share one release cycle.
 
@@ -142,6 +142,7 @@ scanner binaries in `MOTOKO_TOOLS` share one release cycle.
 | Pi MOTOKO package / skill | `1.0.0` | `package.json` / `SKILL.md` | package release line |
 | Security Agent reference | `1b039e9ed509de6f5dceb065d27d659109e7a223` | upstream commit | reviewed reference |
 | Strix | deployment-selected | host deployment manifest and `strix --version` | doctor compares source and deployed bytes |
+| Kali recon image | `2026.3` (`20260919`) | `engine/core/tools_anchor/kali/kali-container.md` | active host snapshot; rebuild before treating as a pin |
 
 The Hermes plugin and host versions are deliberately bumped together: the
 plugin requires the matching `motoko-host` release. The Pi package stays on
