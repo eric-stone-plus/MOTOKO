@@ -1,0 +1,35 @@
+{
+  "id": "R-VULN-SSTI-PROBE-001",
+  "name": "Server-side template evaluation behind a confirmed hidden parameter",
+  "category": "vuln",
+  "when": {
+    "all": [
+      {
+        "fact": "class",
+        "op": "contains",
+        "value": "hidden_param"
+      },
+      {
+        "fact": "has_param",
+        "op": "eq",
+        "value": true
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "Ask the confirmed hidden parameter one question: did the server EVALUATE a template expression? The payload is an arithmetic sentinel (1337*1337, percent-encoded because curl does not encode a query for us) and the only oracle is the exact product 1787569 in the response body -- a bare 49 occurs in benign markup and an echoed expression only proves the request arrived, so neither is a hit. The has_param gate guarantees a query string, so the parameter is appended with & and rendered through hyp.param; obs_url carries the same value so the minted finding has a url the OOB validator can re-send through.",
+    "actions": [
+      {
+        "tool": "curl",
+        "cmd": "curl -sS -m 10 -A '{ua}' '{url}&{param}=%7B%7B1337*1337%7D%7D'",
+        "cmd_stealth": "curl -sS -m 5 -A '{ua}' '{url}&{param}=%7B%7B1337*1337%7D%7D'",
+        "obs_url": "{url}&{param}=%7B%7B1337*1337%7D%7D"
+      }
+    ],
+    "on_hit_class": "ssti.suspected",
+    "priority": {
+      "impact": 0.85,
+      "cost": 0.1
+    }
+  }
+}

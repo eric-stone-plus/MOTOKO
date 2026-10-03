@@ -1,0 +1,35 @@
+{
+  "id": "R-VULN-CRLF-PROBE-001",
+  "name": "HTTP response splitting behind a confirmed hidden parameter",
+  "category": "vuln",
+  "when": {
+    "all": [
+      {
+        "fact": "class",
+        "op": "contains",
+        "value": "hidden_param"
+      },
+      {
+        "fact": "has_param",
+        "op": "eq",
+        "value": true
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "Ask the confirmed hidden parameter one question: can a CRLF inside its value break out of the response header it is reflected into and start a header of its own? The payload is a percent-encoded CR/LF (%0d%0a) followed by a distinctive probe header name and sentinel value (percent-encoded because curl does not encode a query for us), and the only oracle is the injected header standing as a REAL, single-valued field in the response header block with exactly the sentinel value. Nothing else is an answer: a header name that appears only in the BODY proves only that the request arrived, because a documentation page or a 404 echoing the request URI carries the same bytes; a header present with any other value, with the sentinel embedded inside a longer value, or stacked twice by an intermediary is refused, because the comparison is exact and single-valued so a substring match cannot mint. The response headers ride the same stdout stream ahead of the body (-i), the header block ends at the first blank line, field names are matched case-insensitively and the sentinel value exactly. There is no out-of-band leg and nothing is called back: the split header is the evidence, observed in the very response the probe asked for. The probe sends one bounded request and never follows a redirect, so the header block read back is the endpoint's own answer and not an upstream 3xx on the way to somewhere else. The has_param gate guarantees a query string, so the parameter is appended with & and rendered through hyp.param; obs_url carries the same payload-bearing value so the minted finding has a url aimed at the injection point.",
+    "actions": [
+      {
+        "tool": "curl",
+        "cmd": "curl -sS -i -m 10 -A '{ua}' '{url}&{param}=%0d%0aX-Crlf-Split-Marker:%20crlf-split-sentinel'",
+        "cmd_stealth": "curl -sS -i -m 5 -A '{ua}' '{url}&{param}=%0d%0aX-Crlf-Split-Marker:%20crlf-split-sentinel'",
+        "obs_url": "{url}&{param}=%0d%0aX-Crlf-Split-Marker:%20crlf-split-sentinel"
+      }
+    ],
+    "on_hit_class": "crlf.injection",
+    "priority": {
+      "impact": 0.8,
+      "cost": 0.1
+    }
+  }
+}

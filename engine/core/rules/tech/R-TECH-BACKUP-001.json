@@ -1,0 +1,33 @@
+{
+  "id": "R-TECH-BACKUP-001",
+  "name": "Backup/archive exposure",
+  "category": "tech",
+  "when": {
+    "all": [
+      {
+        "fact": "class",
+        "op": "contains",
+        "value": "exposure.backup"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "Retrieve the exposed backup and scan it for secrets",
+    "actions": [
+      {
+        "tool": "curl",
+        "cmd": "curl -sS -L -m 90 -H 'User-Agent: {ua}' -o {out}/backup.bin {url}"
+      },
+      {
+        "tool": "trufflehog",
+        "depends_on": [0],
+        "cmd": "trufflehog filesystem {out}/backup.bin --json --no-verification"
+      }
+    ],
+    "on_hit_class": "secret.leak",
+    "priority": {
+      "impact": 0.85,
+      "cost": 0.3
+    }
+  }
+}

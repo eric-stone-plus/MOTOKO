@@ -1,0 +1,33 @@
+{
+  "id": "R-RECON-GAU-001",
+  "name": "Historical URL collection (gau)",
+  "category": "context",
+  "when": {
+    "all": [
+      {
+        "fact": "url",
+        "op": "matches",
+        "value": "^https?://"
+      },
+      {
+        "fact": "domain_urls_enumerated",
+        "op": "eq",
+        "value": false
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "Mine Wayback/OTX/URLScan history for legacy endpoints",
+    "actions": [
+      {
+        "tool": "gau",
+        "cmd": "gau --subs {domain}"
+      }
+    ],
+    "on_hit_class": null,
+    "priority": {
+      "impact": 0.4,
+      "cost": 0.4
+    }
+  }
+}

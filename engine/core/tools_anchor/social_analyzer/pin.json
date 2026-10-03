@@ -1,0 +1,12 @@
+{
+  "origin": "https://github.com/qeeqbox/social-analyzer.git",
+  "revision": "1ba0905e00d054aab833eb3693739c354db09e0f",
+  "branch": "main",
+  "python": "3.11.15",
+  "license": "AGPL-3.0",
+  "sha256": {
+    "app.py": "5a04fc302fa1b2a4f4c7cc108244282104eb5bfa9a4a5166411486425dead4ec",
+    "data/sites.json": "c65079cba29e3fd91177033e6541ae6e4ee7a9f955892813ce86b2bab9f4defb",
+    "data/languages.json": "0354c5f0d751321404361b665c1003af2f5cda10a1652276b8113efd63637e38"
+  }
+}

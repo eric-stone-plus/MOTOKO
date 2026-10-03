@@ -1,0 +1,43 @@
+{
+  "id": "R-BOOT-URL-001",
+  "name": "Bare URL / bare-host liveness probe (bootstrap)",
+  "category": "tech",
+  "when": {
+    "any": [
+      {
+        "all": [
+          {
+            "fact": "url",
+            "op": "matches",
+            "value": "^https?://"
+          },
+          {
+            "not": {
+              "fact": "url",
+              "op": "matches",
+              "value": "\\.(js|css|mjs|png|jpe?g|gif|svg|ico|woff2?|ttf|eot|otf|map|mp4|webm|webp|avif|pdf|zip|gz|tgz|woff)(\\?|#|$)"
+            }
+          }
+        ]
+      },
+      {
+        "fact": "type",
+        "op": "eq",
+        "value": "host"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "httpx liveness, technology fingerprinting, and HTTP/2 negotiation for downstream facts (cloud uses the default cdncheck without an extra flag)",
+    "actions": [
+      {
+        "tool": "httpx",
+        "cmd": "httpx -silent -status-code -tech-detect -http2 -json -random-agent=false -H 'User-Agent: {ua}' -u {url}"
+      }
+    ],
+    "priority": {
+      "impact": 0.3,
+      "cost": 0.3
+    }
+  }
+}

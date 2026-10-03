@@ -1,0 +1,35 @@
+{
+  "id": "R-VULN-CORS-PROBE-001",
+  "name": "Credentialed cross-origin reflection on a confirmed application endpoint",
+  "category": "vuln",
+  "when": {
+    "all": [
+      {
+        "fact": "class",
+        "op": "contains",
+        "value": "hidden_param"
+      },
+      {
+        "fact": "has_param",
+        "op": "eq",
+        "value": true
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "Ask the endpoint the one question a browser would ask on a third party's behalf: may an outside origin read an AUTHENTICATED response? The request carries an Origin header whose value is an inert sentinel origin under the reserved .invalid TLD, so no real party's domain is implicated and any grant that comes back cannot be a legitimate one. The only oracle is a CONJUNCTION over the response headers -- Access-Control-Allow-Origin must equal the injected sentinel origin exactly, and Access-Control-Allow-Credentials must be true. Either half alone is not the finding: a wildcard cannot be combined with credentials at all, a static allowlist entry reflects nothing, and a reflection without credentials exposes only the anonymous response a stranger can already read. The response headers ride the same stdout stream ahead of the body, the header block ends at the first blank line, field names are matched case-insensitively and the credentials value exactly. There is no out-of-band leg and nothing is called back: the reflected header is the evidence, observed in the very response the probe asked for. The probe sends one bounded request and never follows a redirect, so the header block read back is the endpoint's own answer and not a 3xx on the way to somewhere else. obs_url is the endpoint itself, because the payload rides in a header rather than in the query, and it is what gives the minted finding a url.",
+    "actions": [
+      {
+        "tool": "curl",
+        "cmd": "curl -sS -i -m 10 -A '{ua}' -H 'Origin: https://cors-probe.invalid' '{url}'",
+        "cmd_stealth": "curl -sS -i -m 5 -A '{ua}' -H 'Origin: https://cors-probe.invalid' '{url}'",
+        "obs_url": "{url}"
+      }
+    ],
+    "on_hit_class": "misconfig.cors",
+    "priority": {
+      "impact": 0.7,
+      "cost": 0.1
+    }
+  }
+}

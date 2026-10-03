@@ -1,0 +1,42 @@
+{
+  "id": "R-TECH-SWAGGER-001",
+  "name": "Swagger/OpenAPI exposure",
+  "category": "tech",
+  "when": {
+    "any": [
+      {
+        "fact": "class",
+        "op": "contains",
+        "value": "exposure.swagger"
+      },
+      {
+        "fact": "class",
+        "op": "contains",
+        "value": "info_disclosure.schema"
+      },
+      {
+        "fact": "tech",
+        "op": "contains",
+        "value": "swagger"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "Probe every route from the OpenAPI schema",
+    "actions": [
+      {
+        "tool": "kr",
+        "cmd": "kr scan {url} -A api --user-agent '{ua}' -o json --delay 100ms -x 2"
+      },
+      {
+        "tool": "arjun",
+        "cmd": "arjun -u {url} --headers 'User-Agent: {ua}'"
+      }
+    ],
+    "on_hit_class": "misconfig.api_docs",
+    "priority": {
+      "impact": 0.65,
+      "cost": 0.3
+    }
+  }
+}

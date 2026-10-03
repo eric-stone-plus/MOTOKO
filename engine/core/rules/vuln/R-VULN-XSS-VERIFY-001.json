@@ -1,0 +1,28 @@
+{
+  "id": "R-VULN-XSS-VERIFY-001",
+  "name": "DOM verification of an XSS candidate",
+  "category": "vuln",
+  "when": {
+    "all": [
+      {
+        "fact": "class",
+        "op": "contains",
+        "value": "xss"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "Dalfox plus Playwright DOM verification",
+    "actions": [
+      {
+        "tool": "dalfox",
+        "cmd": "dalfox url {url} --no-spinner --user-agent '{ua}' --delay 500"
+      }
+    ],
+    "on_hit_class": "xss.confirmed",
+    "priority": {
+      "impact": 0.5,
+      "cost": 0.2
+    }
+  }
+}

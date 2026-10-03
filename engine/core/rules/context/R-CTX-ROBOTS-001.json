@@ -1,0 +1,50 @@
+{
+  "id": "R-CTX-ROBOTS-001",
+  "name": "robots.txt reconnaissance (once per host, before fuzzing or crawling)",
+  "category": "context",
+  "when": {
+    "all": [
+      {
+        "fact": "url",
+        "op": "matches",
+        "value": "^https?://"
+      },
+      {
+        "fact": "status",
+        "op": "in",
+        "value": [
+          200,
+          201,
+          204,
+          301,
+          302,
+          308,
+          401,
+          403,
+          405
+        ]
+      },
+      {
+        "fact": "robots_checked",
+        "op": "eq",
+        "value": false
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "Capture robots.txt Disallow traps and Crawl-delay facts (source for the canary deny list)",
+    "actions": [
+      {
+        "tool": "curl",
+        "cmd": "curl -sS -m 8 -H 'User-Agent: {ua}' {url}/robots.txt",
+        "cmd_stealth": "curl -sS -m 15 -H 'User-Agent: {ua}' {url}/robots.txt",
+        "obs_url": "{url}/robots.txt"
+      }
+    ],
+    "on_hit_class": null,
+    "priority": {
+      "impact": 0.2,
+      "cost": 0.1
+    }
+  }
+}

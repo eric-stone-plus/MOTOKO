@@ -1,0 +1,35 @@
+{
+  "id": "R-RECON-DNSX-001",
+  "name": "DNS resolution of an enumerated name (dnsx)",
+  "category": "context",
+  "when": {
+    "all": [
+      {
+        "fact": "type",
+        "op": "eq",
+        "value": "host"
+      },
+      {
+        "not": {
+          "fact": "url",
+          "op": "matches",
+          "value": "^https?://"
+        }
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "An enumerated name is a claim; resolving it is the record",
+    "actions": [
+      {
+        "tool": "dnsx",
+        "cmd": "dnsx -silent -duc -l {host}"
+      }
+    ],
+    "on_hit_class": null,
+    "priority": {
+      "impact": 0.3,
+      "cost": 0.1
+    }
+  }
+}

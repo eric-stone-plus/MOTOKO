@@ -1,0 +1,7 @@
+# Isolated dependencies for the pinned upstream app.py fast-mode API.
+beautifulsoup4
+tld
+termcolor
+langdetect
+requests
+lxml

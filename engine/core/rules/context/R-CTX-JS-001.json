@@ -1,0 +1,38 @@
+{
+  "id": "R-CTX-JS-001",
+  "name": "Frontend SPA framework",
+  "category": "context",
+  "when": {
+    "any": [
+      {
+        "fact": "tech",
+        "op": "contains",
+        "value": "react"
+      },
+      {
+        "fact": "tech",
+        "op": "contains",
+        "value": "angular"
+      },
+      {
+        "fact": "tech",
+        "op": "contains",
+        "value": "vue"
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "Mine hidden SPA APIs",
+    "actions": [
+      {
+        "tool": "jsluice",
+        "cmd": "jsluice urls -H 'User-Agent: {ua}' {url}"
+      }
+    ],
+    "on_hit_class": "api.hidden",
+    "priority": {
+      "impact": 0.5,
+      "cost": 0.25
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "egress": {
+    "default_class": "browser",
+    "echo_url": "https://echo.example.invalid/",
+    "classes": {
+      "browser": { "gateway": "203.0.113.10:18881" }
+    }
+  },
+  "dns": {
+    "resolver": "https://doh.example.invalid/dns-query",
+    "local_addr": "127.0.0.1"
+  }
+}
