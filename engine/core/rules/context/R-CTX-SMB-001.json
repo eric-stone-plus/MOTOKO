@@ -1,0 +1,30 @@
+{
+  "id": "R-CTX-SMB-001",
+  "name": "SMB service enumeration (Kali container, enum4linux-ng)",
+  "category": "context",
+  "when": {
+    "all": [
+      {
+        "fact": "services",
+        "op": "intersects",
+        "value": ["smb", "microsoft-ds", "netbios-ssn"]
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "Enumerate anonymous SMB sessions, accounts, and shares (containerized; no RID cycling)",
+    "actions": [
+      {
+        "tool": "enum4linux",
+        "runtime": "container",
+        "cmd": "enum4linux -A -t 15 {host}",
+        "cmd_stealth": "enum4linux -As -t 10 {host}"
+      }
+    ],
+    "on_hit_class": "info_disclosure.smb",
+    "priority": {
+      "impact": 0.55,
+      "cost": 0.3
+    }
+  }
+}

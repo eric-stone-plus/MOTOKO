@@ -1,0 +1,40 @@
+{
+  "id": "R-VULN-CSRF-PROBE-001",
+  "name": "Unprotected state-changing form on a confirmed application page",
+  "category": "vuln",
+  "when": {
+    "all": [
+      {
+        "fact": "class",
+        "op": "contains",
+        "value": "hidden_param"
+      },
+      {
+        "fact": "has_param",
+        "op": "eq",
+        "value": true
+      },
+      {
+        "fact": "waf",
+        "op": "eq",
+        "value": false
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "Ask the page one question a browser would answer on a third party's behalf: could a forged cross-site submission ride this endpoint's own cookies? This probe INJECTS NOTHING. It is a passive fetch of the page carrying one distinctive custom request header that a server ignores, so what comes back is the endpoint's own unaltered answer rather than a reaction to a payload -- the marker rides in a header and never in the query precisely because an oracle that reads a page as unprotected has to be reading the page the endpoint would have served anyway. The parser reads BOTH halves of that answer: the HTML body for the form, and the response headers for Set-Cookie (-i puts the headers on the same stdout stream ahead of the body, and the header block ends at the first blank line, so a body alone is never cookie evidence). The only oracle is a THREE-WAY conjunction and every conjunct fails closed toward NOT flagging. (a) EXACTLY ONE state-changing form: a <form> whose method is POST, PUT or DELETE. A form whose method is GET, or that carries no method attribute at all, submits a query because that is HTML's default, and there is no state change to forge. (b) NO anti-CSRF token anywhere on the page: no <input> with a token-like name or id (csrf, xsrf, token, nonce, authenticity, requestverification, auth_key and the anti-forgery and form-key spellings) and no double-submit <meta name>. The token vocabulary is deliberately generous, and the generosity runs in the safe direction -- a name it catches that was not really a token costs one miss, while a name it misses costs a false positive on a form that IS protected. (c) COOKIE-BASED AMBIENT AUTH WITH NO PROTECTIVE SameSite: the response sets at least one cookie AND at least one of them carries SameSite=None exactly once. None is the ONLY value that satisfies this conjunct, because it is the only one that tells a browser to send the cookie cross-site. Strict and Lax both block it, and -- a deliberate narrowing, recorded rather than buried -- a MISSING SameSite attribute blocks it too, because every current browser defaults an attribute-less cookie to Lax; a page that merely omits the attribute is therefore reported as protected, which costs recall on the legacy browsers that had no default and buys precision on every modern site that omits it and is not vulnerable. No cookie at all means one stateless fetch sees no ambient auth to ride. Everything else is refused and the refusal names what WAS observed, so protected is distinguishable from could-not-tell: no header block, no body, markup the reader cannot walk at all, markup it will not interpret (a <form> nested in a <form>, a method attribute with no value, a repeated or unknown method, a stray </form>), more than one state-changing form (which of them is unprotected cannot be attributed confidently), an unclosed state-changing form (a truncated page cannot be attributed its inputs), and a cookie that carries SameSite twice. TWO limits ride on the minted finding rather than staying in this text: a custom request header or an Origin/Referer check enforced server-side leaves no trace in a single passive GET, so this is a LOW-CONFIDENCE operator-triage signal that cannot rule one out and is never an auto-confirmed vulnerability; and one stateless fetch sees only the cookies THIS response sets, so a session cookie issued at login is invisible and the cookie conjunct can UNDER-detect. Both are the accepted price of an oracle that never guesses. The gate is the narrowest fireable one the fact vocabulary offers that names a live application page: `class contains hidden_param` proves a confirmed hidden parameter on this asset, which is a response-difference confirmation that the endpoint really reads input rather than a wordlist guess, and a hidden parameter very often IS a form field the crawler never saw; `has_param eq true` proves the asset is a crawled, query-bearing URL rather than a bare host or a static file; and `waf eq false` refuses to spend the fetch on an asset already stamped with a WAF, whose block page carries no form and whose origin the opsec layer already cools. There is no out-of-band leg and nothing is called back: the gap is observed in the very response the probe asked for, which is why the registry grades misconfig.csrf TERMINAL -- the same boundary misconfig.security_header records, that an observed absence needs no confirmation step -- and the router sends it to the default replay validator. The probe sends one bounded request and never follows a redirect, so the header block read back is the endpoint's own answer and not an upstream 3xx on the way to somewhere else. obs_url is the page itself, because the marker rides in a request header rather than in the query, and it is what gives the minted finding a url.",
+    "actions": [
+      {
+        "tool": "curl",
+        "cmd": "curl -sS -i -m 10 -A '{ua}' -H 'X-Form-Protection-Audit: passive-form-audit' '{url}'",
+        "cmd_stealth": "curl -sS -i -m 5 -A '{ua}' -H 'X-Form-Protection-Audit: passive-form-audit' '{url}'",
+        "obs_url": "{url}"
+      }
+    ],
+    "on_hit_class": "misconfig.csrf",
+    "priority": {
+      "impact": 0.5,
+      "cost": 0.1
+    }
+  }
+}

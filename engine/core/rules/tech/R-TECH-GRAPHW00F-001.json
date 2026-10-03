@@ -1,0 +1,44 @@
+{
+  "id": "R-TECH-GRAPHW00F-001",
+  "name": "GraphQL engine fingerprint (graphw00f)",
+  "category": "tech",
+  "when": {
+    "all": [
+      {
+        "fact": "url",
+        "op": "matches",
+        "value": "^https?://"
+      },
+      {
+        "any": [
+          {
+            "fact": "tech",
+            "op": "contains",
+            "value": "graphql"
+          },
+          {
+            "fact": "class",
+            "op": "contains",
+            "value": "graphql"
+          }
+        ]
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "Naming the engine behind a GraphQL endpoint decides which templates apply",
+    "actions": [
+      {
+        "tool": "graphw00f",
+        "cmd": "graphw00f -d -f -t {url} -u '{ua}' -T 10",
+        "cmd_stealth": "graphw00f -d -f -r -t {url} -u '{ua}' -T 5",
+        "timeout": 300
+      }
+    ],
+    "on_hit_class": null,
+    "priority": {
+      "impact": 0.5,
+      "cost": 0.3
+    }
+  }
+}

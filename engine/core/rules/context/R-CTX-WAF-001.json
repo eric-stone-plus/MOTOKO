@@ -1,0 +1,29 @@
+{
+  "id": "R-CTX-WAF-001",
+  "name": "Confirm an active WAF block (single request, no pressure)",
+  "category": "context",
+  "when": {
+    "all": [
+      {
+        "fact": "waf",
+        "op": "eq",
+        "value": true
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "WAF already blocks the origin (observed by httpx/nuclei): confirm response headers once, then stop; the origin is cooling down and must not be pressured",
+    "actions": [
+      {
+        "tool": "curl",
+        "cmd": "curl -m 8 -sS -D - -o /dev/null -H 'User-Agent: {ua}' {url}",
+        "cmd_stealth": "curl -m 15 -sS -D - -o /dev/null -H 'User-Agent: {ua}' {url}"
+      }
+    ],
+    "on_hit_class": null,
+    "priority": {
+      "impact": 0.2,
+      "cost": 0.1
+    }
+  }
+}

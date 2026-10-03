@@ -1,0 +1,44 @@
+{
+  "id": "R-CTX-CRAWL-001",
+  "name": "Crawl live web assets to discover endpoints",
+  "category": "context",
+  "when": {
+    "all": [
+      {
+        "fact": "url",
+        "op": "matches",
+        "value": "^https?://"
+      },
+      {
+        "fact": "status",
+        "op": "in",
+        "value": [200, 201, 204]
+      },
+      {
+        "fact": "host_crawled",
+        "op": "eq",
+        "value": false
+      },
+      {
+        "fact": "robots_checked",
+        "op": "eq",
+        "value": true
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "Low-rate katana crawl for hidden endpoints and parameters (starts after robots reconnaissance)",
+    "actions": [
+      {
+        "tool": "katana",
+        "cmd": "katana -u {url} -silent -d 3 -jc -c 2 -rl 2 -rlm 60 -iqp -fsu -timeout 10 -H 'User-Agent: {ua}'",
+        "cmd_stealth": "katana -u {url} -silent -d 2 -jc -c 1 -rl 1 -rlm 30 -iqp -fsu -timeout 10 -H 'User-Agent: {ua}'"
+      }
+    ],
+    "on_hit_class": null,
+    "priority": {
+      "impact": 0.5,
+      "cost": 0.4
+    }
+  }
+}
