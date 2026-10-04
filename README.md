@@ -219,9 +219,11 @@ motoko run example --max-cycles 20 --wave-cycles 5 --max-waves 4
 motoko digest example
 ```
 
-Scanner binaries are yours to bring (`INSTRUMENTS.md`); a missing one records a
-degradation (exit 127) and is never papered over — `motoko doctor` prints which
-binaries actually resolve.
+Scanner binaries come from the agent you already run, not from this repo:
+hand it the `motoko doctor` report — every WARN names an unresolved binary
+and the directory it was expected in — and it fetches what you authorise
+from the upstreams and licenses in `INSTRUMENTS.md`. A missing binary
+records a degradation (exit 127) and is never papered over.
 
 Replace the reserved example inputs with the approved scope. `waiting` means
 work is blocked or cooling down; inspect `retry_after_s` and health before

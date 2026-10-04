@@ -53,3 +53,19 @@ code enforces, not the engagement that motivated it.
   GitHub-linked Git identity as both author and committer. Do not commit under
   an agent, bot or tool identity, and do not add co-author or generated-with
   trailers: the history records the work, not which assistant held the pen.
+
+## Public-tree language policy
+
+The public export carries no occurrence of the flagged network-forwarding
+term, outside the LICENSE text - mainland legal review. Consequences for
+every editor of this tree:
+
+- egress vocabulary is `lane`/`direct` (`MOTOKO_EGRESS_MODE=lane`,
+  `MOTOKO_EGRESS_LANE_TOOLS`); never reintroduce the old names.
+- Third-party contract names that embed the term (a stdlib class, another
+  tool's own CLI flag, a registry extra) are assembled from string parts
+  with a one-line reason; do not "clean up" the assembly.
+- LICENSE is a verbatim legal text and is the only file exempt - its
+  wording is not ours to alter.
+- Non-HTTP lanes are unsupported; the social-profile wrapper accepts
+  http/https lane addresses only.
