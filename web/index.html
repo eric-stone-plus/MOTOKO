@@ -45,9 +45,33 @@
 <main id="main">
 
   <!-- ================= HERO ================= -->
+  <section class="hero">
+    <div class="wrap">
+      <p class="eyebrow">open source · AGPL-3.0-or-later · stdlib-only Python · fail-closed scope gate</p>
+      <img class="hero-mark hero-mark-dark" src="motoko-wordmark.svg" alt="MOTOKO" width="340" height="90">
+      <img class="hero-mark hero-mark-print" src="motoko-wordmark-paper.svg" alt="MOTOKO" width="340" height="90">
+      <h1 class="display">Pentest automation,<br><span class="tt">on the record</span>.</h1>
+      <p class="lede">MOTOKO binds the scanners and agents you already trust into one governed graph. Scope is checked before anything runs; every action lands in an append-only record. It replaces nothing — no scanner, no agent runtime, no rewrite of the tools your team already runs.</p>
+
+      <div class="hero-actions">
+        <div class="cmd-card">
+          <code class="cmd" id="cmd-hero">pip install ./engine</code>
+          <button type="button" class="copy-btn" data-copy="cmd-hero">Copy</button>
+        </div>
+        <a class="btn btn-ghost" href="#tools">See a tool run →</a>
+      </div>
+
+    </div>
+  </section>
+
     <!-- ================= INTERFACE ================= -->
   <section class="sec-soft" id="interface">
     <div class="wrap">
+      <div class="sec-head">
+        <p class="kicker">The interface</p>
+        <h2 class="title">A read-only glance at every engagement</h2>
+        <p class="sec-sub">One question per line: which engagements are live, what the wave is doing, which events just landed. The interface never invents a metric — an unknown count renders as an em-dash.</p>
+      </div>
       <figure class="fig">
         <div class="shot" role="img" aria-label="Illustrative mockup of the glance dashboard: topbar, engagements table, run progress, and activity feed">
           <div class="shot-bar"><span class="shot-title">motoko status — glance</span></div>
@@ -87,32 +111,8 @@
         </div>
         <figcaption class="fig-cap"><span class="pill pill-idle">Illustrative</span> fig. 01 — the panel labels are the engine's own vocabulary; every number is invented for this picture.</figcaption>
       </figure>
-      <div class="sec-head">
-        <p class="kicker">The interface</p>
-        <h2 class="title">A read-only glance at every engagement</h2>
-        <p class="sec-sub">One question per line: which engagements are live, what the wave is doing, which events just landed. The interface never invents a metric — an unknown count renders as an em-dash.</p>
-      </div>
     </div>
   </section>
-  <section class="hero">
-    <div class="wrap">
-      <p class="eyebrow">open source · AGPL-3.0-or-later · stdlib-only Python · fail-closed scope gate</p>
-      <img class="hero-mark hero-mark-dark" src="motoko-wordmark.svg" alt="MOTOKO" width="340" height="90">
-      <img class="hero-mark hero-mark-print" src="motoko-wordmark-paper.svg" alt="MOTOKO" width="340" height="90">
-      <h1 class="display">Pentest automation,<br><span class="tt">on the record</span>.</h1>
-      <p class="lede">MOTOKO binds the scanners and agents you already trust into one governed graph. Scope is checked before anything runs; every action lands in an append-only record. It replaces nothing — no scanner, no agent runtime, no rewrite of the tools your team already runs.</p>
-
-      <div class="hero-actions">
-        <div class="cmd-card">
-          <code class="cmd" id="cmd-hero">pip install ./engine</code>
-          <button type="button" class="copy-btn" data-copy="cmd-hero">Copy</button>
-        </div>
-        <a class="btn btn-ghost" href="#tools">See a tool run →</a>
-      </div>
-
-    </div>
-  </section>
-
   <!-- ================= TOOL CALLS ================= -->
   <section class="sec" id="tools">
     <div class="wrap">
