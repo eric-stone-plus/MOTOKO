@@ -150,8 +150,14 @@ parallel fan-out, and host-resource budgeting live in the operator shell.
 ## Install and quick start
 
 ```bash
+# from a clone of this repository:
 pip install ./engine        # stdlib-only, Python >= 3.11; provides `motoko`
-motoko --help
+
+# or straight from the GitHub repository - the one place this project is
+# hosted. Re-run the same command to update after each push:
+pip install "git+https://github.com/eric-stone-plus/MOTOKO.git#subdirectory=engine"
+
+motoko --help               # the package installs as `motoko` (`pip show motoko`)
 
 # optional: the read-only terminal interface
 pip install './engine[interface]'

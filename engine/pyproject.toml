@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "core-engine"
+name = "motoko"
 # Seal manifests and export receipts record the source revision separately.
 version = "0.7.0"
 description = "MOTOKO attack-graph orchestration engine"

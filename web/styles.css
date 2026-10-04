@@ -217,13 +217,6 @@ code {
   box-shadow: inset 0 -2px 0 var(--accent-deep);
 }
 
-.fig-gloss {
-  display: block;
-  margin-top: 6px;
-  color: var(--ink-3);
-}
-.fig-gloss b { color: var(--ink-2); font-weight: 600; }
-
 .nav-actions {
   display: flex;
   align-items: center;
@@ -550,8 +543,6 @@ code {
 .sec { padding: var(--section-pad) 0; }
 .sec-soft {
   padding-top: clamp(1.5rem, 2vw, 1.9rem);
-  background: var(--bg-soft);
-  border-block: 1px solid var(--line);
 }
 /* Both figures close their sections with a small figcaption; give them the
    same seam below (the next section's padding-top) instead of stacking a
@@ -701,7 +692,6 @@ code {
 .cta {
   padding: clamp(3.5rem, 7vw, 6.5rem) 0;
   text-align: center;
-  background: var(--bg-soft);
   border-top: 1px solid var(--line);
 }
 
@@ -774,7 +764,6 @@ code {
 
 .foot {
   border-top: 1px solid var(--line);
-  background: var(--bg-soft);
   padding: var(--space-8) 0 var(--space-6);
   font-size: var(--text-small);
 }
