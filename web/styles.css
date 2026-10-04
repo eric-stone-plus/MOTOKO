@@ -553,6 +553,11 @@ code {
   background: var(--bg-soft);
   border-block: 1px solid var(--line);
 }
+/* Both figures close their sections with a small figcaption; give them the
+   same seam below (the next section's padding-top) instead of stacking a
+   second full section pad under the caption. */
+#interface,
+#tools { padding-bottom: 0; }
 
 .sec-head { max-width: 780px; margin-bottom: 48px; }
 
