@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MOTOKO — pentest automation, on the record</title>
+<meta name="description" content="Bind the scanners and agents you already trust into one governed graph — fail-closed on scope, append-only on evidence. Open source, AGPL-3.0.">
+<meta name="theme-color" content="#121417">
+<meta property="og:type" content="website">
+<meta property="og:title" content="MOTOKO — pentest automation, on the record">
+<meta property="og:description" content="The scanners and agents you already trust, bound as one governed graph — with gates where a scope check or a human must speak.">
+<meta property="og:image" content="https://raw.githubusercontent.com/eric-stone-plus/MOTOKO/main/logo/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css">
+<script>
+/* Early: mark JS availability before first paint (progressive enhancement). */
+(function () {
+  document.documentElement.classList.add('js');
+})();
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="nav" id="top">
+  <div class="nav-inner">
+    <a class="brand" href="#top">
+      <img class="brand-mark-img" src="motoko-wordmark.svg" alt="MOTOKO" width="104" height="28">
+      <span class="pill pill-accent">AGPL-3.0</span>
+    </a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="#tools">Tool calls</a>
+      <a href="#interface">Interface</a>
+      <a href="#research">Research</a>
+      <a href="#trust">Trust</a>
+      <a class="ext" href="https://github.com/eric-stone-plus/MOTOKO/blob/main/README.md" rel="noopener">Docs</a>
+      <a class="ext" href="https://github.com/eric-stone-plus/MOTOKO" rel="noopener">GitHub</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn btn-primary" href="#install">Install</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ================= HERO ================= -->
+  <section class="hero">
+    <div class="wrap">
+      <p class="eyebrow">open source · AGPL-3.0 · stdlib-only Python · fail-closed scope gate</p>
+      <img class="hero-mark hero-mark-dark" src="motoko-wordmark.svg" alt="MOTOKO" width="560" height="149">
+      <img class="hero-mark hero-mark-print" src="motoko-wordmark-paper.svg" alt="MOTOKO" width="560" height="149">
+      <h1 class="display">Pentest automation,<br><span class="tt">on the record</span>.</h1>
+      <p class="lede">MOTOKO binds the scanners and agents you already trust into one governed graph. Scope is checked before anything runs; every action lands in an append-only record. It replaces nothing — no scanner, no agent runtime, no rewrite of the tools your team already runs.</p>
+
+      <div class="hero-actions">
+        <div class="cmd-card">
+          <code class="cmd" id="cmd-hero">pip install ./engine</code>
+          <button type="button" class="copy-btn" data-copy="cmd-hero">Copy</button>
+        </div>
+        <a class="btn btn-ghost" href="#tools">See a tool run →</a>
+      </div>
+
+      <figure class="fig">
+        <div class="term" role="img" aria-label="Illustrative terminal transcript of a gated tool call" data-tilt>
+          <div class="term-head"><span class="term-title">motoko — run</span></div>
+          <div class="term-body">
+<code><span class="t-dim">$</span> motoko run example --max-cycles 20 --wave-cycles 5 --max-waves 4
+<span class="t-dim">beats:</span> SYNC <span class="t-dim">→</span> VALIDATE <span class="t-dim">→</span> EXPAND <span class="t-dim">→</span> PRIORITIZE <span class="t-dim">→</span> ACT <span class="t-dim">→</span> REFLECT
+
+<span class="t-dim">R-RECON-SUB-001</span>  when: url matches ^https?:// · domain_subdomains_enumerated eq false
+  <span class="t-ok">render</span>  subfinder -d example.invalid -silent      <span class="t-dim">placeholders 1/1</span>
+  <span class="t-ok">ACT</span>     scope ok <span class="t-dim">·</span> cooldown ok <span class="t-dim">·</span> argv rendered
+  <span class="t-warm">parse</span>   14 observations · dedup_pass 12 · dedup_hit 2
+
+<span class="t-dim">$</span> motoko health
+<span class="t-dim">stranded hypotheses</span> 0  <span class="t-dim">·</span>  <span class="t-dim">broken links</span> 0  <span class="t-dim">·</span>  <span class="t-warm">parked findings 2</span>
+  <span class="t-dim">parked reasons:</span> missing_backend <span class="t-dim">·</span> egress_policy</code>
+          </div>
+          <div class="term-stat">
+            <span><b>rules</b> 40 packs</span>
+            <span><b>render</b> placeholders</span>
+            <span><b>gate</b> ACT</span>
+            <span><b>parse</b> events</span>
+          </div>
+        </div>
+        <figcaption class="fig-cap"><span class="pill pill-idle">Illustrative</span> fig. 01 — one rule, one tool call. The rule ID, argv template and event words are real; the counts are not.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ================= TOOL CALLS ================= -->
+  <section class="sec" id="tools">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="kicker">Tool calls</p>
+        <h2 class="title">Every tool call is rendered, gated, parsed, event-sourced</h2>
+        <p class="sec-sub">Rule packs name bare binaries and argv templates. Nothing reaches a tool that the engagement cannot render, that the scope gate refuses, or that the OPSEC board is cooling down.</p>
+      </div>
+
+      <div class="bind-steps" role="tablist" aria-label="Anatomy of a tool call">
+        <div class="bind-step"><button type="button" class="bind-btn" role="tab" id="bind-1" aria-controls="bind-panel-1" aria-selected="true"><span class="flow-idx">01</span><strong>Render</strong></button></div>
+        <div class="bind-step"><button type="button" class="bind-btn" role="tab" id="bind-2" aria-controls="bind-panel-2" aria-selected="false"><span class="flow-idx">02</span><strong>Gate</strong></button></div>
+        <div class="bind-step"><button type="button" class="bind-btn" role="tab" id="bind-3" aria-controls="bind-panel-3" aria-selected="false"><span class="flow-idx">03</span><strong>Dispatch</strong></button></div>
+        <div class="bind-step"><button type="button" class="bind-btn" role="tab" id="bind-4" aria-controls="bind-panel-4" aria-selected="false"><span class="flow-idx">04</span><strong>Parse</strong></button></div>
+      </div>
+      <div class="bind-panels">
+        <div class="bind-detail" id="bind-panel-1" role="tabpanel" aria-labelledby="bind-1" tabindex="0">
+          <h4>Render — placeholders come from engagement state</h4>
+          <p>A rule's <code>cmd</code> template renders against facts the engagement holds. A rule it cannot render is never proposed; one that still reaches fire time is refused by the ACT gate, and the refusal is an event. <em><code>motoko rules</code> checks the whole corpus statically — no traffic, no LLM.</em></p>
+        </div>
+        <div class="bind-detail" id="bind-panel-2" role="tabpanel" aria-labelledby="bind-2" tabindex="0">
+          <h4>Gate — scope and OPSEC speak before the tool does</h4>
+          <p>The scope gate is engine-side and fail-closed: label-boundary domain matching, per-IP CIDR checks, redirect-chain and certificate-SAN checks. Per-origin cooldowns and canary guards block pressure. <em>Out-of-scope is a halt, not a pivot.</em></p>
+        </div>
+        <div class="bind-detail" id="bind-panel-3" role="tabpanel" aria-labelledby="bind-3" tabindex="0">
+          <h4>Dispatch — bare binaries, bounded fan-out</h4>
+          <p>Tool values are bare names — a path is refused outright. Secrets travel as <code>@env:NAME</code>; argv never carries the value. Fan-out is bounded by registrable origin, category reservations and serial batches. <em>Destructive edges wait for the operator.</em></p>
+        </div>
+        <div class="bind-detail" id="bind-panel-4" role="tabpanel" aria-labelledby="bind-4" tabindex="0">
+          <h4>Parse — output becomes evidence, chains become waves</h4>
+          <p>Parsers turn tool output into observations with deterministic dedup keys. Producer keys feed the next rule's consumers; discovered facts reopen assets in the next wave. <em>Duplicate evidence earns no discovery credit.</em></p>
+        </div>
+      </div>
+
+      <div class="card gate-demo" id="gate">
+        <div class="gate-head">
+          <p class="gate-title">Try the gate</p>
+          <p class="gate-scope">demo scope: example.invalid · 203.0.113.0/24</p>
+        </div>
+        <p class="sec-sub">Label-boundary matching and CIDR checks, in the browser. The engine applies the same arithmetic in <code>engine/core/scope.py</code> — this demo sends no traffic and performs no resolution.</p>
+        <div class="gate-row js-only">
+          <label class="sr-only" for="gate-input">Host to check against the demo scope</label>
+          <input class="gate-input" id="gate-input" type="text" placeholder="api.shop.example.invalid" spellcheck="false" autocomplete="off">
+          <button type="button" class="btn btn-primary" id="gate-check">Check scope</button>
+        </div>
+        <div class="gate-chips js-only">
+          <button type="button" class="gate-chip" data-gate-try="api.shop.example.invalid">api.shop.example.invalid</button>
+          <button type="button" class="gate-chip" data-gate-try="evil-example.invalid">evil-example.invalid</button>
+          <button type="button" class="gate-chip" data-gate-try="203.0.113.7">203.0.113.7</button>
+          <button type="button" class="gate-chip" data-gate-try="198.51.100.4">198.51.100.4</button>
+        </div>
+        <div class="gate-out" id="gate-out" role="status" aria-live="polite"><code><span class="t-dim">scope: signed · halt: none</span>
+<span class="verdict-refused">refused before it runs</span>  evil-example.invalid
+<span class="t-dim">reason: no in-scope domain match · refusal recorded as a first-class event</span></code></div>
+        <p class="card-note">Illustrative — client-side arithmetic mirrors the engine's label-boundary and CIDR rules. Subdomains of the scope match; suffix tricks like <code>evil-example.invalid</code> do not. The demo scope is documentation-reserved (<code>example.invalid</code>, RFC 2606; <code>203.0.113.0/24</code>, RFC 5737).</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= INTERFACE ================= -->
+  <section class="sec-soft" id="interface">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="kicker">The interface</p>
+        <h2 class="title">A read-only glance at every engagement</h2>
+        <p class="sec-sub">One question per line: which engagements are live, what the wave is doing, which events just landed. The interface never invents a metric — an unknown count renders as an em-dash.</p>
+      </div>
+      <figure class="fig">
+        <div class="evfield" id="evfield">
+          <div class="evfield-lights" id="evfield-lights" aria-hidden="true"></div>
+          <p class="evfield-hint">Each light is an event. Point at it to read it. <span class="t-dim">(illustrative)</span></p>
+          <p class="evfield-read" id="evfield-read" role="status">—</p>
+        </div>
+        <div class="shot" role="img" aria-label="Illustrative mockup of the glance dashboard: topbar, engagements table, run progress, and activity feed" data-tilt>
+          <div class="shot-bar"><span class="shot-title">motoko status — glance</span></div>
+          <div class="shot-body">
+            <p class="shot-line shot-topbar"><b>MOTOKO</b>&nbsp; <span class="shot-clock">2026-10-04 09:31:12</span>&nbsp; · &nbsp;3 eng 2 live&nbsp; · &nbsp;watch example&nbsp; · &nbsp;src: fs · ro-sqlite · adapter motoko/1&nbsp; · &nbsp;up 41m</p>
+
+            <div class="shot-panel">
+              <p class="shot-panel-title">ENGAGEMENTS</p>
+              <div class="shot-table">
+                <div class="shot-tr shot-th"><span>id</span><span>state</span><span>live</span><span>hyps</span><span>finds</span><span>flags</span></div>
+                <div class="shot-tr"><span data-k="id">example</span><span data-k="state" class="t-ok">active</span><span data-k="live" class="t-ok shot-live">●</span><span data-k="hyps">12</span><span data-k="finds">4</span><span data-k="flags">CW</span></div>
+                <div class="shot-tr"><span data-k="id">alpha</span><span data-k="state" class="t-dim">idle</span><span data-k="live" class="t-dim">○</span><span data-k="hyps" class="t-dim">—</span><span data-k="finds">2</span><span data-k="flags" class="t-dim">—</span></div>
+                <div class="shot-tr"><span data-k="id">bravo</span><span data-k="state" class="t-dim">sealed</span><span data-k="live" class="t-dim">○</span><span data-k="hyps">30</span><span data-k="finds">11</span><span data-k="flags" class="t-dim">—</span></div>
+              </div>
+            </div>
+
+            <p class="shot-line shot-drill">ENGAGEMENT <b>example</b>&nbsp; ─ &nbsp;<span class="t-ok">live <span class="shot-live">●</span></span>&nbsp; ─ &nbsp;runner <span class="t-ok">alive</span>&nbsp; ─ &nbsp;heartbeat 4s old</p>
+
+            <div class="shot-cols">
+              <div class="shot-panel">
+                <p class="shot-panel-title">RUN PROGRESS</p>
+                <p class="shot-line"><span class="t-ok"><span class="shot-live">●</span> live</span> example&nbsp;&nbsp;hb 4s&nbsp;&nbsp;runner alive</p>
+                <p class="shot-line">wave 2/4&nbsp; <span class="shot-gauge"><span class="shot-gauge-empty">░░░░░░░░░░░░░░░░</span><span class="shot-gauge-fill" aria-hidden="true">████████</span></span>&nbsp; 50%&nbsp; <span class="t-dim">~12m eta</span></p>
+                <p class="shot-line">tools 3/7&nbsp;&nbsp;&nbsp;<span class="t-ok">findings +2</span>&nbsp;&nbsp;&nbsp;<span class="t-warm">cd 1</span>&nbsp; <span class="t-warm">429:1</span></p>
+              </div>
+              <div class="shot-panel">
+                <p class="shot-panel-title">ACTIVITY FEED</p>
+                <p class="shot-line"><span class="t-dim">09:31:02</span>&nbsp; <span class="t-ok">act.dispatch</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; subfinder -d example.invalid -silent</p>
+                <p class="shot-line"><span class="t-dim">09:31:08</span>&nbsp; <span class="t-warm">opsec_cooldown_skip</span>&nbsp; origin cooling down; rule deferred</p>
+                <p class="shot-line"><span class="t-dim">09:31:11</span>&nbsp; scan.parse&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 14 obs · dedup_pass 12 · dedup_hit 2</p>
+                <p class="shot-line"><span class="t-dim">09:31:12</span>&nbsp; finding.parked&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; missing_backend · egress_policy<span class="shot-caret" aria-hidden="true">▌</span></p>
+              </div>
+            </div>
+
+            <p class="shot-line shot-foot">stranded hypotheses 0&nbsp; · &nbsp;broken links 0&nbsp; · &nbsp;<span class="t-warm">parked findings 2</span></p>
+          </div>
+        </div>
+        <figcaption class="fig-cap"><span class="pill pill-idle">Illustrative</span> fig. 02 — panel vocabulary is the engine's own (ENGAGEMENTS, RUN PROGRESS, ACTIVITY FEED; flags C·K·L·M·S·W). Values are made up; unknown counts render as an em-dash, never a zero.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ================= RESEARCH ================= -->
+  <section class="sec" id="research">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="kicker">Research</p>
+        <h2 class="title">Borrowed from institutions that grade assurance</h2>
+        <p class="sec-sub">RESEARCH.md surveys how military-grade programs are actually graded — assurance, provenance, adjudication — across 23 documented patterns, and derives an M1–M15 adoption roadmap from them. MOTOKO claims no such grade; it copies the parts a stdlib Python orchestrator can afford.</p>
+      </div>
+
+      <div class="trust-grid">
+        <div class="card">
+          <p class="card-title">US programs</p>
+          <dl class="def-rows">
+            <dt>CISA · ScubaGear</dt>
+            <dd>The unified verdict record — every check names its tool call, its normative strength, and declares what it cannot evaluate instead of dropping it</dd>
+            <dt>NIST · OSCAL + SP 800-115</dt>
+            <dd>Assessment results as a standard artifact; authorization as a data structure (ROE-as-data, authorized hours and source locations included)</dd>
+            <dt>DARPA · CGC + AIxCC</dt>
+            <dd>Put the gates on the API, not around the agent — it posts artifacts, never reaches the target; and never trust an agent's self-report: rescore from the event log</dd>
+            <dt>NSA · nsacyber</dt>
+            <dd>Every prose discipline ships with a machine-checkable detector; guidance and runnable detectors live in one repository</dd>
+            <dt>US Navy NAVSEA · STIG Manager</dt>
+            <dd>Content hash as rule identity — conclusions auto-inherit when the check content is unchanged</dd>
+            <dt>DoD Platform One · Big Bang</dt>
+            <dd>A doctor is a validity predicate, not a WARN list: name the minimal core set, missing one class means unhealthy</dd>
+            <dt>MITRE + Red Canary · Caldera, ART</dt>
+            <dd>Corpus discipline: typed inputs with defaults, prerequisite checks, cleanup commands</dd>
+          </dl>
+        </div>
+        <div class="card">
+          <p class="card-title">Allied programs</p>
+          <dl class="def-rows">
+            <dt>Canada CSE · AssemblyLine</dt>
+            <dd>A heuristic must be declared in the manifest before it can fire; the server recomputes scores and rejects unknown heuristics</dd>
+            <dt>France ANSSI · DFIR ORC</dt>
+            <dd>Two machine-readable run records: the Outline (execution context) and the Outcome (per-action results) — hash both the engine and every tool</dd>
+            <dt>Belgium · MISP</dt>
+            <dd>A closed vocabulary is one JSON file per term, schema-validated — adding a term is a data-only change</dd>
+            <dt>Australia ASD/ACSC · ISM as OSCAL</dt>
+            <dd>Profile over catalog: which subset applies at this assurance level is a data file, not hardcoded checks</dd>
+            <dt>UK NCSC</dt>
+            <dd>Guidance as machine-readable policy packs, sharded by threat model; parser contracts induced from a corpus</dd>
+            <dt>Filigran OpenCTI · TheHive Cortex</dt>
+            <dd>External legs on a contract: a closed connector type enum with scope registration, and self-describing parser manifests</dd>
+          </dl>
+        </div>
+        <div class="card card-wide">
+          <p class="card-title">M1–M15 adoption roadmap</p>
+          <ul class="state-rows">
+            <li>
+              <button type="button" class="state-row" aria-pressed="false">
+                <span class="row-label">M1 · unified verdict record</span>
+                <span class="pill pill-pass">roadmap</span>
+              </button>
+              <p class="state-more">Every rule action and parser output normalized to a verdict record; checks that cannot be evaluated are declared <code>Not-Implemented</code>, never silently dropped.</p>
+            </li>
+            <li>
+              <button type="button" class="state-row" aria-pressed="false">
+                <span class="row-label">M2–M12 · assessment artifacts</span>
+                <span class="pill pill-idle">roadmap</span>
+              </button>
+              <p class="state-more">A standardized assessment artifact (OSCAL SAR), a machine-readable authorization object (ROE-as-data), and independent rescoring that never trusts an agent's self-report.</p>
+            </li>
+            <li>
+              <button type="button" class="state-row" aria-pressed="false">
+                <span class="row-label">M15 · negative catalog</span>
+                <span class="pill pill-idle">roadmap</span>
+              </button>
+              <p class="state-more">"Never allowed" patterns as data — every prose discipline paired with a detector.</p>
+            </li>
+          </ul>
+          <p class="card-note">Lawful public sources only. Leaked-tooling class material was not fetched and is not adopted — a technique that cannot prove its provenance is a liability. Per-project verdicts and license notes live in <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/RESEARCH.md" rel="noopener">RESEARCH.md →</a></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= TRUST ================= -->
+  <section class="sec-soft" id="trust">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="kicker">Trust</p>
+        <h2 class="title">What ships. What waits. In writing.</h2>
+        <p class="sec-sub">Automation earns trust at its boundaries. The contract is larger than the engine — and MOTOKO says which half ships instead of blurring the line.</p>
+      </div>
+      <div class="trust-grid">
+        <div class="card">
+          <p class="card-title">Where enforcement lives</p>
+          <dl class="def-rows">
+            <dt>Scope</dt>
+            <dd>Engine-side, fail-closed; refusals are first-class events</dd>
+            <dt>Interrupt</dt>
+            <dd><strong>Operator-side.</strong> The destructive-edge circuit breaker is specified in the contract and enforced by the operator shell. The engine does not implement it yet.</dd>
+            <dt>Evidence</dt>
+            <dd>Engine-side: append-only events, SHA256 manifests, <code>seal</code> / <code>--verify</code>. Evidence storage is not encrypted.</dd>
+            <dt>Seat</dt>
+            <dd>The operator is not a node; the seat plugin is a thin control plane over the <code>motoko</code> CLI</dd>
+          </dl>
+          <p class="card-note">Also operator-side today: bounded parallel fan-out and host-resource budgeting. <code>motoko loop</code> audits engineering changes (ROLLBACK/STOP verdicts) — separate from scan waves.</p>
+        </div>
+        <div class="card">
+          <p class="card-title">Finding states are explicit</p>
+          <ul class="state-rows">
+            <li>
+              <button type="button" class="state-row" aria-pressed="false">
+                <span class="row-label">verified · exploitable · confirmed_impact</span>
+                <span class="pill pill-pass">earned</span>
+              </button>
+              <p class="state-more">Promotion is earned by hard evidence — a DOM confirmation or an out-of-band callback. Only validator events promote past <code>triaged</code>; a replay re-check caps out at <code>reproduced</code>.</p>
+            </li>
+            <li>
+              <button type="button" class="state-row" aria-pressed="false">
+                <span class="row-label">reproduced</span>
+                <span class="pill pill-live">observed</span>
+              </button>
+              <p class="state-more">Replay-observed; not yet the hard evidence a promotion needs.</p>
+            </li>
+            <li>
+              <button type="button" class="state-row" aria-pressed="false">
+                <span class="row-label">parked · missing_backend, egress_policy, unpinned</span>
+                <span class="pill pill-warn">parked</span>
+              </button>
+              <p class="state-more">A harness limitation parks the finding with a reason code instead of burning retries or terminating it — the evidence explains why.</p>
+            </li>
+            <li>
+              <button type="button" class="state-row" aria-pressed="false">
+                <span class="row-label">out_of_scope</span>
+                <span class="pill pill-warn">refused</span>
+              </button>
+              <p class="state-more">Refused before it ran; recorded as a first-class event.</p>
+            </li>
+            <li>
+              <button type="button" class="state-row" aria-pressed="false">
+                <span class="row-label">candidate · triaged</span>
+                <span class="pill pill-idle">queued</span>
+              </button>
+              <p class="state-more">Queued work: dedup keys admit, the rule chain speaks, validators have not.</p>
+            </li>
+            <li>
+              <button type="button" class="state-row" aria-pressed="false">
+                <span class="row-label">false_positive · duplicate · wont_test</span>
+                <span class="pill pill-idle">closed</span>
+              </button>
+              <p class="state-more">Closed without promotion; duplicates link through <code>duplicate_of</code> edges.</p>
+            </li>
+          </ul>
+          <p class="card-note">Nothing stamps <code>verified_true</code>; the verify beat is planned, not shipped. The full contract-versus-engine matrix lives in <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/IMPLEMENTATION.md" rel="noopener">IMPLEMENTATION.md →</a></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= GETTING STARTED ================= -->
+  <section class="sec" id="start">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="kicker">Getting started</p>
+        <h2 class="title">From install to evidence in four steps</h2>
+        <p class="sec-sub">stdlib-only Python 3.11+, zero runtime dependencies. The first checks are read-only.</p>
+      </div>
+      <ol class="gs-steps" role="list">
+        <li class="gs-step">
+          <div class="gs-idx">01</div>
+          <div class="gs-body">
+            <p><strong>Install the engine.</strong> One package, zero runtime dependencies — the <code>motoko</code> CLI comes with it.</p>
+            <div class="cmd-card">
+              <code class="cmd" id="cmd-install">pip install ./engine</code>
+              <button type="button" class="copy-btn" data-copy="cmd-install">Copy</button>
+            </div>
+          </div>
+        </li>
+        <li class="gs-step">
+          <div class="gs-idx">02</div>
+          <div class="gs-body">
+            <p><strong>Check the environment.</strong> Read-only — a passing doctor is not authorization to scan.</p>
+            <div class="cmd-card">
+              <code class="cmd" id="cmd-doctor">motoko doctor</code>
+              <button type="button" class="copy-btn" data-copy="cmd-doctor">Copy</button>
+            </div>
+          </div>
+        </li>
+        <li class="gs-step">
+          <div class="gs-idx">03</div>
+          <div class="gs-body">
+            <p><strong>Check the corpus.</strong> 40 rule packs, statically checked — no traffic, no LLM.</p>
+            <div class="cmd-card">
+              <code class="cmd" id="cmd-rules">motoko rules --report</code>
+              <button type="button" class="copy-btn" data-copy="cmd-rules">Copy</button>
+            </div>
+          </div>
+        </li>
+        <li class="gs-step">
+          <div class="gs-idx">04</div>
+          <div class="gs-body">
+            <p><strong>Initialize, run, digest.</strong> Replace the reserved example inputs with the approved scope. An exit code of zero does not mean every scanner succeeded.</p>
+            <div class="cmd-card">
+              <code class="cmd" id="cmd-init">motoko init example --scope example.invalid --seed https://example.invalid/</code>
+              <button type="button" class="copy-btn" data-copy="cmd-init">Copy</button>
+            </div>
+            <div class="cmd-card">
+              <code class="cmd" id="cmd-run">motoko run example --max-cycles 20 --wave-cycles 5 --max-waves 4</code>
+              <button type="button" class="copy-btn" data-copy="cmd-run">Copy</button>
+            </div>
+            <div class="cmd-card">
+              <code class="cmd" id="cmd-digest">motoko digest example</code>
+              <button type="button" class="copy-btn" data-copy="cmd-digest">Copy</button>
+            </div>
+          </div>
+        </li>
+      </ol>
+      <p class="gs-more"><a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/README.md" rel="noopener">Full quick start, including <code>motoko seal &lt;id&gt; --verify</code> →</a></p>
+    </div>
+  </section>
+
+  <!-- ================= INSTALL CTA ================= -->
+  <section class="cta" id="install">
+    <div class="wrap wrap-narrow">
+      <h2 class="title-cta">Bring your tools. Install the engine.</h2>
+      <p class="cta-sub">stdlib-only Python ≥ 3.11. The scanners and agents you already trust run under scope checks, OPSEC cooldowns, and an audit trail — one governed graph, one install. The scope gate is engine-side and fail-closed; the human interrupt is enforced by the operator shell.</p>
+
+      <div class="dl-tabs">
+        <div class="tablist" role="tablist" aria-label="Install options">
+          <button type="button" role="tab" id="tab-pip" aria-controls="pane-pip" aria-selected="true">pip</button>
+          <button type="button" role="tab" id="tab-interface" aria-controls="pane-interface" aria-selected="false">with interface</button>
+          <button type="button" role="tab" id="tab-source" aria-controls="pane-source" aria-selected="false">source tree</button>
+        </div>
+        <div class="tabpanes">
+          <div class="tabpane" id="pane-pip" role="tabpanel" aria-labelledby="tab-pip" data-print-label="pip" tabindex="0">
+            <p>Install the engine package; it provides the <code>motoko</code> console script.</p>
+            <div class="cmd-card">
+              <code class="cmd" id="cmd-cta-pip">pip install ./engine</code>
+              <button type="button" class="copy-btn" data-copy="cmd-cta-pip">Copy</button>
+            </div>
+          </div>
+          <div class="tabpane" id="pane-interface" role="tabpanel" aria-labelledby="tab-interface" data-print-label="with interface" tabindex="0">
+            <p>Optional read-only terminal interface (Textual). <code>motoko status</code> and <code>motoko watch</code> stay stdlib.</p>
+            <div class="cmd-card">
+              <code class="cmd" id="cmd-cta-iface">pip install './engine[interface]'</code>
+              <button type="button" class="copy-btn" data-copy="cmd-cta-iface">Copy</button>
+            </div>
+          </div>
+          <div class="tabpane" id="pane-source" role="tabpanel" aria-labelledby="tab-source" data-print-label="source tree" tabindex="0">
+            <p>Run without installing, straight from the source tree.</p>
+            <div class="cmd-card">
+              <code class="cmd" id="cmd-cta-src">cd engine && python3 -m core --help</code>
+              <button type="button" class="copy-btn" data-copy="cmd-cta-src">Copy</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <p class="brand-name">MOTOKO</p>
+      <p class="foot-tag">Agent re-orchestration: existing agents and scanners, bound as a graph, with gates where a scope check or a human must speak.</p>
+    </div>
+    <nav class="foot-group" aria-label="Documentation">
+      <p class="foot-label">Documentation</p>
+      <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/GHOST.md" rel="noopener">Ontology (GHOST.md)</a>
+      <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/GRAPH.md" rel="noopener">Contract (GRAPH.md)</a>
+      <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/IMPLEMENTATION.md" rel="noopener">Implementation (IMPLEMENTATION.md)</a>
+      <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/INSTRUMENTS.md" rel="noopener">Instruments (INSTRUMENTS.md)</a>
+      <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/RESEARCH.md" rel="noopener">Research (RESEARCH.md)</a>
+      <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/HOSTS.md" rel="noopener">Hosts (HOSTS.md)</a>
+    </nav>
+    <nav class="foot-group" aria-label="Project">
+      <p class="foot-label">Project</p>
+      <a href="https://github.com/eric-stone-plus/MOTOKO" rel="noopener">Repository</a>
+      <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/LICENSE" rel="noopener">AGPL-3.0 License</a>
+      <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/NOTICE" rel="noopener">NOTICE (attribution)</a>
+      <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/.github/workflows/smoke.yml" rel="noopener">CI (smoke)</a>
+    </nav>
+  </div>
+</footer>
+
+<div id="live-region" class="sr-only" aria-live="polite"></div>
+<div class="hud-cursor" id="hud-cursor" aria-hidden="true">
+  <span class="hud-cur-dot"></span>
+  <span class="hud-cur-ring"><i class="hud-tick hud-tick-n"></i><i class="hud-tick hud-tick-e"></i><i class="hud-tick hud-tick-s"></i><i class="hud-tick hud-tick-w"></i></span>
+</div>
+
+<script>
+(function () {
+  var live = document.getElementById('live-region');
+  function say(msg) { if (live) { live.textContent = msg; } }
+
+  /* Copy buttons */
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('[data-copy]') : null;
+    if (!btn) return;
+    var src = document.getElementById(btn.getAttribute('data-copy'));
+    if (!src) return;
+    var text = src.textContent;
+    function done(ok) {
+      btn.textContent = ok ? 'Copied ✓' : 'Copy failed';
+      btn.classList.toggle('is-copied', ok);
+      say(ok ? 'Command copied to clipboard' : 'Copy failed — select the command manually');
+      setTimeout(function () {
+        btn.textContent = 'Copy';
+        btn.classList.remove('is-copied');
+      }, 1600);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+    } else { done(false); }
+  });
+
+  /* Generic APG tab group: roving tabindex + Arrow/Home/End */
+  function initTabs(listRoot, panelRoot, announceName) {
+    var tabs = Array.prototype.slice.call(listRoot.querySelectorAll('[role="tab"]'));
+    if (!tabs.length) return;
+    var panels = tabs.map(function (t) { return document.getElementById(t.getAttribute('aria-controls')); });
+    function show(idx, focus) {
+      for (var i = 0; i < tabs.length; i++) {
+        var sel = i === idx;
+        tabs[i].setAttribute('aria-selected', sel ? 'true' : 'false');
+        tabs[i].setAttribute('tabindex', sel ? '0' : '-1');
+        tabs[i].classList.toggle('is-active', sel);
+        if (panels[i]) panels[i].classList.toggle('is-shown', sel);
+      }
+      if (focus) {
+        tabs[idx].focus();
+        say(tabs[idx].textContent.trim() + ' ' + announceName + ' selected');
+      }
+    }
+    function current() {
+      for (var i = 0; i < tabs.length; i++) {
+        if (tabs[i].getAttribute('aria-selected') === 'true') return i;
+      }
+      return 0;
+    }
+    tabs.forEach(function (t, i) {
+      t.addEventListener('click', function () {
+        show(i, false);
+        say(tabs[i].textContent.trim() + ' ' + announceName + ' selected');
+      });
+    });
+    listRoot.addEventListener('keydown', function (e) {
+      var idx = current();
+      var next = -1;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (idx + 1) % tabs.length;
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (idx - 1 + tabs.length) % tabs.length;
+      else if (e.key === 'Home') next = 0;
+      else if (e.key === 'End') next = tabs.length - 1;
+      if (next >= 0) {
+        e.preventDefault();
+        show(next, true);
+      }
+    });
+    show(0, false);
+    return tabs;
+  }
+  var dlGroup = document.querySelector('.dl-tabs');
+  if (dlGroup) {
+    var dlList = dlGroup.querySelector('.tablist');
+    if (dlList) { initTabs(dlList, dlGroup, 'tab'); dlGroup.classList.add('js-tabs'); }
+  }
+  var bindGroup = document.querySelector('.bind-steps');
+  if (bindGroup) {
+    initTabs(bindGroup, document.querySelector('.bind-panels'), 'step');
+    bindGroup.classList.add('js-bind');
+  }
+
+  /* ---------- scope gate demo (label-boundary + CIDR, mirrors scope.py) ---------- */
+  var gateInput = document.getElementById('gate-input');
+  var gateOut = document.getElementById('gate-out');
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function labelBoundaryMatch(host, domain) {
+    /* engine/core/scope.py _domain_matches (non-wildcard entry):
+       h = h.rstrip(".") then h == d or h.endswith("." + d) */
+    host = host.replace(/\.+$/, '');
+    domain = domain.replace(/\.+$/, '');
+    return host === domain || host.endsWith('.' + domain);
+  }
+  function ipv4ToInt(ip) {
+    /* engine semantics: ipaddress.ip_address rejects leading zeros */
+    var parts = ip.split('.');
+    if (parts.length !== 4) return null;
+    var n = 0;
+    for (var i = 0; i < 4; i++) {
+      var p = parts[i];
+      if (!/^\d{1,3}$/.test(p)) return null;
+      if (p.length > 1 && p[0] === '0') return null;
+      var o = Number(p);
+      if (o > 255) return null;
+      n = (n << 8) + o;
+    }
+    return n >>> 0;
+  }
+  function ipInCidr(ip, cidr) {
+    var split = cidr.split('/');
+    var base = ipv4ToInt(split[0]);
+    var n = ipv4ToInt(ip);
+    if (base === null || n === null) return false;
+    var bits = Number(split[1]);
+    if (!Number.isInteger(bits) || bits < 0 || bits > 32) return false;
+    if (bits === 0) return true;
+    var shift = 32 - bits;
+    return (n >>> shift) === (base >>> shift);
+  }
+  function hostOf(raw) {
+    var s = (raw || '').trim();
+    if (!s) return '';
+    s = s.replace(/^[a-zA-Z]+:\/\//, '');     /* pasted scheme */
+    s = s.split('/')[0];
+    s = s.replace(/^[^@\[\]]+@/, '');         /* userinfo */
+    var port = null;
+    if (s.startsWith('[')) {
+      var close = s.indexOf(']');
+      if (close < 0) return s.toLowerCase();
+      var rest = s.slice(close + 1);
+      if (/^:\d+$/.test(rest)) port = Number(rest.slice(1));
+      s = s.slice(1, close);
+    } else {
+      var m = s.match(/^(.*):(\d+)$/);
+      if (m) { s = m[1]; port = Number(m[2]); }
+    }
+    if (port !== null && !(port >= 0 && port <= 65535)) return '\u0000port';  /* engine: invalid port refused */
+    return s.replace(/\.+$/, '').toLowerCase();   /* engine rstrips trailing dots (scope.py _domain_matches) */
+  }
+  function gateCheck(raw) {
+    var host = hostOf(raw);
+    if (host === '\u0000port') {
+      return '<span class="verdict-refused">refused before it runs</span>  ' + escapeHtml(String(raw).trim()) + '\n<span class="t-dim">reason: invalid port</span>\n<span class="t-dim">refusal recorded as a first-class event</span>';
+    }
+    if (!host) return '<span class="t-dim">scope: signed · halt: none</span>\n<span class="t-dim">type a host, or pick an example above.</span>';
+    var isIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(host);
+    if (isIp) {
+      if (ipInCidr(host, '203.0.113.0/24')) {
+        return '<span class="verdict-ok">allowed</span>  ' + escapeHtml(host) + '\n<span class="t-dim">reason: IP ' + escapeHtml(host) + ' in CIDR 203.0.113.0/24</span>';
+      }
+      return '<span class="verdict-refused">refused before it runs</span>  ' + escapeHtml(host) + '\n<span class="t-dim">reason: IP ' + escapeHtml(host) + ' not in any in-scope CIDR/address</span>\n<span class="t-dim">refusal recorded as a first-class event</span>';
+    }
+    if (labelBoundaryMatch(host, 'example.invalid')) {
+      return '<span class="verdict-ok">allowed</span>  ' + escapeHtml(host) + '\n<span class="t-dim">reason: label-boundary match for example.invalid</span>';
+    }
+    return '<span class="verdict-refused">refused before it runs</span>  ' + escapeHtml(host) + '\n<span class="t-dim">reason: no in-scope domain match</span>\n<span class="t-dim">refusal recorded as a first-class event</span>';
+  }
+  function gateRender(raw) {
+    if (!gateOut) return;
+    gateOut.innerHTML = '<code>' + gateCheck(raw) + '</code>';   /* gateCheck escapes every dynamic value */
+  }
+  if (gateInput) {
+    var gateBtn = document.getElementById('gate-check');
+    if (gateBtn) gateBtn.addEventListener('click', function () { gateRender(gateInput.value); });
+    gateInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); gateRender(gateInput.value); }
+    });
+    document.addEventListener('click', function (e) {
+      var chip = e.target.closest ? e.target.closest('[data-gate-try]') : null;
+      if (!chip) return;
+      gateInput.value = chip.getAttribute('data-gate-try');
+      gateRender(gateInput.value);
+    });
+  }
+
+  /* ---------- finding-state explorer (selection scoped per list) ---------- */
+  Array.prototype.slice.call(document.querySelectorAll('.state-rows')).forEach(function (list) {
+    var rows = Array.prototype.slice.call(list.querySelectorAll('.state-row'));
+    rows.forEach(function (row) {
+      row.addEventListener('click', function () {
+        var wasOn = row.getAttribute('aria-pressed') === 'true';
+        rows.forEach(function (r) { r.setAttribute('aria-pressed', 'false'); });
+        row.setAttribute('aria-pressed', wasOn ? 'false' : 'true');
+        say(wasOn ? 'State detail closed' : 'State detail opened');
+      });
+    });
+  });
+
+  /* ---------- scroll reveals (Apple-style settle-in) ---------- */
+  var motionOk = !window.matchMedia || window.matchMedia('(prefers-reduced-motion: no-preference)').matches;
+  if (motionOk && 'IntersectionObserver' in window) {
+    var heroSeq = ['.hero .eyebrow', '.hero-mark-dark', 'h1.display', '.lede', '.hero-actions', '.hero .fig'];
+    heroSeq.forEach(function (sel, i) {
+      var el = document.querySelector(sel);
+      if (el) { el.classList.add('reveal'); el.style.setProperty('--rd', (i * 0.09) + 's'); }
+    });
+    var staggerSets = ['.trust-grid > .card', '.gs-steps > .gs-step'];
+    staggerSets.forEach(function (sel) {
+      Array.prototype.slice.call(document.querySelectorAll(sel)).forEach(function (el, i) {
+        el.classList.add('reveal');
+        el.style.setProperty('--rd', (i * 0.12) + 's');
+      });
+    });
+    Array.prototype.slice.call(document.querySelectorAll(
+      '.sec-head, .bind-steps, .bind-panels, .gate-demo, .shot, .evfield, .dl-tabs, .cta .title-cta, .cta-sub, .gs-more'
+    )).forEach(function (el) { el.classList.add('reveal'); });
+
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) {
+          e.target.classList.add('in');
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+    Array.prototype.slice.call(document.querySelectorAll('.reveal')).forEach(function (el) { io.observe(el); });
+
+    /* ---------- dashboard boot sequence (ship's console coming online) ---------- */
+    function bootSequence(shot) {
+      /* wrap digit runs so they can scramble-lock (em-dashes stay: unknown is never faked) */
+      var skip = '.shot-clock, .shot-gauge, .shot-caret';
+      var walker = document.createTreeWalker(shot, NodeFilter.SHOW_TEXT, {
+        acceptNode: function (n) {
+          if (!/\d/.test(n.nodeValue)) return NodeFilter.FILTER_REJECT;
+          return n.parentElement.closest(skip) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+        }
+      });
+      var nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      var pend = [];
+      nodes.forEach(function (node) {
+        var frag = document.createDocumentFragment();
+        node.nodeValue.split(/(\d+)/).forEach(function (part) {
+          if (!part) return;
+          if (/^\d+$/.test(part)) {
+            var sp = document.createElement('span');
+            sp.className = 'tick-num';
+            sp.textContent = part;
+            frag.appendChild(sp);
+            pend.push({ el: sp, final: part, start: 0, dur: 0 });
+          } else {
+            frag.appendChild(document.createTextNode(part));
+          }
+        });
+        node.parentNode.replaceChild(frag, node);
+      });
+      var t0 = performance.now();
+      pend.forEach(function (p, i) {
+        p.start = t0 + 80 + i * 45 + Math.random() * 160;
+        p.dur = 520 + p.final.length * 140;
+      });
+      (function frame(t) {
+        var alive = false;
+        for (var i = 0; i < pend.length; i++) {
+          var p = pend[i];
+          if (t < p.start) { alive = true; continue; }
+          var k = (t - p.start) / p.dur;
+          if (k >= 1) {
+            p.el.textContent = p.final;
+            p.el.classList.remove('is-scrambling');
+            continue;
+          }
+          var s = '';
+          for (var j = 0; j < p.final.length; j++) {
+            s += (j / p.final.length < k ? p.final[j] : String((Math.random() * 10) | 0));
+          }
+          p.el.textContent = s;
+          p.el.classList.add('is-scrambling');
+          alive = true;
+        }
+        if (alive) requestAnimationFrame(frame);
+      })(t0);
+
+      /* the console clock keeps ticking only while the panel is on screen */
+      setTimeout(function () {
+        var el = shot.querySelector('.shot-clock');
+        if (!el || el.dataset.ticking) return;
+        el.dataset.ticking = '1';
+        var m = el.textContent.match(/(\d{2}):(\d{2}):(\d{2})/);
+        if (!m) return;
+        var hr = +m[1], min = +m[2], sec = +m[3];
+        if ('IntersectionObserver' in window) {
+          var visIO = new IntersectionObserver(function (es) {
+            shot.dataset.vis = es[0].isIntersecting ? '1' : '0';
+          }, { threshold: 0.1 });
+          visIO.observe(shot);
+        } else {
+          shot.dataset.vis = '1';
+        }
+        setInterval(function () {
+          if (shot.dataset.vis !== '1') return;
+          sec++;
+          if (sec > 59) { sec = 0; min++; if (min > 59) { min = 0; hr = (hr + 1) % 24; } }
+          el.textContent = '2026-10-04 ' + String(hr).padStart(2, '0') + ':' + String(min).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+        }, 1000);
+      }, 1500);
+    }
+    var shotEl = document.querySelector('.shot');
+    if (shotEl) {
+      var bootIO = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) {
+            bootSequence(e.target);
+            bootIO.unobserve(e.target);
+          }
+        });
+      }, { threshold: 0.2 });
+      bootIO.observe(shotEl);
+    }
+  }
+
+  /* ---------- HUD cursor (fine pointer, motion allowed) ---------- */
+  if (motionOk && window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    document.documentElement.classList.add('hud-on');
+    var wrapCur = document.getElementById('hud-cursor');
+    var dot = wrapCur.querySelector('.hud-cur-dot');
+    var ring = wrapCur.querySelector('.hud-cur-ring');
+    var px = window.innerWidth / 2, py = window.innerHeight / 2;
+    var rx = px, ry = py;
+    var seen = false;
+    document.addEventListener('mousemove', function (e) {
+      px = e.clientX; py = e.clientY;
+      seen = true;
+      wrapCur.classList.remove('is-gone');
+      dot.style.transform = 'translate3d(' + px + 'px,' + py + 'px,0)';
+    }, { passive: true });
+    document.addEventListener('mouseleave', function () { wrapCur.classList.add('is-gone'); });
+    (function tick() {
+      rx += (px - rx) * 0.18;
+      ry += (py - ry) * 0.18;
+      ring.style.transform = 'translate3d(' + rx + 'px,' + ry + 'px,0)';
+      requestAnimationFrame(tick);
+    })();
+    document.addEventListener('mouseover', function (e) {
+      if (!seen) return;
+      var hit = e.target.closest && e.target.closest('a, button, input, label, [role="tab"], .state-row, .gate-chip');
+      ring.classList.toggle('is-active', !!hit);
+    });
+  }
+
+  /* ---------- event lights (each light is an event; point at it to read it) ---------- */
+  (function () {
+    var lights = document.getElementById('evfield-lights');
+    var read = document.getElementById('evfield-read');
+    if (!lights) return;
+    var events = [
+      'act.dispatch           subfinder -d example.invalid -silent',
+      'opsec_cooldown_skip    origin cooling down; rule deferred',
+      'scan.parse             14 obs · dedup_pass 12 · dedup_hit 2',
+      'finding.parked         missing_backend · egress_policy',
+      'scope_check            example.invalid · in-scope label ✓',
+      'refuse.out_of_scope    evil.example #302 — not on the engagement',
+      'edge.dedup_pass        e1 = evidence (open → confirmed)',
+      'runner.heartbeat       4s · wave 2/4 · cd 1'
+    ];
+    var dots = [];
+    for (var i = 0; i < 18; i++) {
+      var d = document.createElement('i');
+      d.className = 'ev-light';
+      d.style.left = (6 + (i * 37) % 88) + '%';
+      d.style.top = (10 + (i * 53) % 78) + '%';
+      d.style.setProperty('--s', (3 + (i % 3) * 1.6) + 'px');
+      d.style.setProperty('--dur', (2.6 + (i % 5) * 0.9) + 's');
+      d.style.setProperty('--del', (i % 7) * 0.45 + 's');
+      d.dataset.ev = events[i % events.length];
+      lights.appendChild(d);
+      dots.push(d);
+    }
+    function readAt(x, y) {
+      var best = null, bd = 30 * 30;
+      dots.forEach(function (d) {
+        d.classList.remove('is-on');
+        var r = d.getBoundingClientRect();
+        var dx = r.left + r.width / 2 - x, dy = r.top + r.height / 2 - y;
+        var dd = dx * dx + dy * dy;
+        if (dd < bd) { bd = dd; best = d; }
+      });
+      if (best) { best.classList.add('is-on'); read.textContent = best.dataset.ev; }
+      else { read.textContent = '—'; }
+    }
+    lights.parentElement.addEventListener('pointermove', function (e) {
+      readAt(e.clientX, e.clientY);
+    }, { passive: true });
+    lights.parentElement.addEventListener('pointerleave', function () {
+      dots.forEach(function (d) { d.classList.remove('is-on'); });
+      read.textContent = '—';
+    });
+  })();
+
+  /* ---------- pointer tilt on figures (fine pointers, motion allowed) ---------- */
+  if (motionOk && window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    Array.prototype.slice.call(document.querySelectorAll('[data-tilt]')).forEach(function (el) {
+      el.addEventListener('pointermove', function (e) {
+        var r = el.getBoundingClientRect();
+        var dx = (e.clientX - r.left) / r.width - 0.5;
+        var dy = (e.clientY - r.top) / r.height - 0.5;
+        el.style.transform = 'perspective(1100px) rotateX(' + (-dy * 3.5).toFixed(2) + 'deg) rotateY(' + (dx * 3.5).toFixed(2) + 'deg)';
+      }, { passive: true });
+      el.addEventListener('pointerleave', function () {
+        el.style.transform = '';
+      });
+    });
+  }
+})();
+</script>
+
+</body>
+</html>

@@ -200,9 +200,9 @@ def engagement_row_cells(eng: EngagementSnapshot, theme: Theme) -> tuple[Text, .
 def provenance_compact(served_by) -> str:
     """Compact glance provenance: the distinct collector names, deduped.
 
-    STAMMTISCH-glance style: the topbar answers "which collectors actually
-    served this frame" without per-panel detail — ``fs · ro-sqlite · adapter
-    motoko/1``. Insertion order is preserved (assembly order), duplicates
+    Glance style: the topbar answers "which collectors actually served this
+    frame" without per-panel detail — ``fs · ro-sqlite · adapter motoko/1``.
+    Insertion order is preserved (assembly order), duplicates
     (gates+reports share the adapter) collapse; an empty mapping renders ""
     and the caller omits the segment entirely (never a fake source).
     """
