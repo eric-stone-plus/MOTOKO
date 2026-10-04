@@ -62,34 +62,60 @@
         <a class="btn btn-ghost" href="#tools">See a tool run →</a>
       </div>
 
-      <figure class="fig">
-        <div class="term" role="img" aria-label="Illustrative terminal transcript of a gated tool call" data-tilt>
-          <div class="term-head"><span class="term-title">motoko — run</span></div>
-          <div class="term-body">
-<code><span class="t-dim">$</span> motoko run example --max-cycles 20 --wave-cycles 5 --max-waves 4
-<span class="t-dim">beats:</span> SYNC <span class="t-dim">→</span> VALIDATE <span class="t-dim">→</span> EXPAND <span class="t-dim">→</span> PRIORITIZE <span class="t-dim">→</span> ACT <span class="t-dim">→</span> REFLECT
-
-<span class="t-dim">R-RECON-SUB-001</span>  when: url matches ^https?:// · domain_subdomains_enumerated eq false
-  <span class="t-ok">render</span>  subfinder -d example.invalid -silent      <span class="t-dim">placeholders 1/1</span>
-  <span class="t-ok">ACT</span>     scope ok <span class="t-dim">·</span> cooldown ok <span class="t-dim">·</span> argv rendered
-  <span class="t-warm">parse</span>   14 observations · dedup_pass 12 · dedup_hit 2
-
-<span class="t-dim">$</span> motoko health
-<span class="t-dim">stranded hypotheses</span> 0  <span class="t-dim">·</span>  <span class="t-dim">broken links</span> 0  <span class="t-dim">·</span>  <span class="t-warm">parked findings 2</span>
-  <span class="t-dim">parked reasons:</span> missing_backend <span class="t-dim">·</span> egress_policy</code>
-          </div>
-          <div class="term-stat">
-            <span><b>rules</b> 40 packs</span>
-            <span><b>render</b> placeholders</span>
-            <span><b>gate</b> ACT</span>
-            <span><b>parse</b> events</span>
-          </div>
-        </div>
-        <figcaption class="fig-cap"><span class="pill pill-idle">Illustrative</span> fig. 01 — one rule, one tool call. The rule ID, argv template and event words are real; the counts are not.</figcaption>
-      </figure>
     </div>
   </section>
 
+
+
+    <!-- ================= INTERFACE ================= -->
+  <section class="sec-soft" id="interface">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="kicker">The interface</p>
+        <h2 class="title">A read-only glance at every engagement</h2>
+        <p class="sec-sub">One question per line: which engagements are live, what the wave is doing, which events just landed. The interface never invents a metric — an unknown count renders as an em-dash.</p>
+      </div>
+      <figure class="fig">
+        <div class="shot" role="img" aria-label="Illustrative mockup of the glance dashboard: topbar, engagements table, run progress, and activity feed" data-tilt>
+          <div class="shot-bar"><span class="shot-title">motoko status — glance</span></div>
+          <div class="shot-body">
+            <p class="shot-line shot-topbar"><b>MOTOKO</b>&nbsp; <span class="shot-clock">2026-10-04 09:31:12</span>&nbsp; · &nbsp;3 eng 2 live&nbsp; · &nbsp;watch example&nbsp; · &nbsp;src: fs · ro-sqlite · adapter motoko/1&nbsp; · &nbsp;up 41m</p>
+
+            <div class="shot-panel">
+              <p class="shot-panel-title">ENGAGEMENTS</p>
+              <div class="shot-table">
+                <div class="shot-tr shot-th"><span>id</span><span>state</span><span>live</span><span>hyps</span><span>finds</span><span>flags</span></div>
+                <div class="shot-tr"><span data-k="id">example</span><span data-k="state" class="t-ok">active</span><span data-k="live" class="t-ok shot-live">●</span><span data-k="hyps">12</span><span data-k="finds">4</span><span data-k="flags">CW</span></div>
+                <div class="shot-tr"><span data-k="id">alpha</span><span data-k="state" class="t-dim">idle</span><span data-k="live" class="t-dim">○</span><span data-k="hyps" class="t-dim">—</span><span data-k="finds">2</span><span data-k="flags" class="t-dim">—</span></div>
+                <div class="shot-tr"><span data-k="id">bravo</span><span data-k="state" class="t-dim">sealed</span><span data-k="live" class="t-dim">○</span><span data-k="hyps">30</span><span data-k="finds">11</span><span data-k="flags" class="t-dim">—</span></div>
+              </div>
+            </div>
+
+            <p class="shot-line shot-drill">ENGAGEMENT <b>example</b>&nbsp; ─ &nbsp;<span class="t-ok">live <span class="shot-live">●</span></span>&nbsp; ─ &nbsp;runner <span class="t-ok">alive</span>&nbsp; ─ &nbsp;heartbeat 4s old</p>
+
+            <div class="shot-cols">
+              <div class="shot-panel">
+                <p class="shot-panel-title">RUN PROGRESS</p>
+                <p class="shot-line"><span class="t-ok"><span class="shot-live">●</span> live</span> example&nbsp;&nbsp;hb 4s&nbsp;&nbsp;runner alive</p>
+                <p class="shot-line">wave 2/4&nbsp; <span class="shot-gauge"><span class="shot-gauge-empty">░░░░░░░░░░░░░░░░</span><span class="shot-gauge-fill" aria-hidden="true">████████</span></span>&nbsp; 50%&nbsp; <span class="t-dim">~12m eta</span></p>
+                <p class="shot-line">tools 3/7&nbsp;&nbsp;&nbsp;<span class="t-ok">findings +2</span>&nbsp;&nbsp;&nbsp;<span class="t-warm">cd 1</span>&nbsp; <span class="t-warm">429:1</span></p>
+              </div>
+              <div class="shot-panel">
+                <p class="shot-panel-title">ACTIVITY FEED</p>
+                <p class="shot-line"><span class="t-dim">09:31:02</span>&nbsp; <span class="t-ok">act.dispatch</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; subfinder -d example.invalid -silent</p>
+                <p class="shot-line"><span class="t-dim">09:31:08</span>&nbsp; <span class="t-warm">opsec_cooldown_skip</span>&nbsp; origin cooling down; rule deferred</p>
+                <p class="shot-line"><span class="t-dim">09:31:11</span>&nbsp; scan.parse&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 14 obs · dedup_pass 12 · dedup_hit 2</p>
+                <p class="shot-line"><span class="t-dim">09:31:12</span>&nbsp; finding.parked&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; missing_backend · egress_policy<span class="shot-caret" aria-hidden="true">▌</span></p>
+              </div>
+            </div>
+
+            <p class="shot-line shot-foot">stranded hypotheses 0&nbsp; · &nbsp;broken links 0&nbsp; · &nbsp;<span class="t-warm">parked findings 2</span></p>
+          </div>
+        </div>
+        <figcaption class="fig-cap"><span class="pill pill-idle">Illustrative</span> fig. 01 — panel vocabulary is the engine's own (ENGAGEMENTS, RUN PROGRESS, ACTIVITY FEED; flags C·K·L·M·S·W). Values are made up; unknown counts render as an em-dash, never a zero.</figcaption>
+      </figure>
+    </div>
+  </section>
   <!-- ================= TOOL CALLS ================= -->
   <section class="sec" id="tools">
     <div class="wrap">
@@ -146,64 +172,33 @@
 <span class="t-dim">reason: no in-scope domain match · refusal recorded as a first-class event</span></code></div>
         <p class="card-note">Illustrative — client-side arithmetic mirrors the engine's label-boundary and CIDR rules. Subdomains of the scope match; suffix tricks like <code>evil-example.invalid</code> do not. The demo scope is documentation-reserved (<code>example.invalid</code>, RFC 2606; <code>203.0.113.0/24</code>, RFC 5737).</p>
       </div>
-    </div>
-  </section>
-
-  <!-- ================= INTERFACE ================= -->
-  <section class="sec-soft" id="interface">
-    <div class="wrap">
-      <div class="sec-head">
-        <p class="kicker">The interface</p>
-        <h2 class="title">A read-only glance at every engagement</h2>
-        <p class="sec-sub">One question per line: which engagements are live, what the wave is doing, which events just landed. The interface never invents a metric — an unknown count renders as an em-dash.</p>
-      </div>
       <figure class="fig">
-        <div class="evfield" id="evfield">
-          <div class="evfield-lights" id="evfield-lights" aria-hidden="true"></div>
-          <p class="evfield-hint">Each light is an event. Point at it to read it. <span class="t-dim">(illustrative)</span></p>
-          <p class="evfield-read" id="evfield-read" role="status">—</p>
-        </div>
-        <div class="shot" role="img" aria-label="Illustrative mockup of the glance dashboard: topbar, engagements table, run progress, and activity feed" data-tilt>
-          <div class="shot-bar"><span class="shot-title">motoko status — glance</span></div>
-          <div class="shot-body">
-            <p class="shot-line shot-topbar"><b>MOTOKO</b>&nbsp; <span class="shot-clock">2026-10-04 09:31:12</span>&nbsp; · &nbsp;3 eng 2 live&nbsp; · &nbsp;watch example&nbsp; · &nbsp;src: fs · ro-sqlite · adapter motoko/1&nbsp; · &nbsp;up 41m</p>
+        <div class="term" role="img" aria-label="Illustrative terminal transcript of a gated tool call" data-tilt>
+          <div class="term-head"><span class="term-title">motoko — run</span></div>
+          <div class="term-body">
+<code><span class="t-dim">$</span> motoko run example --max-cycles 20 --wave-cycles 5 --max-waves 4
+<span class="t-dim">beats:</span> SYNC <span class="t-dim">→</span> VALIDATE <span class="t-dim">→</span> EXPAND <span class="t-dim">→</span> PRIORITIZE <span class="t-dim">→</span> ACT <span class="t-dim">→</span> REFLECT
 
-            <div class="shot-panel">
-              <p class="shot-panel-title">ENGAGEMENTS</p>
-              <div class="shot-table">
-                <div class="shot-tr shot-th"><span>id</span><span>state</span><span>live</span><span>hyps</span><span>finds</span><span>flags</span></div>
-                <div class="shot-tr"><span data-k="id">example</span><span data-k="state" class="t-ok">active</span><span data-k="live" class="t-ok shot-live">●</span><span data-k="hyps">12</span><span data-k="finds">4</span><span data-k="flags">CW</span></div>
-                <div class="shot-tr"><span data-k="id">alpha</span><span data-k="state" class="t-dim">idle</span><span data-k="live" class="t-dim">○</span><span data-k="hyps" class="t-dim">—</span><span data-k="finds">2</span><span data-k="flags" class="t-dim">—</span></div>
-                <div class="shot-tr"><span data-k="id">bravo</span><span data-k="state" class="t-dim">sealed</span><span data-k="live" class="t-dim">○</span><span data-k="hyps">30</span><span data-k="finds">11</span><span data-k="flags" class="t-dim">—</span></div>
-              </div>
-            </div>
+<span class="t-dim">R-RECON-SUB-001</span>  when: url matches ^https?:// · domain_subdomains_enumerated eq false
+  <span class="t-ok">render</span>  subfinder -d example.invalid -silent      <span class="t-dim">placeholders 1/1</span>
+  <span class="t-ok">ACT</span>     scope ok <span class="t-dim">·</span> cooldown ok <span class="t-dim">·</span> argv rendered
+  <span class="t-warm">parse</span>   14 observations · dedup_pass 12 · dedup_hit 2
 
-            <p class="shot-line shot-drill">ENGAGEMENT <b>example</b>&nbsp; ─ &nbsp;<span class="t-ok">live <span class="shot-live">●</span></span>&nbsp; ─ &nbsp;runner <span class="t-ok">alive</span>&nbsp; ─ &nbsp;heartbeat 4s old</p>
-
-            <div class="shot-cols">
-              <div class="shot-panel">
-                <p class="shot-panel-title">RUN PROGRESS</p>
-                <p class="shot-line"><span class="t-ok"><span class="shot-live">●</span> live</span> example&nbsp;&nbsp;hb 4s&nbsp;&nbsp;runner alive</p>
-                <p class="shot-line">wave 2/4&nbsp; <span class="shot-gauge"><span class="shot-gauge-empty">░░░░░░░░░░░░░░░░</span><span class="shot-gauge-fill" aria-hidden="true">████████</span></span>&nbsp; 50%&nbsp; <span class="t-dim">~12m eta</span></p>
-                <p class="shot-line">tools 3/7&nbsp;&nbsp;&nbsp;<span class="t-ok">findings +2</span>&nbsp;&nbsp;&nbsp;<span class="t-warm">cd 1</span>&nbsp; <span class="t-warm">429:1</span></p>
-              </div>
-              <div class="shot-panel">
-                <p class="shot-panel-title">ACTIVITY FEED</p>
-                <p class="shot-line"><span class="t-dim">09:31:02</span>&nbsp; <span class="t-ok">act.dispatch</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; subfinder -d example.invalid -silent</p>
-                <p class="shot-line"><span class="t-dim">09:31:08</span>&nbsp; <span class="t-warm">opsec_cooldown_skip</span>&nbsp; origin cooling down; rule deferred</p>
-                <p class="shot-line"><span class="t-dim">09:31:11</span>&nbsp; scan.parse&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 14 obs · dedup_pass 12 · dedup_hit 2</p>
-                <p class="shot-line"><span class="t-dim">09:31:12</span>&nbsp; finding.parked&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; missing_backend · egress_policy<span class="shot-caret" aria-hidden="true">▌</span></p>
-              </div>
-            </div>
-
-            <p class="shot-line shot-foot">stranded hypotheses 0&nbsp; · &nbsp;broken links 0&nbsp; · &nbsp;<span class="t-warm">parked findings 2</span></p>
+<span class="t-dim">$</span> motoko health
+<span class="t-dim">stranded hypotheses</span> 0  <span class="t-dim">·</span>  <span class="t-dim">broken links</span> 0  <span class="t-dim">·</span>  <span class="t-warm">parked findings 2</span>
+  <span class="t-dim">parked reasons:</span> missing_backend <span class="t-dim">·</span> egress_policy</code>
+          </div>
+          <div class="term-stat">
+            <span><b>rules</b> 40 packs</span>
+            <span><b>render</b> placeholders</span>
+            <span><b>gate</b> ACT</span>
+            <span><b>parse</b> events</span>
           </div>
         </div>
-        <figcaption class="fig-cap"><span class="pill pill-idle">Illustrative</span> fig. 02 — panel vocabulary is the engine's own (ENGAGEMENTS, RUN PROGRESS, ACTIVITY FEED; flags C·K·L·M·S·W). Values are made up; unknown counts render as an em-dash, never a zero.</figcaption>
+        <figcaption class="fig-cap"><span class="pill pill-idle">Illustrative</span> fig. 02 — one rule, one tool call. The rule ID, argv template and event words are real; the counts are not.</figcaption>
       </figure>
     </div>
   </section>
-
   <!-- ================= RESEARCH ================= -->
   <section class="sec" id="research">
     <div class="wrap">
@@ -685,7 +680,7 @@
   /* ---------- scroll reveals (Apple-style settle-in) ---------- */
   var motionOk = !window.matchMedia || window.matchMedia('(prefers-reduced-motion: no-preference)').matches;
   if (motionOk && 'IntersectionObserver' in window) {
-    var heroSeq = ['.hero .eyebrow', '.hero-mark-dark', 'h1.display', '.lede', '.hero-actions', '.hero .fig'];
+    var heroSeq = ['.hero .eyebrow', '.hero-mark-dark', 'h1.display', '.lede', '.hero-actions'];
     heroSeq.forEach(function (sel, i) {
       var el = document.querySelector(sel);
       if (el) { el.classList.add('reveal'); el.style.setProperty('--rd', (i * 0.09) + 's'); }
@@ -698,7 +693,7 @@
       });
     });
     Array.prototype.slice.call(document.querySelectorAll(
-      '.sec-head, .bind-steps, .bind-panels, .gate-demo, .shot, .evfield, .dl-tabs, .cta .title-cta, .cta-sub, .gs-more'
+      '.sec-head, .bind-steps, .bind-panels, .gate-demo, .shot, .term, .dl-tabs, .cta .title-cta, .cta-sub, .gs-more'
     )).forEach(function (el) { el.classList.add('reveal'); });
 
     var io = new IntersectionObserver(function (entries) {
@@ -834,54 +829,6 @@
     });
   }
 
-  /* ---------- event lights (each light is an event; point at it to read it) ---------- */
-  (function () {
-    var lights = document.getElementById('evfield-lights');
-    var read = document.getElementById('evfield-read');
-    if (!lights) return;
-    var events = [
-      'act.dispatch           subfinder -d example.invalid -silent',
-      'opsec_cooldown_skip    origin cooling down; rule deferred',
-      'scan.parse             14 obs · dedup_pass 12 · dedup_hit 2',
-      'finding.parked         missing_backend · egress_policy',
-      'scope_check            example.invalid · in-scope label ✓',
-      'refuse.out_of_scope    evil.example #302 — not on the engagement',
-      'edge.dedup_pass        e1 = evidence (open → confirmed)',
-      'runner.heartbeat       4s · wave 2/4 · cd 1'
-    ];
-    var dots = [];
-    for (var i = 0; i < 18; i++) {
-      var d = document.createElement('i');
-      d.className = 'ev-light';
-      d.style.left = (6 + (i * 37) % 88) + '%';
-      d.style.top = (10 + (i * 53) % 78) + '%';
-      d.style.setProperty('--s', (3 + (i % 3) * 1.6) + 'px');
-      d.style.setProperty('--dur', (2.6 + (i % 5) * 0.9) + 's');
-      d.style.setProperty('--del', (i % 7) * 0.45 + 's');
-      d.dataset.ev = events[i % events.length];
-      lights.appendChild(d);
-      dots.push(d);
-    }
-    function readAt(x, y) {
-      var best = null, bd = 30 * 30;
-      dots.forEach(function (d) {
-        d.classList.remove('is-on');
-        var r = d.getBoundingClientRect();
-        var dx = r.left + r.width / 2 - x, dy = r.top + r.height / 2 - y;
-        var dd = dx * dx + dy * dy;
-        if (dd < bd) { bd = dd; best = d; }
-      });
-      if (best) { best.classList.add('is-on'); read.textContent = best.dataset.ev; }
-      else { read.textContent = '—'; }
-    }
-    lights.parentElement.addEventListener('pointermove', function (e) {
-      readAt(e.clientX, e.clientY);
-    }, { passive: true });
-    lights.parentElement.addEventListener('pointerleave', function () {
-      dots.forEach(function (d) { d.classList.remove('is-on'); });
-      read.textContent = '—';
-    });
-  })();
 
   /* ---------- pointer tilt on figures (fine pointers, motion allowed) ---------- */
   if (motionOk && window.matchMedia('(hover: hover) and (pointer: fine)').matches) {

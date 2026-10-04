@@ -1073,56 +1073,6 @@ html:not(.js) .state-row:hover { background: transparent; }
 /* pointer tilt (clawhunt-style; fine pointers, motion allowed) */
 [data-tilt] { transform-style: preserve-3d; will-change: transform; }
 
-/* event lights: each light is an event, point at it to read it */
-.evfield {
-  position: relative;
-  margin-bottom: 18px;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: linear-gradient(180deg, var(--bg-code), var(--bg-page));
-}
-.evfield-lights {
-  position: relative;
-  height: 110px;
-  border-radius: 6px;
-  overflow: hidden;
-}
-.ev-light {
-  position: absolute;
-  width: var(--s, 5px);
-  height: var(--s, 5px);
-  margin: calc(var(--s, 5px) / -2) 0 0 calc(var(--s, 5px) / -2);
-  border-radius: 50%;
-  background: var(--accent-deep);
-  opacity: .35;
-}
-.evfield-hint {
-  margin-top: 10px;
-  font-size: 12px;
-  color: var(--ink-soft);
-}
-.evfield-read {
-  margin-top: 4px;
-  min-height: 1.4em;
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0;
-  color: var(--ink);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .js .evfield-lights .ev-light { animation: ev-drift var(--dur, 3s) ease-in-out var(--del, 0s) infinite alternate; transition: opacity .25s var(--ease), transform .25s var(--ease); }
-  .ev-light.is-on { opacity: 1 !important; animation: none !important; transform: scale(1.8); }
-}
-
-@keyframes ev-drift {
-  from { opacity: .2; translate: 0 -2px; }
-  to { opacity: .8; translate: 0 2px; }
-}
-
 @media (prefers-reduced-motion: no-preference) {
   .js .reveal {
     opacity: 0;
@@ -1271,7 +1221,6 @@ html:not(.js) .state-row:hover { background: transparent; }
   .shot-line { font-size: 9.2px; }
   .shot-cols { gap: 10px; }
   .term-body code { font-size: 11px; }
-  .evfield-lights { height: 84px; }
   .btn, .copy-btn, .tablist button, .gate-check, .state-row { min-height: 44px; }
   .cmd-card { flex-wrap: wrap; }
 }
