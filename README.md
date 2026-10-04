@@ -206,13 +206,22 @@ shell profile or reads credentials. A `tool` value that looks like a path
 (`/`, `\`, `..`) is refused outright — actions name a bare binary, never a
 path. `motoko doctor` prints which binaries actually resolve.
 
-For an authorized engagement, initialize with both scope and starting assets:
+For an authorized engagement, initialize with both scope and starting assets.
+Two things are refused without being declared first — set them once, above the
+block, so the commands run as printed:
 
 ```bash
+export MOTOKO_HOME="$HOME/.motoko"    # writable, outside the interpreter tree
+export MOTOKO_EGRESS_MODE=direct      # a lab declaration; an egress lane for real traffic
+
 motoko init example --scope example.invalid --seed https://example.invalid/
 motoko run example --max-cycles 20 --wave-cycles 5 --max-waves 4
 motoko digest example
 ```
+
+Scanner binaries are yours to bring (`INSTRUMENTS.md`); a missing one records a
+degradation (exit 127) and is never papered over — `motoko doctor` prints which
+binaries actually resolve.
 
 Replace the reserved example inputs with the approved scope. `waiting` means
 work is blocked or cooling down; inspect `retry_after_s` and health before
@@ -246,7 +255,7 @@ docs and test suite are maintained outside this export by policy.
 on every push and pull request, on Python 3.11 / 3.12 / 3.13: a clean
 `uv` venv install of `engine/`, `motoko --help`, `motoko doctor`, an
 assertion from the *installed* site-packages tree that the rule packs
-actually shipped (a floor of 31 beneath the current 39-pack corpus — it
+actually shipped (a floor of 31 beneath the current 40-pack corpus — it
 guards accidental shrinkage, and a deliberate retirement lowers it on purpose),
 and a check that no build artifacts are tracked.
 

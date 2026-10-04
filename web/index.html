@@ -392,7 +392,7 @@
         <li class="gs-step">
           <div class="gs-idx">04</div>
           <div class="gs-body">
-            <p><strong>Initialize, run, digest.</strong> Replace the reserved example inputs with the approved scope. An exit code of zero does not mean every scanner succeeded.</p>
+            <p><strong>Initialize, run, digest.</strong> Replace the reserved example inputs with the approved scope. Set <code>MOTOKO_HOME</code> and declare an egress posture first (<code>MOTOKO_EGRESS_MODE=direct</code> for a lab run) — both are refused, not guessed. Bring your scanner binaries: a missing one records a degradation, never a fake success. An exit code of zero does not mean every scanner succeeded.</p>
             <div class="cmd-card">
               <code class="cmd" id="cmd-init">motoko init example --scope example.invalid --seed https://example.invalid/</code>
               <button type="button" class="copy-btn" data-copy="cmd-init">Copy</button>

@@ -21,6 +21,9 @@ Strix               Apache-2.0   usestrix/strix
 Nuclei              MIT          projectdiscovery/nuclei
 LangGraph           MIT          langchain-ai/langgraph
 
+INSTRUMENTS.md carries the full citation map — the driven scanners and the
+remaining instruments, each with its own license and upstream.
+
 This repository's AGPL-3.0-or-later terms cover original MOTOKO files only.
 They do not extend to the cited instruments, which keep their own MIT and
 Apache-2.0 terms. See README § License.
