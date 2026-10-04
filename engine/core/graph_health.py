@@ -314,7 +314,7 @@ def _check_runtime_errors(con, engagement_id: str, report: HealthReport) -> None
 # backend or assertion whose absence caused it.
 _BLOCK_SUGGESTIONS: dict[str, str] = {
     "egress_policy":
-        "the built-in replay fetcher fails closed (the internal doctrine). Run the engine "
+        "the built-in replay fetcher fails closed (by design). Run the engine "
         "inside the verified anonymous lane and assert "
         "MOTOKO_ALLOW_DIRECT_REPLAY=1 there, or inject a fetcher that egresses "
         "through the campaign lane",

@@ -191,8 +191,8 @@ and merged by the convergence model and drives the next round of fixes.
 Every finding carries an axis label; both axes look at the same material —
 never report on only one:
 
-- **[axis:standards]** — violates this repo's discipline: the internal design notes execution
-  discipline (anti-patterns / OPSEC invariants), known the internal design notes, existing
+- **[axis:standards]** — violates this repo's discipline: the execution
+  discipline (anti-patterns / OPSEC invariants), known invariants, existing
   architecture contracts.
 - **[axis:spec]** — deviates from this round's task intent: whether the task
   brief / fix list was faithfully implemented (including "fixed but fixed
@@ -257,9 +257,9 @@ expansion.
 _AUDIT_FOCUS_DISCIPLINE = """\
 # Audit focus (lens: repository discipline — deep pass on the standards axis)
 
-1. the internal design notes execution-discipline violations: the anti-pattern list, OPSEC
+1. execution-discipline violations: the anti-pattern list, OPSEC
    invariants, write-approval boundaries
-2. the internal design notes re-enactments: does new code replay a recorded mechanism
+2. doctrine re-enactments: does new code replay a recorded mechanism
    (including ones in the retired index)
 3. Architecture-contract drift: module boundaries, data/code separation,
    directory and naming semantics — still holding?

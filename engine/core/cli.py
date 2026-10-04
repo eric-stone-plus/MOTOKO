@@ -442,7 +442,7 @@ def cmd_strix(args) -> int:
     wrapper = _strix_wrapper_path()
     if not wrapper.is_file():
         print(f"launch wrapper not found: {wrapper}\n"
-              "refusing to start strix without the six anonymity gates (the internal doctrine). "
+              "refusing to start strix without the six anonymity gates (by design). "
               "launch-strix.sh ships in the deploy-site tree only, not in the "
               "exported wheel — run this from the engine checkout.",
               file=sys.stderr)
@@ -482,7 +482,7 @@ def cmd_strix(args) -> int:
     if no_rotate and not target_local:
         print("--no-rotate is limited to local self-test targets (a path or "
               "file:// URL) — remote hosts must pass gate 5 rotation + "
-              "IP-echo (the internal doctrine standing egress rule)", file=sys.stderr)
+              "IP-echo (a standing egress rule)", file=sys.stderr)
         return 2
 
     edir = db.engagement_dir(db.default_root(), args.engagement_id)
@@ -537,7 +537,7 @@ def cmd_strix(args) -> int:
                   "The session runs in the background under the wrapper's own "
                   "pid/pgid; the record above carries the pid, the launch log "
                   "and the egress exit that was actually used. Point mission "
-                  "evidence at it (the internal doctrine), and stop it with `kill -- -<pgid>`."]
+                  "evidence at it (by design), and stop it with `kill -- -<pgid>`."]
     else:
         lines += ["No launch record was produced by this run: the wrapper died "
                   "inside its gates (or this was --dry-run). Treat the launch "

@@ -1372,15 +1372,15 @@ def _check_opsec_flags(r: Rule, report: RuleReport, tool: str,
             and "user-agent" not in low:
         report.add("MEDIUM", "missing_ua", r.id,
                    f"{field_name} drives {tool} without rendering {{ua}} — "
-                   "the tool ships its own scanner fingerprint (the internal doctrine "
-                   "requires one UA per engagement on every rule)",
+                   "the tool ships its own scanner fingerprint ("
+                   "one UA per engagement on every rule, by design)",
                    evidence=f"{_rel(r)}: {template[:90]}",
                    fix="add the tool's UA/header flag with {ua}")
     patterns = RATE_LIMIT_FLAGS.get(tool)
     if patterns and not any(p in low for p in patterns):
         report.add("MEDIUM", "missing_rate_limit", r.id,
                    f"{field_name} drives {tool} at its default cadence "
-                   f"(none of {', '.join(patterns)} present) — the internal doctrine "
+                   f"(none of {', '.join(patterns)} present) — "
                    "throttling is not applied",
                    evidence=f"{_rel(r)}: {template[:90]}",
                    fix="add rate limiting, or a cmd_stealth variant")
@@ -1720,11 +1720,7 @@ def docs_for(rules_dir: Path) -> list[Path]:
     ``engine/internal-docs``.
     """
     engine = Path(rules_dir).resolve().parent      # .../engine
-    out = sorted((engine / "internal-docs").glob("*.md"))
-    for cand in (engine.parent / "the internal design notes", engine / "the internal design notes"):
-        if cand.exists():
-            out.append(cand)
-    return out
+    return sorted((engine / "internal-docs").glob("*.md"))
 
 
 def _rel_to_root(p: Path) -> str:

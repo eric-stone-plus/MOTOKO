@@ -109,7 +109,7 @@ def bar(ratio: float, width: int, theme: Theme, *, token: str = "funnel.bar") ->
 
 
 def fmt_duration(seconds: float | None) -> str:
-    """Humanize a duration: ``41m``, ``2m31s``, ``18s``; ``?`` when unknown."""
+    """Humanize a duration: ``41m00s``, ``2m31s``, ``18s``; ``?`` when unknown."""
     if seconds is None or seconds < 0:
         return "?"
     total = int(seconds)

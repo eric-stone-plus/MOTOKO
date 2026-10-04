@@ -16,7 +16,7 @@ Citations are **upstream**. Operator forks, if any, are out of scope here.
 | Security Agent | Reference architecture for a single-agent planning/execution loop | [wr0ld/security-agent](https://github.com/wr0ld/security-agent) | Upstream terms; reference only |
 | Strix | Autonomous pentest; PoC-validated findings | [usestrix/strix](https://github.com/usestrix/strix) | Apache-2.0 |
 | Nuclei | Template CVE / misconfig scanner | [projectdiscovery/nuclei](https://github.com/projectdiscovery/nuclei) | MIT |
-| Firecrawl | Web scrape/crawl/JS-render (self-host stack + `fcrawl` seat adapter; research-fetch lane, not a scan instrument) | [firecrawl/firecrawl](https://github.com/firecrawl/firecrawl) | AGPL-3.0 |
+| Firecrawl | Web scrape/crawl/JS-render (self-host stack; research-fetch lane, not a scan instrument) | [firecrawl/firecrawl](https://github.com/firecrawl/firecrawl) | AGPL-3.0 |
 | LangGraph | Graph *contract* runtime, if compiled | [langchain-ai/langgraph](https://github.com/langchain-ai/langgraph) | MIT |
 | Kali Linux | CLI pentest environment / playbook surface | [kali.org](https://www.kali.org/) | Distro; packages keep their own licenses |
 | Tailscale | Optional overlay network carrying the SSH transport | [tailscale/tailscale](https://github.com/tailscale/tailscale) | BSD-3-Clause |
@@ -31,8 +31,10 @@ configures it.
 ### Tools the engine actually drives
 
 Each has a parser under `engine/core/parsers/` and at least one rule under
-`engine/core/rules/`. Not forked here; cited upstream. Nuclei and Strix are
-driven by rules too and are cited in the table above.
+`engine/core/rules/`. Not forked here; cited upstream. Nuclei is driven by
+rules too; Strix is operator-launched (`motoko strix`) and never
+rule-ignited. The table lists the principal driven tools — `graphw00f`,
+`uncover` and `dnsx` are equally rule-driven (parser + rule in-tree).
 
 | Tool | Role | Upstream |
 |---|---|---|
@@ -81,7 +83,7 @@ is the other half of that gap: it has a parser (its bare one-per-line output
 is read by `engine/core/parsers/lines.py`) but no rule in the shipped corpus
 invokes it, so it produces no graph state on its own. (`uncover` and `dnsx`
 were in this gap until `R-RECON-UNCOVER-001` / `R-RECON-DNSX-001` landed;
-both now sit in the driven table above.)
+both are now rule-driven like the table's tools.)
 
 ## How they compose on one host
 

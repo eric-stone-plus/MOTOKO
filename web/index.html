@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MOTOKO — pentest automation, on the record</title>
-<meta name="description" content="Bind the scanners and agents you already trust into one governed graph — fail-closed on scope, append-only on evidence. Open source, AGPL-3.0.">
+<meta name="description" content="Bind the scanners and agents you already trust into one governed graph — fail-closed on scope, append-only on evidence. Open source, AGPL-3.0-or-later.">
 <meta name="theme-color" content="#121417">
 <meta property="og:type" content="website">
 <meta property="og:title" content="MOTOKO — pentest automation, on the record">
@@ -27,7 +27,7 @@
   <div class="nav-inner">
     <a class="brand" href="#top">
       <img class="brand-mark-img" src="motoko-wordmark.svg" alt="MOTOKO" width="104" height="28">
-      <span class="pill pill-accent">AGPL-3.0</span>
+      <span class="pill pill-accent">AGPL-3.0-or-later</span>
     </a>
     <nav class="nav-links" aria-label="Primary">
       <a href="#interface">Interface</a>
@@ -47,7 +47,7 @@
   <!-- ================= HERO ================= -->
   <section class="hero">
     <div class="wrap">
-      <p class="eyebrow">open source · AGPL-3.0 · stdlib-only Python · fail-closed scope gate</p>
+      <p class="eyebrow">open source · AGPL-3.0-or-later · stdlib-only Python · fail-closed scope gate</p>
       <img class="hero-mark hero-mark-dark" src="motoko-wordmark.svg" alt="MOTOKO" width="340" height="90">
       <img class="hero-mark hero-mark-print" src="motoko-wordmark-paper.svg" alt="MOTOKO" width="340" height="90">
       <h1 class="display">Pentest automation,<br><span class="tt">on the record</span>.</h1>
@@ -101,10 +101,10 @@
               </div>
               <div class="shot-panel">
                 <p class="shot-panel-title">ACTIVITY FEED</p>
-                <p class="shot-line"><span class="t-dim">09:31:02</span>&nbsp; <span class="t-ok">act.dispatch</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; subfinder -d example.invalid -silent</p>
+                <p class="shot-line"><span class="t-dim">09:31:02</span>&nbsp; <span class="t-ok">tool_run.transition</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; subfinder -d example.invalid -silent</p>
                 <p class="shot-line"><span class="t-dim">09:31:08</span>&nbsp; <span class="t-warm">opsec_cooldown_skip</span>&nbsp; origin cooling down; rule deferred</p>
-                <p class="shot-line"><span class="t-dim">09:31:11</span>&nbsp; scan.parse&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 14 obs · dedup_pass 12 · dedup_hit 2</p>
-                <p class="shot-line"><span class="t-dim">09:31:12</span>&nbsp; finding.parked&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; missing_backend · egress_policy<span class="shot-caret" aria-hidden="true">▌</span></p>
+                <p class="shot-line"><span class="t-dim">09:31:11</span>&nbsp; observation.processed&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 14 obs · dedup_pass 12 · dedup_hit 2</p>
+                <p class="shot-line"><span class="t-dim">09:31:12</span>&nbsp; verification_blocked&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; missing_backend · egress_policy<span class="shot-caret" aria-hidden="true">▌</span></p>
               </div>
             </div>
 
@@ -122,31 +122,6 @@
         <p class="kicker">Tool calls</p>
         <h2 class="title">Every tool call is rendered, gated, parsed, event-sourced</h2>
         <p class="sec-sub">Rule packs name bare binaries and argv templates. Nothing reaches a tool that the engagement cannot render, that the scope gate refuses, or that the OPSEC board is cooling down.</p>
-      </div>
-
-      <div class="bind-steps" role="tablist" aria-label="Anatomy of a tool call">
-        <div class="bind-step"><button type="button" class="bind-btn" role="tab" id="bind-1" aria-controls="bind-panel-1" aria-selected="true"><span class="flow-idx">01</span><strong>Render</strong></button></div>
-        <div class="bind-step"><button type="button" class="bind-btn" role="tab" id="bind-2" aria-controls="bind-panel-2" aria-selected="false"><span class="flow-idx">02</span><strong>Gate</strong></button></div>
-        <div class="bind-step"><button type="button" class="bind-btn" role="tab" id="bind-3" aria-controls="bind-panel-3" aria-selected="false"><span class="flow-idx">03</span><strong>Dispatch</strong></button></div>
-        <div class="bind-step"><button type="button" class="bind-btn" role="tab" id="bind-4" aria-controls="bind-panel-4" aria-selected="false"><span class="flow-idx">04</span><strong>Parse</strong></button></div>
-      </div>
-      <div class="bind-panels">
-        <div class="bind-detail" id="bind-panel-1" role="tabpanel" aria-labelledby="bind-1" tabindex="0">
-          <h4>Render — placeholders come from engagement state</h4>
-          <p>A rule's <code>cmd</code> template renders against facts the engagement holds. A rule it cannot render is never proposed; one that still reaches fire time is refused by the ACT gate, and the refusal is an event. <em><code>motoko rules</code> checks the whole corpus statically — no traffic, no LLM.</em></p>
-        </div>
-        <div class="bind-detail" id="bind-panel-2" role="tabpanel" aria-labelledby="bind-2" tabindex="0">
-          <h4>Gate — scope and OPSEC speak before the tool does</h4>
-          <p>The scope gate is engine-side and fail-closed: label-boundary domain matching, per-IP CIDR checks, redirect-chain and certificate-SAN checks. Per-origin cooldowns and canary guards block pressure. <em>Out-of-scope is a halt, not a pivot.</em></p>
-        </div>
-        <div class="bind-detail" id="bind-panel-3" role="tabpanel" aria-labelledby="bind-3" tabindex="0">
-          <h4>Dispatch — bare binaries, bounded fan-out</h4>
-          <p>Tool values are bare names — a path is refused outright. Secrets travel as <code>@env:NAME</code>; argv never carries the value. Fan-out is bounded by registrable origin, category reservations and serial batches. <em>Destructive edges wait for the operator.</em></p>
-        </div>
-        <div class="bind-detail" id="bind-panel-4" role="tabpanel" aria-labelledby="bind-4" tabindex="0">
-          <h4>Parse — output becomes evidence, chains become waves</h4>
-          <p>Parsers turn tool output into observations with deterministic dedup keys. Producer keys feed the next rule's consumers; discovered facts reopen assets in the next wave. <em>Duplicate evidence earns no discovery credit.</em></p>
-        </div>
       </div>
 
       <div class="card gate-demo" id="gate">
@@ -183,7 +158,7 @@
   <span class="t-ok">ACT</span>     scope ok <span class="t-dim">·</span> cooldown ok <span class="t-dim">·</span> argv rendered
   <span class="t-warm">parse</span>   14 observations · dedup_pass 12 · dedup_hit 2
 
-<span class="t-dim">$</span> motoko health
+<span class="t-dim">$</span> motoko health example
 <span class="t-dim">stranded hypotheses</span> 0  <span class="t-dim">·</span>  <span class="t-dim">broken links</span> 0  <span class="t-dim">·</span>  <span class="t-warm">parked findings 2</span>
   <span class="t-dim">parked reasons:</span> missing_backend <span class="t-dim">·</span> egress_policy</code>
           </div>
@@ -204,7 +179,7 @@
       <div class="sec-head">
         <p class="kicker">Research</p>
         <h2 class="title">Borrowed from institutions that grade assurance</h2>
-        <p class="sec-sub">RESEARCH.md surveys how military-grade programs are actually graded — assurance, provenance, adjudication — across 23 documented patterns, and derives an M1–M15 adoption roadmap from them. MOTOKO claims no such grade; it copies the parts a stdlib Python orchestrator can afford.</p>
+        <p class="sec-sub">RESEARCH.md surveys how military-grade programs are actually graded — assurance, provenance, adjudication — across 20 absorbable patterns (12 US, 8 allied), and derives an M1–M15 adoption roadmap from them. MOTOKO claims no such grade; it copies the parts a stdlib Python orchestrator can afford.</p>
       </div>
 
       <div class="trust-grid">
@@ -250,13 +225,13 @@
             <li>
               <button type="button" class="state-row" aria-pressed="false">
                 <span class="row-label">M1 · unified verdict record</span>
-                <span class="pill pill-pass">roadmap</span>
+                <span class="pill pill-idle">roadmap</span>
               </button>
               <p class="state-more">Every rule action and parser output normalized to a verdict record; checks that cannot be evaluated are declared <code>Not-Implemented</code>, never silently dropped.</p>
             </li>
             <li>
               <button type="button" class="state-row" aria-pressed="false">
-                <span class="row-label">M2–M12 · assessment artifacts</span>
+                <span class="row-label">M4, M5, M8 · assessment artifacts</span>
                 <span class="pill pill-idle">roadmap</span>
               </button>
               <p class="state-more">A standardized assessment artifact (OSCAL SAR), a machine-readable authorization object (ROE-as-data), and independent rescoring that never trusts an agent's self-report.</p>
@@ -317,10 +292,10 @@
             </li>
             <li>
               <button type="button" class="state-row" aria-pressed="false">
-                <span class="row-label">parked · missing_backend, egress_policy, unpinned</span>
-                <span class="pill pill-warn">parked</span>
+                <span class="row-label">verification_blocked · missing_backend, egress_policy, unpinned</span>
+                <span class="pill pill-warn">flag, not a state</span>
               </button>
-              <p class="state-more">A harness limitation parks the finding with a reason code instead of burning retries or terminating it — the evidence explains why.</p>
+              <p class="state-more">A harness limitation blocks verification with a reason code instead of burning retries or terminating it — a flag beside the state, never a state change. The evidence explains why.</p>
             </li>
             <li>
               <button type="button" class="state-row" aria-pressed="false">
@@ -392,7 +367,7 @@
         <li class="gs-step">
           <div class="gs-idx">04</div>
           <div class="gs-body">
-            <p><strong>Initialize, run, digest.</strong> Replace the reserved example inputs with the approved scope. Set <code>MOTOKO_HOME</code> and declare an egress posture first (<code>MOTOKO_EGRESS_MODE=direct</code> for a lab run) — both are refused, not guessed. Bring your scanner binaries: a missing one records a degradation, never a fake success. An exit code of zero does not mean every scanner succeeded.</p>
+            <p><strong>Initialize, run, digest.</strong> Replace the reserved example inputs with the approved scope. Set <code>MOTOKO_HOME</code> and declare an egress posture first (<code>MOTOKO_EGRESS_MODE=direct</code> for a lab run) — the posture is refused, not guessed; <code>init</code> refuses a home default that an upgrade would wipe. Bring your scanner binaries: a missing one records a degradation, never a fake success. An exit code of zero does not mean every scanner succeeded.</p>
             <div class="cmd-card">
               <code class="cmd" id="cmd-init">motoko init example --scope example.invalid --seed https://example.invalid/</code>
               <button type="button" class="copy-btn" data-copy="cmd-init">Copy</button>
@@ -479,7 +454,7 @@
     <nav class="foot-group" aria-label="Project">
       <p class="foot-label">Project</p>
       <a href="https://github.com/eric-stone-plus/MOTOKO" rel="noopener">Repository</a>
-      <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/LICENSE" rel="noopener">AGPL-3.0 License</a>
+      <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/LICENSE" rel="noopener">AGPL-3.0-or-later License</a>
       <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/NOTICE" rel="noopener">NOTICE (attribution)</a>
       <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/.github/workflows/smoke.yml" rel="noopener">CI (smoke)</a>
     </nav>
@@ -624,10 +599,6 @@
     var dlList = dlGroup.querySelector('.tablist');
     if (dlList) { initTabs(dlList, 'tab'); dlGroup.classList.add('js-tabs'); }
   }
-  var bindGroup = document.querySelector('.bind-steps');
-  if (bindGroup) {
-    initTabs(bindGroup, 'step');
-  }
 
   /* ---------- scope gate demo (label-boundary + CIDR, mirrors scope.py) ---------- */
   var gateInput = document.getElementById('gate-input');
@@ -763,7 +734,7 @@
       });
     });
     Array.prototype.slice.call(document.querySelectorAll(
-      '.sec-head, .bind-steps, .bind-panels, .gate-demo, .shot, .term, .dl-tabs, .cta .title-cta, .cta-sub, .gs-more'
+      '.sec-head, .gate-demo, .shot, .term, .dl-tabs, .cta .title-cta, .cta-sub, .gs-more'
     )).forEach(function (el) { el.classList.add('reveal'); });
 
     var io = new IntersectionObserver(function (entries) {

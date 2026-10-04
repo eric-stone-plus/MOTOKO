@@ -199,7 +199,7 @@ def launch_gate() -> str | None:
             return None
         return (f"launch refused: {MODE_ENV} is undeclared, so the engine cannot "
                 f"tell a declared lane from a silent direct fallback — the exact "
-                f"incident shape (the internal design notes). Set {MODE_ENV} "
+                f"incident shape (by design). Set {MODE_ENV} "
                 f"(lane|direct) in the engine process's own environment, or "
                 f"explicitly accept a direct launch with {ACCEPT_DIRECT_ENV}=1")
     if mode() == LANE and not lane_configured():
@@ -207,7 +207,7 @@ def launch_gate() -> str | None:
         return (f"launch refused: {MODE_ENV}=lane but no lane address is set "
                 f"in the engine process's own environment ({lanes}) — the "
                 f"engine never sets a lane, it only inherits or strips one, so "
-                f"every tool would run DIRECT over the bare uplink (the internal doctrine). "
+                f"every tool would run DIRECT over the bare uplink (by design). "
                 f"Export a lane address in the process env, or declare "
                 f"{MODE_ENV}={DIRECT} if a direct launch is what you mean")
     return None
@@ -272,7 +272,7 @@ def echo_url_defect(url: str) -> str | None:
     if parts.username or parts.password:
         return ("embeds credentials — the echo endpoint needs none, and a "
                 "credential written into configuration reaches every "
-                "captured log (the internal doctrine)")
+                "captured log (by design)")
     return None
 
 
@@ -397,7 +397,7 @@ def summary() -> dict:
         note = (f"replay egress NOT asserted ({DIRECT_REPLAY_ENV} unset) — the "
                 "built-in fetcher fails closed, so replay verdicts park as "
                 "`egress_policy`. Do not assert it on a direct-egress host: "
-                "that is exactly the bare uplink case the internal doctrine "
+                "that is exactly the bare uplink case forbidden by design "
                 "forbids")
     echo = echo_url()
     return {

@@ -82,9 +82,9 @@ runtime dependencies, and a packaging manifest (`pyproject.toml` with a
   one funnel that refuses an undeclared kind, and one table stays outside the
   log by design (`scan_cache`: a TTL-bounded memo is disposable state, and an
   append-only log must not carry rows meant to expire). Derivation:
-  `motoko events <id> --verify --json`; the gates are pinned by
-  the private development suite (`test_events_verify.py`) and the
-  vocabulary by (`test_events_vocabulary.py`).
+  `motoko events <id> --verify --json`; the gates and the
+  vocabulary are pinned by the closed `EVENT_KINDS` contract in
+  `engine/core/schema.py` and its write gate.
 - **Seal** (`motoko seal`): turns a finished engagement into a
   product unit — engine commit + checkpointed graph.db +
   `engagement.manifest.json` (sha256, schema version, full census,

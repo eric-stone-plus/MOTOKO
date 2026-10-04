@@ -74,7 +74,7 @@ def _check_disk() -> list[tuple[str, str]]:
         if ratio < _DISK_FREE_MIN:
             out.append((WARN, msg + f" — under {_DISK_FREE_MIN:.0%} free: "
                                     "ENOSPC kills every process on the "
-                                    "host (the internal doctrine)"))
+                                    "host (by design)"))
         else:
             out.append((OK, msg))
     return out
@@ -89,7 +89,7 @@ def _check_tmp_litter() -> tuple[str, str]:
         return WARN, f"cannot census {tmp}/motoko-*: {e}"
     if n > _TMP_LITTER_MAX:
         return WARN, (f"tmp litter: {n} motoko-* dirs in {tmp} "
-                      f"(> {_TMP_LITTER_MAX}) — sweep stale ones (the internal doctrine)")
+                      f"(> {_TMP_LITTER_MAX}) — sweep stale ones (by design)")
     return OK, f"tmp litter: {n} motoko-* dirs in {tmp}"
 
 
@@ -398,7 +398,7 @@ def _check_backends() -> list[tuple[str, str]]:
                     f"`motoko run` does not inject the {missing} backend "
                     f"(browser={'wired' if wires_browser else 'NOT wired'}, "
                     f"canary={'wired' if wires_canary else 'NOT wired'}): the "
-                    "runtime is stdlib-only by design (the internal doctrine), so findings needing "
+                    "runtime is stdlib-only by design, so findings needing "
                     "it park as `missing_backend` even with everything above "
                     "installed — inject them through the API, or read the park "
                     "as the expected outcome"))
@@ -610,7 +610,7 @@ def _check_kali_container() -> list[tuple[str, str]]:
     if shutil.which("podman") is None:
         return [(WARN, "kali container: podman absent — the container route "
                        f"(`{util.KALI_CONTAINER}`) is unavailable, so those "
-                       f"actions refuse; {scope}. Host tools still work (the internal doctrine)")]
+                       f"actions refuse; {scope}. Host tools still work (by design)")]
     ok, names = _podman(["ps", "-a", "--filter", f"name={util.KALI_CONTAINER}",
                          "--format", "{{.Names}}"])
     if not ok:
@@ -984,24 +984,24 @@ def _check_egress_live(proc_root: Path | None = None) -> tuple[str, str]:
         return FAIL, (f"live engine writers with UNDECLARED egress mode "
                       f"({detail}) — {egress.MODE_ENV} is absent from the "
                       f"process's own environ: the incident shape "
-                      f"(the internal doctrine). Stop and relaunch with the variable set")
+                      f"(by design). Stop and relaunch with the variable set")
     if any(state.startswith("unrecognized") for _pid, state in writers):
         return FAIL, (f"live engine writers with an UNRECOGNIZED egress mode "
                       f"({detail}) — {egress.MODE_ENV} carries a value that is "
                       f"neither {egress.LANE} nor {egress.DIRECT}, so it reads "
                       f"as the forbidden direct fallback and the launch gate "
-                      f"refuses it (the internal doctrine). Stop and relaunch with a legal value")
+                      f"refuses it (by design). Stop and relaunch with a legal value")
     if any(state == "lane-no-address" for _pid, state in writers):
         return FAIL, (f"live engine writers declaring a lane with NO lane "
                       f"address in their own environ ({detail}; checked "
                       f"{', '.join(sorted(egress.HOST_FWD_VARS))}) — the "
                       f"engine only inherits or strips a lane, so every tool "
                       f"is running DIRECT over the bare uplink while the "
-                      f"mode says otherwise (the internal doctrine). Stop and relaunch with a "
+                      f"mode says otherwise (by design). Stop and relaunch with a "
                       f"lane address exported")
     if any(state != "lane" for _pid, state in writers):
         return WARN, (f"live engine writers on direct egress ({detail}) — "
-                      f"the bare uplink reaches targets unrouted (the internal doctrine)")
+                      f"the bare uplink reaches targets unrouted (by design)")
     return OK, f"live engine writers: {detail}"
 
 
@@ -1017,24 +1017,24 @@ def _check_egress() -> list[tuple[str, str]]:
                        f"{egress.LANE}|{egress.DIRECT} — {egress.MODE_ENV} "
                        f"carries a value the policy cannot parse, which reads "
                        f"as the forbidden direct fallback and refuses the "
-                       f"launch (the internal doctrine). Set it to one of the two legal values")
+                       f"launch (by design). Set it to one of the two legal values")
     elif mode == egress.LANE and not state["lane"]:
         lanes = ", ".join(sorted(egress.HOST_FWD_VARS))
         first = (FAIL, f"egress mode: lane but NO lane address in this "
                        f"process's env ({lanes}) — the engine never sets a "
                        f"lane, so every tool would run DIRECT over the "
-                       f"bare uplink (the internal doctrine). Export one, or declare "
+                       f"bare uplink (by design). Export one, or declare "
                        f"{egress.MODE_ENV}={egress.DIRECT}")
     elif mode == egress.LANE:
         first = (OK, "egress mode: lane (anonymity-first, all tools via "
                      "egress)")
     elif state["mode_declared"]:
         first = (WARN, "egress mode: direct — the bare uplink reaches "
-                       "targets unrouted; forbidden for new targets (the internal doctrine)")
+                       "targets unrouted; forbidden for new targets (by design)")
     else:
         first = (WARN, f"egress mode: unset (defaults to direct) — set "
                        f"{egress.MODE_ENV}=lane for anonymity-first launches "
-                       f"(the internal doctrine)")
+                       f"(by design)")
     second = ((OK if state["replay_asserted"] else WARN), state["replay_note"])
     return [first, second, _check_egress_live(), _check_egress_fingerprint()]
 

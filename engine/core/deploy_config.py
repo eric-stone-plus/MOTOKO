@@ -82,7 +82,7 @@ def _check_scalar(data: dict, path: tuple[str, ...], *, what: str) -> str:
         raise DeployConfigError(
             f"deploy config key {_dotted(path)!r} carries a non-ASCII, "
             "whitespace or control character — a value that cannot ride "
-            "one environment line unsplit (the internal doctrine)")
+            "one environment line unsplit (by design)")
     return value
 
 
@@ -119,7 +119,7 @@ def _validate_leaf(data: dict, path: tuple[str, ...]) -> None:
                 raise DeployConfigError(
                     f"deploy config key {key!r} embeds credentials — the "
                     "resolver needs none, and a credential in the spec "
-                    "reaches tool argv and every captured log (the internal doctrine)")
+                    "reaches tool argv and every captured log (by design)")
             try:
                 parts.port
             except ValueError:
@@ -209,7 +209,7 @@ def _reject_secret(value: str, path: tuple[str, ...]) -> None:
         raise DeployConfigError(
             f"deploy config key {_dotted(path)!r} carries a "
             "credential-shaped value — this file never carries secrets "
-            "(the internal doctrine); credentials reach children only via MOTOKO_SECRET_*")
+            "(by design); credentials reach children only via MOTOKO_SECRET_*")
 
 
 @dataclass(frozen=True)

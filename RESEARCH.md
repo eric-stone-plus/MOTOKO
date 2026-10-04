@@ -490,9 +490,9 @@ no real username or target was queried.
 
 | Project | Snapshot and license | What it actually provides | Motoko decision |
 |---|---|---|---|
-| [AnyCrawl](https://github.com/any4ai/AnyCrawl/tree/d6dc9c1c9615fe34bb095157442c1d95f803da40) | `d6dc9c1c`, MIT; API/scrape packages `1.2.1`; Node >=20 | A service and worker topology built on [Crawlee](https://github.com/apify/crawlee): BullMQ/Redis queues, Cheerio/Playwright/Puppeteer engines, scrape/crawl/batch/search/map/template/dataset APIs. The base compose file leaves API authentication disabled; the PostgreSQL variant enables it. | Keep as a researched alternative only. It is not a drop-in replacement for `fcrawl`: it adds a service, queue, browser, and auth deployment contract. Consider it only when MIT licensing and an independently operated worker pool are requirements. |
+| [AnyCrawl](https://github.com/any4ai/AnyCrawl/tree/d6dc9c1c9615fe34bb095157442c1d95f803da40) | `d6dc9c1c`, MIT; API/scrape packages `1.2.1`; Node >=20 | A service and worker topology built on [Crawlee](https://github.com/apify/crawlee): BullMQ/Redis queues, Cheerio/Playwright/Puppeteer engines, scrape/crawl/batch/search/map/template/dataset APIs. The base compose file leaves API authentication disabled; the PostgreSQL variant enables it. | Keep as a researched alternative only. It is not a drop-in replacement for the operator's fetch lane: it adds a service, queue, browser, and auth deployment contract. Consider it only when MIT licensing and an independently operated worker pool are requirements. |
 | [Crawlee](https://github.com/apify/crawlee/tree/a97a31133e7ff6eed1ad1279ac9d1d92d2e5b738) | `a97a311`, Apache-2.0; package `4.0.0`; manifest requires Node >=22 | A library/toolkit: request queue, session pool, forwarding configuration, autoscaling, `maxRequestsPerCrawl`, concurrency and request-rate controls, plus optional Playwright/Puppeteer integrations. It is not a hosted HTTP API. | Do not add a new service. It is a good implementation dependency for a future bounded scraper when Motoko owns the handler and scheduler, but the current rules already have a fetch lane and no concrete gap requiring it. |
-| [Firecrawl](https://github.com/firecrawl/firecrawl/tree/e76d5b6fcdce84a8a8ec85e17969e018c9c17147) | `e76d5b6f`, AGPL-3.0; self-host stack uses API/workers, Redis, RabbitMQ, NuQ Postgres, Playwright/basic-fetch fallback, and optional FoundationDB | The broadest current self-host product surface: v2 scrape/map/crawl/search/extract, browser rendering, queue workers, and provider-backed features. A self-host checkout does not automatically provide cloud keys or cloud provider availability. | Keep the existing `fcrawl` adapter as the fetch lane. It probes the operator's loopback service and passes per-invocation environment only; it does not change compose or global keys. AnyCrawl is not a reason to duplicate that stack. |
+| [Firecrawl](https://github.com/firecrawl/firecrawl/tree/e76d5b6fcdce84a8a8ec85e17969e018c9c17147) | `e76d5b6f`, AGPL-3.0; self-host stack uses API/workers, Redis, RabbitMQ, NuQ Postgres, Playwright/basic-fetch fallback, and optional FoundationDB | The broadest current self-host product surface: v2 scrape/map/crawl/search/extract, browser rendering, queue workers, and provider-backed features. A self-host checkout does not automatically provide cloud keys or cloud provider availability. | Keep the operator's locally hosted fetch lane. It passes per-invocation environment only and changes no shared service state. AnyCrawl is not a reason to duplicate that stack. |
 
 The practical distinction is ownership: Firecrawl is the existing operator-run
 fetch service, Crawlee is a lower-level scheduler/library, and AnyCrawl is a
@@ -571,48 +571,31 @@ items. **"Facebook+GCHQ, PLDI 2019, network-protocol formal verification"
 is refuted and must not be cited**: all 76 PLDI'19 papers were enumerated
 (DOI prefix `10.1145/3314221`); no such paper exists.
 
-## 7. Acceptance stamp
+## 7. Corrections applied
 
-- **Two independent read-only swarm acceptance rounds passed**
-  (2026-09-18). The review's claims were re-derived by parallel
-  independent verifiers whose evidence standard was local re-runs, source
-  file:line reads, and upstream primary sources (GitHub API+raw,
-  standards-body originals). Verdict: the verifiable claims reproduce
-  (including the hard numbers and line-level citations), no fabrication
-  was found, and the recorded flaws are count/attribution/caliber-level
-  and move no conclusion. A second, separate acceptance round covered the
-  companion engineering work driven by this research.
-- **Nine errata** were recorded against the source review and are applied
-  in this document:
-  1. One "19 vs 14 commits" divergence argument was invalid — a shallow
-     clone made 14 a truncation artifact; the stronger evidence is 19
-     same-content/different-hash commit pairs with an empty merge-base.
-  2. A section reference in the companion review's header line pointed at
-     the wrong document section.
-  3. One internal corpus-health metric had been quoted without its
-     measurement caliber (ratchet scope vs full report scope); calibers
-     are now stated wherever such numbers are used.
-  4. Four count corrections in the companion review (a skill-count
-     breakdown, a never-imported component count, a pattern
-     line/directory count, a tracked-file count); every total was
-     unaffected.
-  5. Two internal path references corrected (a launch script's location;
-     the engine package's in-tree entry point, `python3 -m core`).
-  6. Version drift on three external data points, applied here:
-     reverse-skill's last push is 2026-09-03 (not 2026-09-17); the Fuzzing
-     Brain repository moved organizations (o2lab → fuzzingbrain, redirect
-     live); ScubaGear's `Criticality` counts drift with main (research
-     time 85/84 with 12 declared Not-Implemented; acceptance time
-     56/69/6).
-  7. Two latent/premise annotations: one described parser-coverage gap is
-     currently latent (no consuming rule); one token-burn pattern
-     presupposes an optional reflector flag; one self-blocking risk is
-     hypothetical on the current corpus.
-  8. One incidental claim in the companion review does not hold (a cause
-     was claimed to be recorded where it was not).
-  9. Two claims are not statically verifiable and are treated as
-     unverifiable rather than cited as fact (an operational burn-rate
-     figure; a never-executed negative assertion).
+- **Evidence note (commit counts):** a 19-vs-14-commit divergence argument
+  does not hold — a shallow clone made 14 a truncation artifact. The
+  evidence is 19 same-content/different-hash commit pairs with an empty
+  merge-base.
+- **Count corrections:** a skill-count breakdown, a component count, a
+  pattern line/directory count and a tracked-file count were restated;
+  every total in this document was unaffected.
+- **Calibers:** measurement calibers are now stated wherever such numbers
+  are used (ratchet scope vs full report scope).
+- **Entry point:** the engine package's in-tree entry point is
+  `python3 -m core`.
+- **Version drift on three external data points, applied here:**
+  reverse-skill's last push is 2026-09-03 (not 2026-09-17); the Fuzzing
+  Brain repository moved organizations (o2lab → fuzzingbrain, redirect
+  live); ScubaGear's `Criticality` counts drift with main (research time
+  85/84 with 12 declared Not-Implemented; acceptance time 56/69/6).
+- **Latent/premise annotations:** one described parser-coverage gap is
+  currently latent (no consuming rule); one token-burn pattern
+  presupposes an optional reflector flag; one self-blocking risk is
+  hypothetical on the current corpus.
+- **Unverifiable claims:** two claims are not statically verifiable and
+  are treated as unverifiable rather than cited as fact (an operational
+  burn-rate figure; a never-executed negative assertion).
 - **Data timestamps:** upstream snapshots 2026-09-17 (repository metrics;
   KEV `catalogVersion 2026.09.16`) and acceptance re-measurements
   2026-09-18.

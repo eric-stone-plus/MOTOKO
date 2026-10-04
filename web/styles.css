@@ -1,10 +1,9 @@
 /* ============================================================
    MOTOKO — landing page styles
-   Fused design language: reasonix.io (oklch surfaces, Inter +
-   JetBrains Mono, 13px radius, dark palette) + codewhale.net
-   (status grammar, quarter-rem spacing scale), with the
-   editorial restraint of anthropic.com (type rhythm, calm
-   cards, purposeful micro-interactions, no heavy motion).
+   Fused design language: oklch surfaces + rounded cards with a
+   13px radius and dark palette, status-grammar color coding and a
+   quarter-rem spacing scale, editorial type rhythm, calm cards,
+   purposeful micro-interactions, no heavy motion.
    Dark theme only. Zero build step; progressive enhancement.
    Theme = deep electric cobalt (hue 255). The wordmark keeps its
    cyan ink inside the logo assets; the UI runs on cobalt only.
@@ -954,78 +953,8 @@ code {
 .gate-out .verdict-ok { color: var(--term-ok); }
 .gate-out .verdict-refused { color: var(--term-warm); }
 .gate-out .t-dim { color: var(--term-dim); }
-html:not(.js) .js-only { display: none !important; }
-
-/* ---------- interactive: contract stepper ---------- */
-
-.bind-steps {
-  list-style: none;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--grid-gap);
-  margin-top: 18px;
-}
-.bind-step { min-width: 0; }
-.bind-btn {
-  width: 100%;
-  text-align: left;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  padding: 14px 16px;
-  cursor: pointer;
-  color: var(--ink-2);
-  font: inherit;
-  transition: border-color var(--dur-state) var(--ease), color var(--dur-state) var(--ease), background var(--dur-state) var(--ease);
-}
-.bind-btn strong {
-  display: block;
-  color: var(--ink);
-  font-size: var(--text-h4);
-  font-weight: var(--w-head);
-  letter-spacing: var(--ls-h3);
-  margin-top: 6px;
-}
-.bind-btn .flow-idx {
-  font-family: var(--font-mono);
-  font-size: var(--text-caption);
-  letter-spacing: var(--ls-mono);
-  color: var(--ink-3);
-}
-.bind-btn:hover { border-color: var(--accent-line); }
-.bind-btn:focus-visible {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
-}
-.bind-btn[aria-selected="true"] {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--ink-2);
-}
-.bind-btn[aria-selected="true"] .flow-idx { color: var(--accent-deep); }
-.bind-detail {
-  margin-top: 14px;
-  padding: 18px 20px;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-}
-.bind-detail + .bind-detail { margin-top: 12px; }
-.js .bind-detail { display: none; margin-top: 14px; }
-.js .bind-detail.is-shown { display: block; }
-html:not(.js) .bind-steps { display: none; }
-html:not(.js) .state-row { cursor: default; }
+html:not(.js) .js-only { display: none !important; }html:not(.js) .state-row { cursor: default; }
 html:not(.js) .state-row:hover { background: transparent; }
-.bind-detail h4 {
-  font-size: var(--text-h4);
-  font-weight: var(--w-head);
-  letter-spacing: var(--ls-h3);
-  margin-bottom: 6px;
-}
-.bind-detail p { color: var(--ink-2); font-size: var(--text-small); }
-.bind-detail em { font-style: normal; color: var(--st-warn); }
-
 /* ---------- interactive: finding-state explorer ---------- */
 
 .state-rows {
@@ -1083,12 +1012,8 @@ html:not(.js) .state-row:hover { background: transparent; }
 }
 
 /* responsive: interactive components (after their base rules) */
-@media (max-width: 1100px) {
-  .bind-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 640px) {
-  .bind-steps { grid-template-columns: minmax(0, 1fr); }
-}
+@media (max-width: 1100px) {}
+@media (max-width: 640px) {}
 
 /* ---------- motion: scroll reveals, dashboard life, HUD cursor ---------- */
 /* Initial-hidden states only exist with JS + motion allowed; without JS, with
@@ -1287,10 +1212,8 @@ html:not(.js) .state-row:hover { background: transparent; }
     border: 1.5px solid #111 !important;
   }
   /* install tabs + tool-call steps print as stacked, labeled sections */
-  .js-tabs .tabpane, .js .bind-detail { display: block !important; }
-  .js-tabs .tabpane + .tabpane, .js .bind-detail + .bind-detail { margin-top: 22px; }
-  .bind-steps { display: none !important; }
-  /* everything is settled on paper */
+  .js-tabs .tabpane { display: block !important; }
+  .js-tabs .tabpane + .tabpane { margin-top: 22px; }  /* everything is settled on paper */
   .reveal { opacity: 1 !important; transform: none !important; }
   .shot .shot-topbar, .shot .shot-tr, .shot .shot-drill,
   .shot .shot-cols .shot-panel, .shot .shot-foot { opacity: 1 !important; transform: none !important; }

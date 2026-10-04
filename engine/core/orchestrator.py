@@ -1936,7 +1936,7 @@ class Orchestrator:
             raise RuntimeError(
                 f"launch refused: exit IP {seen} != {egress.EXPECT_IP_ENV} "
                 f"{expected} — the live lane is not the expected egress "
-                f"(the internal design notes)")
+                f"(by design)")
 
     def _establish_egress_fingerprint(self) -> None:
         """Establish the exit fingerprint before the first tool_run row.

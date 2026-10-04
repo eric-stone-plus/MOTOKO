@@ -177,7 +177,7 @@ motoko seal <engagement-id> --verify # reconcile a sealed engagement against its
 
 Command surface: `init · run · digest · query · events · loop ·
 ingest-strix · health · seal · recover · doctor · rules · kali · strix ·
-adapter · interface`.
+adapter · deploy · status · watch · interface`.
 
 State lives in per-engagement SQLite graphs under `MOTOKO_HOME`.
 Configuration arrives through environment variables and, for loop
@@ -213,8 +213,9 @@ shell profile or reads credentials. A `tool` value that looks like a path
 path. `motoko doctor` prints which binaries actually resolve.
 
 For an authorized engagement, initialize with both scope and starting assets.
-Two things are refused without being declared first — set them once, above the
-block, so the commands run as printed:
+The launch gate refuses an undeclared egress posture, and `init` refuses a
+home default an upgrade would wipe — set both once, above the block, so the
+commands run as printed:
 
 ```bash
 export MOTOKO_HOME="$HOME/.motoko"    # writable, outside the interpreter tree
@@ -289,7 +290,7 @@ The default engagement directory is `tasks/`. Existing installations using
 `MOTOKO_HOME`/`--root` override. Sealed evidence belongs in its campaign archive.
 
 `motoko doctor` checks the full deployment, including audit-loop configuration.
-`motoko doctor --scope scan` checks scan-wave dependencies. Host adapters default
-to scan scope and return the scope with their counts; they do not inherit model
+`motoko doctor --scope scan` checks scan-wave dependencies. Host adapters return the scope with their counts (default `full`;
+pass `scope=scan` for scan-wave dependencies); they do not inherit model
 credentials. A passing doctor and zero HIGH rule findings still require campaign
 authorization, an unsealed engagement and verification of the actual outbound route.

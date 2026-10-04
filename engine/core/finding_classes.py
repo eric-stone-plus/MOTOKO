@@ -103,10 +103,10 @@ _REGISTRY: dict[str, tuple[str, str]] = {
                              "finding; what follows depends on its auth model, "
                              "which is operator work"),
     "auth.bypass": (TERMINAL, "authentication was bypassed — the read-proof is "
-                              "the deliverable (the internal doctrine non-destructive verification)"),
+                              "the deliverable (non-destructive verification, by design)"),
     "auth.default_creds": (TERMINAL, "credentials that authenticated need no "
-                                     "second proof, and the internal doctrine makes any further "
-                                     "credential work zero-tolerance"),
+                                     "second proof, and any further "
+                                     "credential work is zero-tolerance by design"),
     "auth.token_leak": (TERMINAL, "spending the leaked token needs a SECOND "
                                   "identity, which is engagement configuration "
                                   "this engine has no slot for — the same "
@@ -135,10 +135,10 @@ _REGISTRY: dict[str, tuple[str, str]] = {
                                  "needs a second identity — see auth.token_leak"),
     "info_disclosure.key": (TERMINAL, "key material found is reported and "
                                      "rotated by the operator; the engine never "
-                                     "spends it (the internal doctrine)"),
+                                     "spends it (by design)"),
     "info_disclosure.sensitive_file": (TERMINAL, "the file answered; reading "
                                                  "further is exfiltration, "
-                                                 "which the internal doctrine forbids"),
+                                                 "which is forbidden by design"),
     "info_disclosure.smb": (TERMINAL, "SMB enumeration lands on the lateral "
                                       "side of a line this engine does not "
                                       "cross (no execution channel)"),
@@ -168,7 +168,7 @@ _REGISTRY: dict[str, tuple[str, str]] = {
                                   "itself is the finding and the LFI chain "
                                   "already covers the follow-up worth doing"),
     "rce": (TERMINAL, "the OOB callback is the proof; running anything further "
-                      "inside the target is forbidden (the internal doctrine, no persistent damage)"),
+                      "inside the target is forbidden (by design — no persistent damage)"),
     "secret.leak": (TERMINAL, "the end of the heapdump chain — the secret is "
                               "reported, never used"),
     "smuggling.h2": (TERMINAL, "an accepted h2c upgrade is the precondition "
