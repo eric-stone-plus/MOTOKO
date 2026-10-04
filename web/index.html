@@ -45,40 +45,14 @@
 <main id="main">
 
   <!-- ================= HERO ================= -->
-  <section class="hero">
-    <div class="wrap">
-      <p class="eyebrow">open source · AGPL-3.0-or-later · stdlib-only Python · fail-closed scope gate</p>
-      <img class="hero-mark hero-mark-dark" src="motoko-wordmark.svg" alt="MOTOKO" width="340" height="90">
-      <img class="hero-mark hero-mark-print" src="motoko-wordmark-paper.svg" alt="MOTOKO" width="340" height="90">
-      <h1 class="display">Pentest automation,<br><span class="tt">on the record</span>.</h1>
-      <p class="lede">MOTOKO binds the scanners and agents you already trust into one governed graph. Scope is checked before anything runs; every action lands in an append-only record. It replaces nothing — no scanner, no agent runtime, no rewrite of the tools your team already runs.</p>
-
-      <div class="hero-actions">
-        <div class="cmd-card">
-          <code class="cmd" id="cmd-hero">pip install ./engine</code>
-          <button type="button" class="copy-btn" data-copy="cmd-hero">Copy</button>
-        </div>
-        <a class="btn btn-ghost" href="#tools">See a tool run →</a>
-      </div>
-
-    </div>
-  </section>
-
-
-
     <!-- ================= INTERFACE ================= -->
   <section class="sec-soft" id="interface">
     <div class="wrap">
-      <div class="sec-head">
-        <p class="kicker">The interface</p>
-        <h2 class="title">A read-only glance at every engagement</h2>
-        <p class="sec-sub">One question per line: which engagements are live, what the wave is doing, which events just landed. The interface never invents a metric — an unknown count renders as an em-dash.</p>
-      </div>
       <figure class="fig">
         <div class="shot" role="img" aria-label="Illustrative mockup of the glance dashboard: topbar, engagements table, run progress, and activity feed">
           <div class="shot-bar"><span class="shot-title">motoko status — glance</span></div>
           <div class="shot-body">
-            <p class="shot-line shot-topbar"><b>MOTOKO</b>&nbsp; <span class="shot-clock">2026-10-04 09:31:12</span>&nbsp; · &nbsp;3 eng 2 live&nbsp; · &nbsp;watch example&nbsp; · &nbsp;src: fs · ro-sqlite · adapter motoko/1&nbsp; · &nbsp;up 41m</p>
+            <p class="shot-line shot-topbar"><b>MOTOKO</b>&nbsp; <span class="shot-clock">2026-10-04 09:31:19</span>&nbsp; · &nbsp;3 eng 2 live&nbsp; · &nbsp;watch example&nbsp; · &nbsp;src: fs · ro-sqlite · adapter motoko/1&nbsp; · &nbsp;up 41m</p>
 
             <div class="shot-panel">
               <p class="shot-panel-title">ENGAGEMENTS</p>
@@ -113,8 +87,32 @@
         </div>
         <figcaption class="fig-cap"><span class="pill pill-idle">Illustrative</span> fig. 01 — the panel labels are the engine's own vocabulary; every number is invented for this picture.</figcaption>
       </figure>
+      <div class="sec-head">
+        <p class="kicker">The interface</p>
+        <h2 class="title">A read-only glance at every engagement</h2>
+        <p class="sec-sub">One question per line: which engagements are live, what the wave is doing, which events just landed. The interface never invents a metric — an unknown count renders as an em-dash.</p>
+      </div>
     </div>
   </section>
+  <section class="hero">
+    <div class="wrap">
+      <p class="eyebrow">open source · AGPL-3.0-or-later · stdlib-only Python · fail-closed scope gate</p>
+      <img class="hero-mark hero-mark-dark" src="motoko-wordmark.svg" alt="MOTOKO" width="340" height="90">
+      <img class="hero-mark hero-mark-print" src="motoko-wordmark-paper.svg" alt="MOTOKO" width="340" height="90">
+      <h1 class="display">Pentest automation,<br><span class="tt">on the record</span>.</h1>
+      <p class="lede">MOTOKO binds the scanners and agents you already trust into one governed graph. Scope is checked before anything runs; every action lands in an append-only record. It replaces nothing — no scanner, no agent runtime, no rewrite of the tools your team already runs.</p>
+
+      <div class="hero-actions">
+        <div class="cmd-card">
+          <code class="cmd" id="cmd-hero">pip install ./engine</code>
+          <button type="button" class="copy-btn" data-copy="cmd-hero">Copy</button>
+        </div>
+        <a class="btn btn-ghost" href="#tools">See a tool run →</a>
+      </div>
+
+    </div>
+  </section>
+
   <!-- ================= TOOL CALLS ================= -->
   <section class="sec" id="tools">
     <div class="wrap">
@@ -734,7 +732,7 @@
       });
     });
     Array.prototype.slice.call(document.querySelectorAll(
-      '.sec-head, .gate-demo, .shot, .term, .dl-tabs, .cta .title-cta, .cta-sub, .gs-more'
+      '.sec-head, .gate-demo, .dl-tabs, .cta .title-cta, .cta-sub, .gs-more'
     )).forEach(function (el) { el.classList.add('reveal'); });
 
     var io = new IntersectionObserver(function (entries) {
@@ -742,123 +740,12 @@
         if (e.isIntersecting) {
           e.target.classList.add('in');
           io.unobserve(e.target);
-          if (e.target.classList.contains('term')) {
-            typewrite(e.target.querySelector('.term-body'), 420, function () {
-              typewrite(e.target.querySelector('.term-stat'), 700);
-            });
-          }
-          if (e.target.classList.contains('gate-demo') && gateOut && !gateTypeJob) {
-            gateTypeJob = typewrite(gateOut, 500, function () { gateTypeJob = null; });
-          }
         }
       });
     }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
     Array.prototype.slice.call(document.querySelectorAll('.reveal')).forEach(function (el) { io.observe(el); });
 
-    /* ---------- dashboard boot sequence (ship's console coming online) ---------- */
-    function bootSequence(shot) {
-      /* wrap digit runs so they can scramble-lock (em-dashes stay: unknown is never faked) */
-      var skip = '.shot-clock, .shot-gauge, .shot-caret, .shot-cols .shot-panel:nth-child(2)';
-      var walker = document.createTreeWalker(shot, NodeFilter.SHOW_TEXT, {
-        acceptNode: function (n) {
-          if (!/\d/.test(n.nodeValue)) return NodeFilter.FILTER_REJECT;
-          return n.parentElement.closest(skip) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
-        }
-      });
-      var nodes = [];
-      while (walker.nextNode()) nodes.push(walker.currentNode);
-      var pend = [];
-      nodes.forEach(function (node) {
-        var frag = document.createDocumentFragment();
-        node.nodeValue.split(/(\d+)/).forEach(function (part) {
-          if (!part) return;
-          if (/^\d+$/.test(part)) {
-            var sp = document.createElement('span');
-            sp.className = 'tick-num';
-            sp.textContent = part;
-            frag.appendChild(sp);
-            pend.push({ el: sp, final: part, start: 0, dur: 0 });
-          } else {
-            frag.appendChild(document.createTextNode(part));
-          }
-        });
-        node.parentNode.replaceChild(frag, node);
-      });
-      var t0 = performance.now();
-      pend.forEach(function (p, i) {
-        p.start = t0 + 80 + i * 45 + Math.random() * 160;
-        p.dur = 520 + p.final.length * 140;
-      });
-      (function frame(t) {
-        var alive = false;
-        for (var i = 0; i < pend.length; i++) {
-          var p = pend[i];
-          if (t < p.start) { alive = true; continue; }
-          var k = (t - p.start) / p.dur;
-          if (k >= 1) {
-            p.el.textContent = p.final;
-            p.el.classList.remove('is-scrambling');
-            continue;
-          }
-          var s = '';
-          for (var j = 0; j < p.final.length; j++) {
-            s += (j / p.final.length < k ? p.final[j] : String((Math.random() * 10) | 0));
-          }
-          p.el.textContent = s;
-          p.el.classList.add('is-scrambling');
-          alive = true;
-        }
-        if (alive) requestAnimationFrame(frame);
-      })(t0);
 
-      /* the activity feed prints like a ship's log: line by line, caret at the frontier */
-      var feedPanel = shot.querySelector('.shot-cols .shot-panel:nth-child(2)');
-      var caret = shot.querySelector('.shot-caret');
-      function typeFeedLine(i) {
-        if (!feedPanel) return;
-        var lines = feedPanel.querySelectorAll('.shot-line');
-        if (i >= lines.length) return;
-        if (caret) lines[i].appendChild(caret);
-        typewrite(lines[i], 260, function () { typeFeedLine(i + 1); });
-      }
-      setTimeout(function () { typeFeedLine(0); }, 1100);
-
-      /* the console clock keeps ticking only while the panel is on screen */
-      setTimeout(function () {
-        var el = shot.querySelector('.shot-clock');
-        if (!el || el.dataset.ticking) return;
-        el.dataset.ticking = '1';
-        var m = el.textContent.match(/(\d{2}):(\d{2}):(\d{2})/);
-        if (!m) return;
-        var hr = +m[1], min = +m[2], sec = +m[3];
-        if ('IntersectionObserver' in window) {
-          var visIO = new IntersectionObserver(function (es) {
-            shot.dataset.vis = es[0].isIntersecting ? '1' : '0';
-          }, { threshold: 0.1 });
-          visIO.observe(shot);
-        } else {
-          shot.dataset.vis = '1';
-        }
-        setInterval(function () {
-          if (shot.dataset.vis !== '1') return;
-          sec++;
-          if (sec > 59) { sec = 0; min++; if (min > 59) { min = 0; hr = (hr + 1) % 24; } }
-          el.textContent = '2026-10-04 ' + String(hr).padStart(2, '0') + ':' + String(min).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
-        }, 1000);
-      }, 1500);
-    }
-    var shotEl = document.querySelector('.shot');
-    if (shotEl) {
-      var bootIO = new IntersectionObserver(function (entries) {
-        entries.forEach(function (e) {
-          if (e.isIntersecting) {
-            bootSequence(e.target);
-            bootIO.unobserve(e.target);
-          }
-        });
-      }, { threshold: 0.2 });
-      bootIO.observe(shotEl);
-    }
   }
 
   /* ---------- HUD cursor (fine pointer, motion allowed) ---------- */
