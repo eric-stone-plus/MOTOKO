@@ -56,7 +56,7 @@
   
         <div class="hero-actions">
           <div class="cmd-card">
-            <code class="cmd" id="cmd-hero">pip install ./engine</code>
+            <code class="cmd" id="cmd-hero">pip install "git+https://github.com/eric-stone-plus/MOTOKO.git#subdirectory=engine"</code>
             <button type="button" class="copy-btn" data-copy="cmd-hero">Copy</button>
           </div>
           <a class="btn btn-ghost" href="#tools">See a tool run →</a>
@@ -101,10 +101,10 @@
                 </div>
                 <div class="shot-panel">
                   <p class="shot-panel-title">ACTIVITY FEED</p>
-                  <p class="shot-line"><span class="t-dim">09:31:02</span>&nbsp; <span class="t-ok">tool_run.transition</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; subfinder -d example.invalid -silent</p>
-                  <p class="shot-line"><span class="t-dim">09:31:08</span>&nbsp; <span class="t-warm">opsec_cooldown_skip</span>&nbsp; origin cooling down; rule deferred</p>
-                  <p class="shot-line"><span class="t-dim">09:31:11</span>&nbsp; observation.processed&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 14 obs · dedup_pass 12 · dedup_hit 2</p>
-                  <p class="shot-line"><span class="t-dim">09:31:12</span>&nbsp; verification_blocked&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; missing_backend · egress_policy<span class="shot-caret" aria-hidden="true">▌</span></p>
+                  <p class="shot-line shot-feed"><span class="t-dim">09:31:02</span><span class="feed-kind"><span class="t-ok">tool_run.transition</span></span><span class="feed-detail">subfinder -d example.invalid -silent</span></p>
+                  <p class="shot-line shot-feed"><span class="t-dim">09:31:08</span><span class="feed-kind"><span class="t-warm">opsec_cooldown_skip</span></span><span class="feed-detail">origin cooling down; rule deferred</span></p>
+                  <p class="shot-line shot-feed"><span class="t-dim">09:31:11</span><span class="feed-kind">observation.processed</span><span class="feed-detail">14 obs · dedup_pass 12 · dedup_hit 2</span></p>
+                  <p class="shot-line shot-feed"><span class="t-dim">09:31:12</span><span class="feed-kind">verification_blocked</span><span class="feed-detail">missing_backend · egress_policy<span class="shot-caret" aria-hidden="true">▌</span></span></p>
                 </div>
               </div>
   
@@ -315,7 +315,7 @@
           <div class="gs-body">
             <p><strong>Install the engine.</strong> One package, zero runtime dependencies — the <code>motoko</code> CLI comes with it.</p>
             <div class="cmd-card">
-              <code class="cmd" id="cmd-install">pip install ./engine</code>
+              <code class="cmd" id="cmd-install">pip install "git+https://github.com/eric-stone-plus/MOTOKO.git#subdirectory=engine"</code>
               <button type="button" class="copy-btn" data-copy="cmd-install">Copy</button>
             </div>
           </div>
@@ -388,7 +388,7 @@
             </div>
           </div>
           <div class="tabpane" id="pane-interface" role="tabpanel" aria-labelledby="tab-interface" data-print-label="with interface" tabindex="0">
-            <p>Optional read-only terminal interface (Textual). <code>motoko status</code> and <code>motoko watch</code> stay stdlib.</p>
+            <p>Optional read-only terminal interface (Textual), installed from a clone. <code>motoko status</code> and <code>motoko watch</code> stay stdlib.</p>
             <div class="cmd-card">
               <code class="cmd" id="cmd-cta-iface">pip install './engine[interface]'</code>
               <button type="button" class="copy-btn" data-copy="cmd-cta-iface">Copy</button>
@@ -412,7 +412,7 @@
   <div class="wrap foot-inner">
     <div class="foot-brand">
       <p class="brand-name">MOTOKO</p>
-      <p class="foot-tag">Agent re-orchestration: existing agents and scanners under one engine — scope-checked before every call, with a human interrupt where the contract demands one.</p>
+      <p class="foot-tag">Agent re-orchestration: existing agents and scanners under one engine.</p>
       <a class="foot-github" href="https://github.com/eric-stone-plus/MOTOKO" rel="noopener">
         <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
         GitHub
@@ -420,19 +420,14 @@
     </div>
     <nav class="foot-group" aria-label="Documentation">
       <p class="foot-label">Documentation</p>
-      <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/GHOST.md" rel="noopener">Ontology (GHOST.md)</a>
-      <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/GRAPH.md" rel="noopener">Contract (GRAPH.md)</a>
-      <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/IMPLEMENTATION.md" rel="noopener">Implementation (IMPLEMENTATION.md)</a>
-      <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/INSTRUMENTS.md" rel="noopener">Instruments (INSTRUMENTS.md)</a>
-      <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/RESEARCH.md" rel="noopener">Research (RESEARCH.md)</a>
-      <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/HOSTS.md" rel="noopener">Hosts (HOSTS.md)</a>
+      <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/GRAPH.md" rel="noopener">Contract</a>
+      <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/IMPLEMENTATION.md" rel="noopener">Implementation</a>
+      <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/RESEARCH.md" rel="noopener">Research</a>
     </nav>
     <nav class="foot-group" aria-label="Project">
       <p class="foot-label">Project</p>
-      <a href="https://github.com/eric-stone-plus/MOTOKO" rel="noopener">Repository</a>
       <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/LICENSE" rel="noopener">AGPL-3.0-or-later License</a>
-      <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/NOTICE" rel="noopener">NOTICE (attribution)</a>
-      <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/.github/workflows/smoke.yml" rel="noopener">CI (smoke)</a>
+      <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/NOTICE" rel="noopener">NOTICE</a>
     </nav>
   </div>
 </footer>
