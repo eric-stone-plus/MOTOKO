@@ -30,10 +30,11 @@
       <span class="pill pill-accent">AGPL-3.0</span>
     </a>
     <nav class="nav-links" aria-label="Primary">
-      <a href="#tools">Tool calls</a>
       <a href="#interface">Interface</a>
+      <a href="#tools">Tool calls</a>
       <a href="#research">Research</a>
       <a href="#trust">Trust</a>
+      <a href="#start">Getting started</a>
     </nav>
     <div class="nav-actions">
       <a class="btn btn-primary" href="#install">Install</a>
@@ -47,8 +48,8 @@
   <section class="hero">
     <div class="wrap">
       <p class="eyebrow">open source · AGPL-3.0 · stdlib-only Python · fail-closed scope gate</p>
-      <img class="hero-mark hero-mark-dark" src="motoko-wordmark.svg" alt="MOTOKO" width="560" height="149">
-      <img class="hero-mark hero-mark-print" src="motoko-wordmark-paper.svg" alt="MOTOKO" width="560" height="149">
+      <img class="hero-mark hero-mark-dark" src="motoko-wordmark.svg" alt="MOTOKO" width="340" height="90">
+      <img class="hero-mark hero-mark-print" src="motoko-wordmark-paper.svg" alt="MOTOKO" width="340" height="90">
       <h1 class="display">Pentest automation,<br><span class="tt">on the record</span>.</h1>
       <p class="lede">MOTOKO binds the scanners and agents you already trust into one governed graph. Scope is checked before anything runs; every action lands in an append-only record. It replaces nothing — no scanner, no agent runtime, no rewrite of the tools your team already runs.</p>
 
@@ -110,7 +111,7 @@
             <p class="shot-line shot-foot">stranded hypotheses 0&nbsp; · &nbsp;broken links 0&nbsp; · &nbsp;<span class="t-warm">parked findings 2</span></p>
           </div>
         </div>
-        <figcaption class="fig-cap"><span class="pill pill-idle">Illustrative</span> fig. 01 — panel vocabulary is the engine's own (ENGAGEMENTS, RUN PROGRESS, ACTIVITY FEED; flags C·K·L·M·S·W). Values are made up; unknown counts render as an em-dash, never a zero.</figcaption>
+        <figcaption class="fig-cap"><span class="pill pill-idle">Illustrative</span> fig. 01 — panel vocabulary is the engine's own (ENGAGEMENTS, RUN PROGRESS, ACTIVITY FEED). Values are made up; unknown counts render as an em-dash, never a zero. <span class="fig-gloss">hyps = hypotheses, finds = findings · flags: <b>C</b> cooldown · <b>K</b> canary trip · <b>L</b> lane saturation (not observable yet — never faked) · <b>M</b> manual pause · <b>S</b> stuck testing · <b>W</b> WAF-aware.</span></figcaption>
       </figure>
     </div>
   </section>
@@ -492,6 +493,62 @@
   var live = document.getElementById('live-region');
   function say(msg) { if (live) { live.textContent = msg; } }
 
+  /* ---------- typewrite: one text-printing primitive for every mock terminal ----------
+     Walks text nodes in document order and reveals characters over time; nested
+     color spans survive because only nodeValue changes. finish() lands the full
+     text instantly (used for beforeprint and for cancellation). */
+  var typeJobs = [];
+  function typewrite(root, speed, done) {
+    if (!root) { if (done) done(); return null; }
+    if (!motionOk) { if (done) done(); return null; }
+    var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    var nodes = [], total = 0;
+    while (w.nextNode()) {
+      var n = w.currentNode;
+      if (!n.nodeValue.length) continue;
+      n.__full = n.nodeValue;
+      n.nodeValue = '';
+      nodes.push(n);
+      total += n.__full.length;
+    }
+    if (!total) { if (done) done(); return null; }
+    var job = {
+      cancel: false,
+      finish: function () {
+        if (job.cancel) return;
+        job.cancel = true;
+        for (var i = 0; i < nodes.length; i++) nodes[i].nodeValue = nodes[i].__full;
+        var k = typeJobs.indexOf(job);
+        if (k >= 0) typeJobs.splice(k, 1);
+        if (done) done();
+      }
+    };
+    typeJobs.push(job);
+    var shown = 0, start = 0;
+    (function frame(t) {
+      if (job.cancel) return;
+      if (!start) start = t;
+      var want = Math.min(total, Math.round((t - start) / 1000 * speed));
+      while (shown < want) {
+        for (var i = 0; i < nodes.length; i++) {
+          var n = nodes[i];
+          if (n.nodeValue.length < n.__full.length) {
+            n.nodeValue = n.__full.slice(0, n.nodeValue.length + 1);
+            shown++;
+            break;
+          }
+        }
+      }
+      if (shown < total) requestAnimationFrame(frame);
+      else job.finish();
+    })(performance.now());
+    return job;
+  }
+  function finishAllTyping() {
+    typeJobs.slice().forEach(function (j) { j.finish(); });
+  }
+  window.addEventListener('beforeprint', finishAllTyping);
+
   /* Copy buttons */
   document.addEventListener('click', function (e) {
     var btn = e.target.closest ? e.target.closest('[data-copy]') : null;
@@ -514,7 +571,7 @@
   });
 
   /* Generic APG tab group: roving tabindex + Arrow/Home/End */
-  function initTabs(listRoot, panelRoot, announceName) {
+  function initTabs(listRoot, announceName) {
     var tabs = Array.prototype.slice.call(listRoot.querySelectorAll('[role="tab"]'));
     if (!tabs.length) return;
     var panels = tabs.map(function (t) { return document.getElementById(t.getAttribute('aria-controls')); });
@@ -561,12 +618,11 @@
   var dlGroup = document.querySelector('.dl-tabs');
   if (dlGroup) {
     var dlList = dlGroup.querySelector('.tablist');
-    if (dlList) { initTabs(dlList, dlGroup, 'tab'); dlGroup.classList.add('js-tabs'); }
+    if (dlList) { initTabs(dlList, 'tab'); dlGroup.classList.add('js-tabs'); }
   }
   var bindGroup = document.querySelector('.bind-steps');
   if (bindGroup) {
-    initTabs(bindGroup, document.querySelector('.bind-panels'), 'step');
-    bindGroup.classList.add('js-bind');
+    initTabs(bindGroup, 'step');
   }
 
   /* ---------- scope gate demo (label-boundary + CIDR, mirrors scope.py) ---------- */
@@ -648,9 +704,17 @@
     }
     return '<span class="verdict-refused">refused before it runs</span>  ' + escapeHtml(host) + '\n<span class="t-dim">reason: no in-scope domain match</span>\n<span class="t-dim">refusal recorded as a first-class event</span>';
   }
+  var gateTypeJob = null;
   function gateRender(raw) {
     if (!gateOut) return;
+    if (gateTypeJob) { gateTypeJob.cancel = true; gateTypeJob = null; }
     gateOut.innerHTML = '<code>' + gateCheck(raw) + '</code>';   /* gateCheck escapes every dynamic value */
+    gateOut.setAttribute('aria-busy', 'true');
+    gateTypeJob = typewrite(gateOut, 500, function () {
+      gateOut.removeAttribute('aria-busy');
+      gateTypeJob = null;
+    });
+    if (!gateTypeJob) gateOut.removeAttribute('aria-busy');
   }
   if (gateInput) {
     var gateBtn = document.getElementById('gate-check');
@@ -703,6 +767,14 @@
         if (e.isIntersecting) {
           e.target.classList.add('in');
           io.unobserve(e.target);
+          if (e.target.classList.contains('term')) {
+            typewrite(e.target.querySelector('.term-body'), 420, function () {
+              typewrite(e.target.querySelector('.term-stat'), 700);
+            });
+          }
+          if (e.target.classList.contains('gate-demo') && gateOut && !gateTypeJob) {
+            gateTypeJob = typewrite(gateOut, 500, function () { gateTypeJob = null; });
+          }
         }
       });
     }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
@@ -711,7 +783,7 @@
     /* ---------- dashboard boot sequence (ship's console coming online) ---------- */
     function bootSequence(shot) {
       /* wrap digit runs so they can scramble-lock (em-dashes stay: unknown is never faked) */
-      var skip = '.shot-clock, .shot-gauge, .shot-caret';
+      var skip = '.shot-clock, .shot-gauge, .shot-caret, .shot-cols .shot-panel:nth-child(2)';
       var walker = document.createTreeWalker(shot, NodeFilter.SHOW_TEXT, {
         acceptNode: function (n) {
           if (!/\d/.test(n.nodeValue)) return NodeFilter.FILTER_REJECT;
@@ -763,6 +835,18 @@
         }
         if (alive) requestAnimationFrame(frame);
       })(t0);
+
+      /* the activity feed prints like a ship's log: line by line, caret at the frontier */
+      var feedPanel = shot.querySelector('.shot-cols .shot-panel:nth-child(2)');
+      var caret = shot.querySelector('.shot-caret');
+      function typeFeedLine(i) {
+        if (!feedPanel) return;
+        var lines = feedPanel.querySelectorAll('.shot-line');
+        if (i >= lines.length) return;
+        if (caret) lines[i].appendChild(caret);
+        typewrite(lines[i], 260, function () { typeFeedLine(i + 1); });
+      }
+      setTimeout(function () { typeFeedLine(0); }, 1100);
 
       /* the console clock keeps ticking only while the panel is on screen */
       setTimeout(function () {
@@ -832,6 +916,25 @@
   }
 
 
+  /* ---------- nav scroll-spy (orientation, not decoration) ---------- */
+  (function () {
+    var links = Array.prototype.slice.call(document.querySelectorAll('.nav-links a[href^="#"]'));
+    if (!links.length || !('IntersectionObserver' in window)) return;
+    var map = {};
+    links.forEach(function (a) {
+      var sec = document.querySelector(a.getAttribute('href'));
+      if (sec) map[sec.id] = a;
+    });
+    var spy = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) {
+          links.forEach(function (a) { a.classList.remove('is-active'); });
+          if (map[e.target.id]) map[e.target.id].classList.add('is-active');
+        }
+      });
+    }, { rootMargin: '-30% 0px -60% 0px', threshold: 0 });
+    Object.keys(map).forEach(function (id) { spy.observe(document.getElementById(id)); });
+  })();
 })();
 </script>
 
