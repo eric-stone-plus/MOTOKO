@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#121417">
 <meta property="og:type" content="website">
 <meta property="og:title" content="MOTOKO — pentest automation, on the record">
-<meta property="og:description" content="The scanners and agents you already trust, bound as one governed graph — with gates where a scope check or a human must speak.">
+<meta property="og:description" content="The scanners and agents you already trust, under one engine — scope-checked before every call, with a human interrupt where the contract demands one.">
 <meta property="og:image" content="https://raw.githubusercontent.com/eric-stone-plus/MOTOKO/main/logo/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -46,80 +46,84 @@
 
   <!-- ================= HERO ================= -->
   <section class="hero">
-    <div class="wrap">
+    <div class="wrap hero-grid">
+      <div class="hero-copy">
       <p class="eyebrow">open source · AGPL-3.0-or-later · stdlib-only Python · fail-closed scope gate</p>
-      <img class="hero-mark hero-mark-dark" src="motoko-wordmark.svg" alt="MOTOKO" width="340" height="90">
-      <img class="hero-mark hero-mark-print" src="motoko-wordmark-paper.svg" alt="MOTOKO" width="340" height="90">
-      <h1 class="display">Pentest automation,<br><span class="tt">on the record</span>.</h1>
-      <p class="lede">MOTOKO binds the scanners and agents you already trust into one governed graph. Scope is checked before anything runs; every action lands in an append-only record. It replaces nothing — no scanner, no agent runtime, no rewrite of the tools your team already runs.</p>
-
-      <div class="hero-actions">
-        <div class="cmd-card">
-          <code class="cmd" id="cmd-hero">pip install ./engine</code>
-          <button type="button" class="copy-btn" data-copy="cmd-hero">Copy</button>
-        </div>
-        <a class="btn btn-ghost" href="#tools">See a tool run →</a>
-      </div>
-
-    </div>
-  </section>
-
-    <!-- ================= INTERFACE ================= -->
-  <section class="sec-soft" id="interface">
-    <div class="wrap">
-      <div class="sec-head">
-        <p class="kicker">The interface</p>
-        <h2 class="title">A read-only glance at every engagement</h2>
-        <p class="sec-sub">One question per line: which engagements are live, what the wave is doing, which events just landed. The interface never invents a metric — an unknown count renders as an em-dash.</p>
-      </div>
-      <figure class="fig">
-        <div class="shot" role="img" aria-label="Illustrative mockup of the glance dashboard: topbar, engagements table, run progress, and activity feed">
-          <div class="shot-bar"><span class="shot-title">motoko status — glance</span></div>
-          <div class="shot-body">
-            <p class="shot-line shot-topbar"><b>MOTOKO</b>&nbsp; <span class="shot-clock">2026-10-04 09:31:19</span>&nbsp; · &nbsp;3 eng 2 live&nbsp; · &nbsp;watch example&nbsp; · &nbsp;src: fs · ro-sqlite · adapter motoko/1&nbsp; · &nbsp;up 41m</p>
-
-            <div class="shot-panel">
-              <p class="shot-panel-title">ENGAGEMENTS</p>
-              <div class="shot-table">
-                <div class="shot-tr shot-th"><span>id</span><span>state</span><span>live</span><span>hyps</span><span>finds</span><span>flags</span></div>
-                <div class="shot-tr"><span data-k="id">example</span><span data-k="state" class="t-ok">active</span><span data-k="live" class="t-ok shot-live">●</span><span data-k="hyps">12</span><span data-k="finds">4</span><span data-k="flags">CW</span></div>
-                <div class="shot-tr"><span data-k="id">alpha</span><span data-k="state" class="t-dim">idle</span><span data-k="live" class="t-dim">○</span><span data-k="hyps" class="t-dim">—</span><span data-k="finds">2</span><span data-k="flags" class="t-dim">—</span></div>
-                <div class="shot-tr"><span data-k="id">bravo</span><span data-k="state" class="t-dim">sealed</span><span data-k="live" class="t-dim">○</span><span data-k="hyps">30</span><span data-k="finds">11</span><span data-k="flags" class="t-dim">—</span></div>
-              </div>
-            </div>
-
-            <p class="shot-line shot-drill">ENGAGEMENT <b>example</b>&nbsp; ─ &nbsp;<span class="t-ok">live <span class="shot-live">●</span></span>&nbsp; ─ &nbsp;runner <span class="t-ok">alive</span>&nbsp; ─ &nbsp;heartbeat 4s old</p>
-
-            <div class="shot-cols">
-              <div class="shot-panel">
-                <p class="shot-panel-title">RUN PROGRESS</p>
-                <p class="shot-line"><span class="t-ok"><span class="shot-live">●</span> live</span> example&nbsp;&nbsp;hb 4s&nbsp;&nbsp;runner alive</p>
-                <p class="shot-line">wave 2/4&nbsp; <span class="shot-gauge"><span class="shot-gauge-empty">░░░░░░░░░░░░░░░░</span><span class="shot-gauge-fill" aria-hidden="true">████████</span></span>&nbsp; 50%&nbsp; <span class="t-dim">~12m eta</span></p>
-                <p class="shot-line">tools 3/7&nbsp;&nbsp;&nbsp;<span class="t-ok">findings +2</span>&nbsp;&nbsp;&nbsp;<span class="t-warm">cd 1</span>&nbsp; <span class="t-warm">429:1</span></p>
-              </div>
-              <div class="shot-panel">
-                <p class="shot-panel-title">ACTIVITY FEED</p>
-                <p class="shot-line"><span class="t-dim">09:31:02</span>&nbsp; <span class="t-ok">tool_run.transition</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; subfinder -d example.invalid -silent</p>
-                <p class="shot-line"><span class="t-dim">09:31:08</span>&nbsp; <span class="t-warm">opsec_cooldown_skip</span>&nbsp; origin cooling down; rule deferred</p>
-                <p class="shot-line"><span class="t-dim">09:31:11</span>&nbsp; observation.processed&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 14 obs · dedup_pass 12 · dedup_hit 2</p>
-                <p class="shot-line"><span class="t-dim">09:31:12</span>&nbsp; verification_blocked&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; missing_backend · egress_policy<span class="shot-caret" aria-hidden="true">▌</span></p>
-              </div>
-            </div>
-
-            <p class="shot-line shot-foot">stranded hypotheses 0&nbsp; · &nbsp;broken links 0&nbsp; · &nbsp;<span class="t-warm">parked findings 2</span></p>
+        <img class="hero-mark hero-mark-dark" src="motoko-wordmark.svg" alt="MOTOKO" width="340" height="90">
+        <img class="hero-mark hero-mark-print" src="motoko-wordmark-paper.svg" alt="MOTOKO" width="340" height="90">
+        <h1 class="display">Pentest automation,<br><span class="tt">on the record</span>.</h1>
+        <p class="lede">MOTOKO binds the scanners and agents you already trust into one governed graph. Scope is checked before anything runs; every action lands in an append-only record. It replaces nothing — no scanner, no agent runtime, no rewrite of the tools your team already runs.</p>
+  
+        <div class="hero-actions">
+          <div class="cmd-card">
+            <code class="cmd" id="cmd-hero">pip install ./engine</code>
+            <button type="button" class="copy-btn" data-copy="cmd-hero">Copy</button>
           </div>
+          <a class="btn btn-ghost" href="#tools">See a tool run →</a>
         </div>
-        <figcaption class="fig-cap"><span class="pill pill-idle">Illustrative</span> fig. 01 — the panel labels are the engine's own vocabulary; every number is invented for this picture.</figcaption>
-      </figure>
+        <dl class="hero-stats">
+          <div><dt>40</dt><dd>rule packs, statically checked</dd></div>
+          <div><dt>0</dt><dd>runtime dependencies</dd></div>
+          <div><dt>23</dt><dd>tools, rule-driven</dd></div>
+          <div><dt>$0</dt><dd>AGPL-3.0-or-later</dd></div>
+        </dl>
+      </div>
+      <div class="hero-panel" id="interface">
+      <div class="sec-head">
+          <p class="kicker">The interface</p>
+          <h2 class="title">A read-only glance at every engagement</h2>
+          <p class="sec-sub">One question per line: which engagements are live, what the wave is doing, which events just landed. The interface never invents a metric — an unknown count renders as an em-dash.</p>
+        </div>
+        <figure class="fig">
+          <div class="shot" role="img" aria-label="Illustrative mockup of the glance dashboard: topbar, engagements table, run progress, and activity feed">
+            <div class="shot-bar"><span class="shot-title">motoko status — glance</span></div>
+            <div class="shot-body">
+              <p class="shot-line shot-topbar"><b>MOTOKO</b>&nbsp; <span class="shot-clock">2026-10-04 09:31:19</span>&nbsp; · &nbsp;3 eng 2 live&nbsp; · &nbsp;watch example&nbsp; · &nbsp;src: fs · ro-sqlite · adapter motoko/1&nbsp; · &nbsp;up 41m</p>
+  
+              <div class="shot-panel">
+                <p class="shot-panel-title">ENGAGEMENTS</p>
+                <div class="shot-table">
+                  <div class="shot-tr shot-th"><span>id</span><span>state</span><span>live</span><span>hyps</span><span>finds</span><span>flags</span></div>
+                  <div class="shot-tr"><span data-k="id">example</span><span data-k="state" class="t-ok">active</span><span data-k="live" class="t-ok shot-live">●</span><span data-k="hyps">12</span><span data-k="finds">4</span><span data-k="flags">CW</span></div>
+                  <div class="shot-tr"><span data-k="id">alpha</span><span data-k="state" class="t-dim">idle</span><span data-k="live" class="t-dim">○</span><span data-k="hyps" class="t-dim">—</span><span data-k="finds">2</span><span data-k="flags" class="t-dim">—</span></div>
+                  <div class="shot-tr"><span data-k="id">bravo</span><span data-k="state" class="t-dim">sealed</span><span data-k="live" class="t-dim">○</span><span data-k="hyps">30</span><span data-k="finds">11</span><span data-k="flags" class="t-dim">—</span></div>
+                </div>
+              </div>
+  
+              <p class="shot-line shot-drill">ENGAGEMENT <b>example</b>&nbsp; ─ &nbsp;<span class="t-ok">live <span class="shot-live">●</span></span>&nbsp; ─ &nbsp;runner <span class="t-ok">alive</span>&nbsp; ─ &nbsp;heartbeat 4s old</p>
+  
+              <div class="shot-cols">
+                <div class="shot-panel">
+                  <p class="shot-panel-title">RUN PROGRESS</p>
+                  <p class="shot-line"><span class="t-ok"><span class="shot-live">●</span> live</span> example&nbsp;&nbsp;hb 4s&nbsp;&nbsp;runner alive</p>
+                  <p class="shot-line">wave 2/4&nbsp; <span class="shot-gauge"><span class="shot-gauge-empty">░░░░░░░░░░░░░░░░</span><span class="shot-gauge-fill" aria-hidden="true">████████</span></span>&nbsp; 50%&nbsp; <span class="t-dim">~12m eta</span></p>
+                  <p class="shot-line">tools 3/7&nbsp;&nbsp;&nbsp;<span class="t-ok">findings +2</span>&nbsp;&nbsp;&nbsp;<span class="t-warm">cd 1</span>&nbsp; <span class="t-warm">429:1</span></p>
+                </div>
+                <div class="shot-panel">
+                  <p class="shot-panel-title">ACTIVITY FEED</p>
+                  <p class="shot-line"><span class="t-dim">09:31:02</span>&nbsp; <span class="t-ok">tool_run.transition</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; subfinder -d example.invalid -silent</p>
+                  <p class="shot-line"><span class="t-dim">09:31:08</span>&nbsp; <span class="t-warm">opsec_cooldown_skip</span>&nbsp; origin cooling down; rule deferred</p>
+                  <p class="shot-line"><span class="t-dim">09:31:11</span>&nbsp; observation.processed&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 14 obs · dedup_pass 12 · dedup_hit 2</p>
+                  <p class="shot-line"><span class="t-dim">09:31:12</span>&nbsp; verification_blocked&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; missing_backend · egress_policy<span class="shot-caret" aria-hidden="true">▌</span></p>
+                </div>
+              </div>
+  
+              <p class="shot-line shot-foot">stranded hypotheses 0&nbsp; · &nbsp;broken links 0&nbsp; · &nbsp;<span class="t-warm">parked findings 2</span></p>
+            </div>
+          </div>
+          <figcaption class="fig-cap"><span class="pill pill-idle">Illustrative</span> fig. 01 — the panel labels are the engine's own vocabulary; every number is invented for this picture.</figcaption>
+        </figure>
+      </div>
     </div>
   </section>
+
   <!-- ================= TOOL CALLS ================= -->
   <section class="sec" id="tools">
     <div class="wrap">
       <div class="sec-head">
         <p class="kicker">Tool calls</p>
         <h2 class="title">Every tool call is rendered, gated, parsed, event-sourced</h2>
-        <p class="sec-sub">Rule packs name bare binaries and argv templates. Nothing reaches a tool that the engagement cannot render, that the scope gate refuses, or that the OPSEC board is cooling down.</p>
+        <p class="sec-sub">Rule packs name bare binaries and argv templates. Nothing reaches a tool that the engagement cannot render or that the scope gate refuses; the OPSEC board cools origins down, except for the WAF-detection rule.</p>
       </div>
 
       <div class="card gate-demo" id="gate">
@@ -176,8 +180,8 @@
     <div class="wrap">
       <div class="sec-head">
         <p class="kicker">Research</p>
-        <h2 class="title">Borrowed from institutions that grade assurance</h2>
-        <p class="sec-sub">RESEARCH.md surveys how military-grade programs are actually graded — assurance, provenance, adjudication — across 20 absorbable patterns (12 US, 8 allied), and derives an M1–M15 adoption roadmap from them. MOTOKO claims no such grade; it copies the parts a stdlib Python orchestrator can afford.</p>
+        <h2 class="title">Borrowed from CISA, NIST, DARPA and allied programs</h2>
+        <p class="sec-sub">RESEARCH.md surveys how military-grade programs are actually graded — assurance, provenance, adjudication — across 20 absorbable patterns (12 US, 8 allied). MOTOKO claims no such grade; it adopts only patterns that need nothing beyond the Python stdlib.</p>
       </div>
 
       <div class="trust-grid">
@@ -217,33 +221,7 @@
             <dd>External legs on a contract: a closed connector type enum with scope registration, and self-describing parser manifests</dd>
           </dl>
         </div>
-        <div class="card card-wide">
-          <p class="card-title">M1–M15 adoption roadmap</p>
-          <ul class="state-rows">
-            <li>
-              <button type="button" class="state-row" aria-pressed="false">
-                <span class="row-label">M1 · unified verdict record</span>
-                <span class="pill pill-idle">roadmap</span>
-              </button>
-              <p class="state-more">Every rule action and parser output normalized to a verdict record; checks that cannot be evaluated are declared <code>Not-Implemented</code>, never silently dropped.</p>
-            </li>
-            <li>
-              <button type="button" class="state-row" aria-pressed="false">
-                <span class="row-label">M4, M5, M8 · assessment artifacts</span>
-                <span class="pill pill-idle">roadmap</span>
-              </button>
-              <p class="state-more">A standardized assessment artifact (OSCAL SAR), a machine-readable authorization object (ROE-as-data), and independent rescoring that never trusts an agent's self-report.</p>
-            </li>
-            <li>
-              <button type="button" class="state-row" aria-pressed="false">
-                <span class="row-label">M15 · negative catalog</span>
-                <span class="pill pill-idle">roadmap</span>
-              </button>
-              <p class="state-more">"Never allowed" patterns as data — every prose discipline paired with a detector.</p>
-            </li>
-          </ul>
-          <p class="card-note">Lawful public sources only. Leaked-tooling class material was not fetched and is not adopted — a technique that cannot prove its provenance is a liability. Per-project verdicts and license notes live in <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/RESEARCH.md" rel="noopener">RESEARCH.md →</a></p>
-        </div>
+
       </div>
     </div>
   </section>
@@ -253,8 +231,8 @@
     <div class="wrap">
       <div class="sec-head">
         <p class="kicker">Trust</p>
-        <h2 class="title">What ships. What waits. In writing.</h2>
-        <p class="sec-sub">Automation earns trust at its boundaries. The contract is larger than the engine — and MOTOKO says which half ships instead of blurring the line.</p>
+        <h2 class="title">What the engine enforces, and what it leaves to the operator</h2>
+        <p class="sec-sub">Each row names who enforces it — the engine or the operator. The contract (GRAPH.md) is larger than the engine; IMPLEMENTATION.md marks what is implemented and what is not.</p>
       </div>
       <div class="trust-grid">
         <div class="card">
@@ -293,7 +271,7 @@
                 <span class="row-label">verification_blocked · missing_backend, egress_policy, unpinned</span>
                 <span class="pill pill-warn">flag, not a state</span>
               </button>
-              <p class="state-more">A harness limitation blocks verification with a reason code instead of burning retries or terminating it — a flag beside the state, never a state change. The evidence explains why.</p>
+              <p class="state-more">A harness limitation blocks verification with a reason code instead of burning retries or terminating it — a flag beside the state, never a state change.</p>
             </li>
             <li>
               <button type="button" class="state-row" aria-pressed="false">
@@ -307,7 +285,7 @@
                 <span class="row-label">candidate · triaged</span>
                 <span class="pill pill-idle">queued</span>
               </button>
-              <p class="state-more">Queued work: dedup keys admit, the rule chain speaks, validators have not.</p>
+              <p class="state-more">Queued work: the dedup key admitted it and the noise gate ran; only validator events can promote it from here.</p>
             </li>
             <li>
               <button type="button" class="state-row" aria-pressed="false">
@@ -317,7 +295,7 @@
               <p class="state-more">Closed without promotion; duplicates link through <code>duplicate_of</code> edges.</p>
             </li>
           </ul>
-          <p class="card-note">Nothing stamps <code>verified_true</code>; the verify beat is planned, not shipped. The full contract-versus-engine matrix lives in <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/IMPLEMENTATION.md" rel="noopener">IMPLEMENTATION.md →</a></p>
+          <p class="card-note">No scan finding is stamped <code>verified_true</code> — scan evidence tops out at <code>verified</code>. The <code>motoko loop</code> verify beat stamps it only on engineering-change findings, budget-capped. The full contract-versus-engine matrix lives in <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/IMPLEMENTATION.md" rel="noopener">IMPLEMENTATION.md →</a></p>
         </div>
       </div>
     </div>
@@ -388,8 +366,8 @@
   <!-- ================= INSTALL CTA ================= -->
   <section class="cta" id="install">
     <div class="wrap wrap-narrow">
-      <h2 class="title-cta">Bring your tools. Install the engine.</h2>
-      <p class="cta-sub">stdlib-only Python ≥ 3.11. The scanners and agents you already trust run under scope checks, OPSEC cooldowns, and an audit trail — one governed graph, one install. The engine never downloads a scanner — your own agent brings the tools, from the upstreams you authorise. The scope gate is engine-side and fail-closed; the human interrupt is enforced by the operator shell.</p>
+      <h2 class="title-cta">Bring your tools and install the engine.</h2>
+      <p class="cta-sub">stdlib-only Python ≥ 3.11. The scanners and agents you already trust run under scope checks, OPSEC cooldowns, and an audit trail, in one install. The scan engine never downloads a scanner — your own agent brings the tools, from the upstreams you authorise. The scope gate is engine-side and fail-closed; the human interrupt is enforced by the operator shell.</p>
 
       <div class="dl-tabs">
         <div class="tablist" role="tablist" aria-label="Install options">
@@ -434,7 +412,7 @@
   <div class="wrap foot-inner">
     <div class="foot-brand">
       <p class="brand-name">MOTOKO</p>
-      <p class="foot-tag">Agent re-orchestration: existing agents and scanners, bound as a graph, with gates where a scope check or a human must speak.</p>
+      <p class="foot-tag">Agent re-orchestration: existing agents and scanners under one engine — scope-checked before every call, with a human interrupt where the contract demands one.</p>
       <a class="foot-github" href="https://github.com/eric-stone-plus/MOTOKO" rel="noopener">
         <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
         GitHub

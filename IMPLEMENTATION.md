@@ -63,8 +63,9 @@ runtime dependencies, and a packaging manifest (`pyproject.toml` with a
   - *Planned, not shipped: the VERIFY beat.* The contract defines
     `verify_budget` (at most N=20 findings verified per round,
     highest-reputation first) and a `verified_true` status as its output.
-    No verification leg exists, so nothing stamps `verified_true` and
-    `loop_evaluate.VERIFY_BUDGET` is a declared-but-unenforced constant.
+    The shipped verify beat stamps `verified_true` only on loop findings,
+    budget-capped by `loop_evaluate.VERIFY_BUDGET`; no scan finding is ever
+    stamped `verified_true`.
     What the loop does stamp is `consensus_confirmed` — two or more audit
     LENSES agreeing, which on one substrate is weaker evidence than
     cross-vendor agreement because the blind spots are correlated. Both
