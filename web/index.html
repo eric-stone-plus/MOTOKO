@@ -34,8 +34,6 @@
       <a href="#interface">Interface</a>
       <a href="#research">Research</a>
       <a href="#trust">Trust</a>
-      <a class="ext" href="https://github.com/eric-stone-plus/MOTOKO/blob/main/README.md" rel="noopener">Docs</a>
-      <a class="ext" href="https://github.com/eric-stone-plus/MOTOKO" rel="noopener">GitHub</a>
     </nav>
     <div class="nav-actions">
       <a class="btn btn-primary" href="#install">Install</a>
@@ -76,7 +74,7 @@
         <p class="sec-sub">One question per line: which engagements are live, what the wave is doing, which events just landed. The interface never invents a metric — an unknown count renders as an em-dash.</p>
       </div>
       <figure class="fig">
-        <div class="shot" role="img" aria-label="Illustrative mockup of the glance dashboard: topbar, engagements table, run progress, and activity feed" data-tilt>
+        <div class="shot" role="img" aria-label="Illustrative mockup of the glance dashboard: topbar, engagements table, run progress, and activity feed">
           <div class="shot-bar"><span class="shot-title">motoko status — glance</span></div>
           <div class="shot-body">
             <p class="shot-line shot-topbar"><b>MOTOKO</b>&nbsp; <span class="shot-clock">2026-10-04 09:31:12</span>&nbsp; · &nbsp;3 eng 2 live&nbsp; · &nbsp;watch example&nbsp; · &nbsp;src: fs · ro-sqlite · adapter motoko/1&nbsp; · &nbsp;up 41m</p>
@@ -173,7 +171,7 @@
         <p class="card-note">Illustrative — client-side arithmetic mirrors the engine's label-boundary and CIDR rules. Subdomains of the scope match; suffix tricks like <code>evil-example.invalid</code> do not. The demo scope is documentation-reserved (<code>example.invalid</code>, RFC 2606; <code>203.0.113.0/24</code>, RFC 5737).</p>
       </div>
       <figure class="fig">
-        <div class="term" role="img" aria-label="Illustrative terminal transcript of a gated tool call" data-tilt>
+        <div class="term" role="img" aria-label="Illustrative terminal transcript of a gated tool call">
           <div class="term-head"><span class="term-title">motoko — run</span></div>
           <div class="term-body">
 <code><span class="t-dim">$</span> motoko run example --max-cycles 20 --wave-cycles 5 --max-waves 4
@@ -459,6 +457,10 @@
     <div class="foot-brand">
       <p class="brand-name">MOTOKO</p>
       <p class="foot-tag">Agent re-orchestration: existing agents and scanners, bound as a graph, with gates where a scope check or a human must speak.</p>
+      <a class="foot-github" href="https://github.com/eric-stone-plus/MOTOKO" rel="noopener">
+        <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
     </div>
     <nav class="foot-group" aria-label="Documentation">
       <p class="foot-label">Documentation</p>
@@ -830,20 +832,6 @@
   }
 
 
-  /* ---------- pointer tilt on figures (fine pointers, motion allowed) ---------- */
-  if (motionOk && window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
-    Array.prototype.slice.call(document.querySelectorAll('[data-tilt]')).forEach(function (el) {
-      el.addEventListener('pointermove', function (e) {
-        var r = el.getBoundingClientRect();
-        var dx = (e.clientX - r.left) / r.width - 0.5;
-        var dy = (e.clientY - r.top) / r.height - 0.5;
-        el.style.transform = 'perspective(1100px) rotateX(' + (-dy * 3.5).toFixed(2) + 'deg) rotateY(' + (dx * 3.5).toFixed(2) + 'deg)';
-      }, { passive: true });
-      el.addEventListener('pointerleave', function () {
-        el.style.transform = '';
-      });
-    });
-  }
 })();
 </script>
 

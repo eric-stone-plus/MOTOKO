@@ -206,7 +206,6 @@ code {
 }
 .nav-links a { color: var(--ink-2); }
 .nav-links a:hover { color: var(--ink); text-decoration: none; }
-.nav-links a.ext::after { content: "↗"; margin-left: 3px; font-size: .85em; color: var(--ink-3); }
 
 .nav-actions {
   display: flex;
@@ -763,6 +762,19 @@ code {
   gap: var(--space-7);
 }
 
+.foot-github {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 14px;
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--ink-2);
+  transition: border-color .2s var(--ease), color .2s var(--ease);
+}
+.foot-github:hover { border-color: var(--accent-deep); color: var(--ink); }
 .foot-tag { margin-top: 10px; color: var(--ink-3); max-width: 42ch; }
 
 .foot-group { display: grid; gap: 8px; align-content: start; }
@@ -1069,9 +1081,6 @@ html:not(.js) .state-row:hover { background: transparent; }
 /* ---------- motion: scroll reveals, dashboard life, HUD cursor ---------- */
 /* Initial-hidden states only exist with JS + motion allowed; without JS, with
    reduced-motion, and in print everything renders at its final state. */
-
-/* pointer tilt (clawhunt-style; fine pointers, motion allowed) */
-[data-tilt] { transform-style: preserve-3d; will-change: transform; }
 
 @media (prefers-reduced-motion: no-preference) {
   .js .reveal {
