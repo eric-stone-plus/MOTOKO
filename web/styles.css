@@ -1160,7 +1160,13 @@ html:not(.js) .state-row:hover { background: transparent; }
 
 .hud-cursor { display: none; }
 .hud-cursor .hud-cur-dot,
-.hud-cursor .hud-cur-ring { position: fixed; top: 0; left: 0; pointer-events: none; }
+.hud-cursor .hud-cur-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 9999;   /* above the sticky nav (z 50): the cursor is never occluded */
+}
 .hud-cur-dot {
   width: 5px;
   height: 5px;

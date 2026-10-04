@@ -909,7 +909,9 @@
       requestAnimationFrame(tick);
     })();
     document.addEventListener('mouseover', function (e) {
-      if (!seen) return;
+      /* mouseover can beat the first mousemove; treat it as movement itself */
+      seen = true;
+      wrapCur.classList.remove('is-gone');
       var hit = e.target.closest && e.target.closest('a, button, input, label, [role="tab"], .state-row, .gate-chip');
       ring.classList.toggle('is-active', !!hit);
     });
