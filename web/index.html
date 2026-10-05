@@ -143,7 +143,7 @@
           <button type="button" class="gate-chip" data-gate-try="198.51.100.4">198.51.100.4</button>
         </div>
         <div class="gate-out" id="gate-out" role="status" aria-live="polite"><code><span class="verdict-ok">allowed</span>  api.shop.example.invalid
-<span class="t-dim">reason: host api.shop.example.invalid matches in-scope domain</span>
+<span class="t-dim">reason: host api.shop.example.invalid matches in-scope domain (resolved nothing)</span>
 <span class="t-dim">trace:  label-boundary hit on example.invalid · this demo resolves nothing</span></code></div>
         <p class="card-note">Client-side arithmetic mirrors <code>engine/core/scope.py</code>: label-boundary matching, CIDR containment, and the engine’s reason wording on every path that needs no resolution. Nothing leaves this tab — no traffic, no resolution, no storage. Subdomains of the scope match; suffix tricks like <code>evil-example.invalid</code> do not. The demo scope is documentation-reserved (<code>example.invalid</code>, RFC 2606; <code>203.0.113.0/24</code>, RFC 5737).</p>
       </div>
@@ -678,7 +678,7 @@
                trace: 'IPv6 literal \u00b7 demo scope holds one IPv4 CIDR' };
     }
     if (labelBoundaryMatch(h, 'example.invalid')) {
-      return { ok: true, shown: shown, reason: 'host ' + h + ' matches in-scope domain',
+      return { ok: true, shown: shown, reason: 'host ' + h + ' matches in-scope domain (resolved nothing)',
                trace: 'label-boundary hit on example.invalid \u00b7 this demo resolves nothing' };
     }
     return { ok: false, shown: shown, reason: 'host ' + h + ' not in scope (no domain match, no resolution)',
