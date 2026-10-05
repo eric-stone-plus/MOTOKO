@@ -142,10 +142,10 @@
           <button type="button" class="gate-chip" data-gate-try="203.0.113.7">203.0.113.7</button>
           <button type="button" class="gate-chip" data-gate-try="198.51.100.4">198.51.100.4</button>
         </div>
-        <div class="gate-out" id="gate-out" role="status" aria-live="polite"><code><span class="t-dim">scope: signed · halt: none</span>
-<span class="verdict-refused">refused before it runs</span>  evil-example.invalid
-<span class="t-dim">reason: no in-scope domain match · refusal recorded as a first-class event</span></code></div>
-        <p class="card-note">Illustrative — client-side arithmetic mirrors the engine's label-boundary and CIDR rules. Subdomains of the scope match; suffix tricks like <code>evil-example.invalid</code> do not. The demo scope is documentation-reserved (<code>example.invalid</code>, RFC 2606; <code>203.0.113.0/24</code>, RFC 5737).</p>
+        <div class="gate-out" id="gate-out" role="status" aria-live="polite"><code><span class="verdict-ok">allowed</span>  api.shop.example.invalid
+<span class="t-dim">reason: host api.shop.example.invalid matches in-scope domain</span>
+<span class="t-dim">trace:  label-boundary hit on example.invalid · this demo resolves nothing</span></code></div>
+        <p class="card-note">Client-side arithmetic mirrors <code>engine/core/scope.py</code>: label-boundary matching, CIDR containment, and the engine’s reason wording on every path that needs no resolution. Nothing leaves this tab — no traffic, no resolution, no storage. Subdomains of the scope match; suffix tricks like <code>evil-example.invalid</code> do not. The demo scope is documentation-reserved (<code>example.invalid</code>, RFC 2606; <code>203.0.113.0/24</code>, RFC 5737).</p>
       </div>
       <figure class="fig">
         <div class="term" role="img" aria-label="Illustrative terminal transcript of a gated tool call">
@@ -411,7 +411,7 @@
   <div class="wrap foot-inner">
     <div class="foot-brand">
       <p class="brand-name">MOTOKO</p>
-      <p class="foot-tag">Agent re-orchestration: existing agents and scanners under one engine.</p>
+      <p class="foot-tag">Every agent answers to one engine.</p>
       <a class="foot-github" href="https://github.com/eric-stone-plus/MOTOKO" rel="noopener">
         <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
         GitHub
@@ -442,14 +442,16 @@
   var live = document.getElementById('live-region');
   function say(msg) { if (live) { live.textContent = msg; } }
 
-  /* ---------- typewrite: one text-printing primitive for every mock terminal ----------
-     Walks text nodes in document order and reveals characters over time; nested
-     color spans survive because only nodeValue changes. finish() lands the full
-     text instantly (used for beforeprint and for cancellation). */
+  /* ---------- typewrite: text printing for the narrative terminals ----------
+     The frame is visible at first paint; only the text inside types in.
+     prepareTyping reserves the final height so the frame never resizes, and
+     finish() lands the full text instantly (beforeprint, cancellation). */
+  var motionOk = !window.matchMedia || window.matchMedia('(prefers-reduced-motion: no-preference)').matches;
   var typeJobs = [];
-  function typewrite(root, speed, done) {
-    if (!root) { if (done) done(); return null; }
-    if (!motionOk) { if (done) done(); return null; }
+  function prepareTyping(root) {
+    if (!root) return null;
+    if (root.__typeJob) return root.__typeJob;
+    var h = Math.ceil(root.getBoundingClientRect().height);
     var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     var nodes = [], total = 0;
     while (w.nextNode()) {
@@ -460,43 +462,64 @@
       nodes.push(n);
       total += n.__full.length;
     }
-    if (!total) { if (done) done(); return null; }
+    if (!total) return null;
+    root.style.minHeight = h + 'px';
     var job = {
-      cancel: false,
+      nodes: nodes, shown: 0, total: total, speed: 620, cancel: false,
       finish: function () {
         if (job.cancel) return;
         job.cancel = true;
         for (var i = 0; i < nodes.length; i++) nodes[i].nodeValue = nodes[i].__full;
         var k = typeJobs.indexOf(job);
         if (k >= 0) typeJobs.splice(k, 1);
-        if (done) done();
       }
     };
+    root.__typeJob = job;
     typeJobs.push(job);
-    var shown = 0, start = 0;
+    return job;
+  }
+  function runTyping(job) {
+    if (!job || job.cancel) return;
+    var start = 0;
     (function frame(t) {
       if (job.cancel) return;
       if (!start) start = t;
-      var want = Math.min(total, Math.round((t - start) / 1000 * speed));
-      while (shown < want) {
-        for (var i = 0; i < nodes.length; i++) {
-          var n = nodes[i];
+      var want = Math.min(job.total, Math.round((t - start) / 1000 * job.speed));
+      while (job.shown < want) {
+        for (var i = 0; i < job.nodes.length; i++) {
+          var n = job.nodes[i];
           if (n.nodeValue.length < n.__full.length) {
             n.nodeValue = n.__full.slice(0, n.nodeValue.length + 1);
-            shown++;
+            job.shown++;
             break;
           }
         }
       }
-      if (shown < total) requestAnimationFrame(frame);
+      if (job.shown < job.total) requestAnimationFrame(frame);
       else job.finish();
     })(performance.now());
-    return job;
   }
   function finishAllTyping() {
     typeJobs.slice().forEach(function (j) { j.finish(); });
   }
   window.addEventListener('beforeprint', finishAllTyping);
+
+  /* the two narrative terminals type on first view; nothing is hidden first */
+  if (motionOk) {
+    Array.prototype.slice.call(document.querySelectorAll('.shot-body, .term-body')).forEach(function (body) {
+      var job = prepareTyping(body);
+      if (!job) return;
+      if (!('IntersectionObserver' in window)) { runTyping(job); return; }
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (!e.isIntersecting) return;
+          io.disconnect();
+          runTyping(job);
+        });
+      }, { threshold: 0.1 });
+      io.observe(body);
+    });
+  }
 
   /* Copy buttons */
   document.addEventListener('click', function (e) {
@@ -570,7 +593,9 @@
     if (dlList) { initTabs(dlList, 'tab'); dlGroup.classList.add('js-tabs'); }
   }
 
-  /* ---------- scope gate demo (label-boundary + CIDR, mirrors scope.py) ---------- */
+  /* ---------- scope gate demo: label-boundary + CIDR, mirrors engine/core/scope.py ----------
+     Client-side only: no traffic, no resolution, no storage. Reason strings
+     follow scope.py verbatim on every path that needs no resolution. */
   var gateInput = document.getElementById('gate-input');
   var gateOut = document.getElementById('gate-out');
   function escapeHtml(s) {
@@ -578,15 +603,14 @@
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
+  /* scope.py _domain_matches: h == d or h.endswith('.' + d), trailing dots stripped */
   function labelBoundaryMatch(host, domain) {
-    /* engine/core/scope.py _domain_matches (non-wildcard entry):
-       h = h.rstrip(".") then h == d or h.endswith("." + d) */
     host = host.replace(/\.+$/, '');
     domain = domain.replace(/\.+$/, '');
     return host === domain || host.endsWith('.' + domain);
   }
+  /* scope.py _try_ip semantics: strict decimal octets, leading zeros rejected */
   function ipv4ToInt(ip) {
-    /* engine semantics: ipaddress.ip_address rejects leading zeros */
     var parts = ip.split('.');
     if (parts.length !== 4) return null;
     var n = 0;
@@ -608,58 +632,72 @@
     var bits = Number(split[1]);
     if (!Number.isInteger(bits) || bits < 0 || bits > 32) return false;
     if (bits === 0) return true;
-    var shift = 32 - bits;
-    return (n >>> shift) === (base >>> shift);
+    return (n >>> (32 - bits)) === (base >>> (32 - bits));
   }
-  function hostOf(raw) {
+  function looksIpv6(s) {
+    return (s.match(/:/g) || []).length >= 2 && /^[0-9a-f:.%]+$/i.test(s);
+  }
+  function parseEntry(raw) {
     var s = (raw || '').trim();
-    if (!s) return '';
+    if (!s) return { empty: true };
     s = s.replace(/^[a-zA-Z]+:\/\//, '');     /* pasted scheme */
     s = s.split('/')[0];
     s = s.replace(/^[^@\[\]]+@/, '');         /* userinfo */
     var port = null;
     if (s.startsWith('[')) {
       var close = s.indexOf(']');
-      if (close < 0) return s.toLowerCase();
+      if (close < 0) return { host: s.toLowerCase() };
       var rest = s.slice(close + 1);
       if (/^:\d+$/.test(rest)) port = Number(rest.slice(1));
       s = s.slice(1, close);
-    } else {
+    } else if ((s.match(/:/g) || []).length === 1) {
       var m = s.match(/^(.*):(\d+)$/);
       if (m) { s = m[1]; port = Number(m[2]); }
     }
-    if (port !== null && !(port >= 0 && port <= 65535)) return '\u0000port';  /* engine: invalid port refused */
-    return s.replace(/\.+$/, '').toLowerCase();   /* engine rstrips trailing dots (scope.py _domain_matches) */
+    if (port !== null && !(port >= 0 && port <= 65535)) return { badPort: true };
+    return { host: s.replace(/\.+$/, '').toLowerCase(), port: port };
   }
   function gateCheck(raw) {
-    var host = hostOf(raw);
-    if (host === '\u0000port') {
-      return '<span class="verdict-refused">refused before it runs</span>  ' + escapeHtml(String(raw).trim()) + '\n<span class="t-dim">reason: invalid port</span>\n<span class="t-dim">refusal recorded as a first-class event</span>';
+    var shown = String(raw || '').trim();
+    var e = parseEntry(raw);
+    if (e.empty) {
+      return { ok: false, empty: true, shown: shown, reason: 'empty host',
+               trace: 'check_host refuses empty input before any rule' };
     }
-    if (!host) return '<span class="t-dim">scope: signed · halt: none</span>\n<span class="t-dim">type a host, or pick an example above.</span>';
-    var isIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(host);
-    if (isIp) {
-      if (ipInCidr(host, '203.0.113.0/24')) {
-        return '<span class="verdict-ok">allowed</span>  ' + escapeHtml(host) + '\n<span class="t-dim">reason: IP ' + escapeHtml(host) + ' in CIDR 203.0.113.0/24</span>';
+    if (e.badPort) {
+      return { ok: false, badPort: true, shown: shown, reason: 'invalid port',
+               trace: 'entry parser refuses out-of-range ports' };
+    }
+    var h = e.host;
+    if (ipv4ToInt(h) !== null) {
+      if (ipInCidr(h, '203.0.113.0/24')) {
+        return { ok: true, shown: shown, reason: 'IP ' + h + ' in CIDR 203.0.113.0/24',
+                 trace: 'literal IP \u00b7 check_ip \u2192 in_cidrs hit' };
       }
-      return '<span class="verdict-refused">refused before it runs</span>  ' + escapeHtml(host) + '\n<span class="t-dim">reason: IP ' + escapeHtml(host) + ' not in any in-scope CIDR/address</span>\n<span class="t-dim">refusal recorded as a first-class event</span>';
+      return { ok: false, shown: shown, reason: 'IP ' + h + ' not in any in-scope CIDR/address',
+               trace: 'literal IP \u00b7 check_ip \u2192 no in_cidrs hit' };
     }
-    if (labelBoundaryMatch(host, 'example.invalid')) {
-      return '<span class="verdict-ok">allowed</span>  ' + escapeHtml(host) + '\n<span class="t-dim">reason: label-boundary match for example.invalid</span>';
+    if (looksIpv6(h)) {
+      return { ok: false, shown: shown, reason: 'IP ' + h + ' not in any in-scope CIDR/address',
+               trace: 'IPv6 literal \u00b7 demo scope holds one IPv4 CIDR' };
     }
-    return '<span class="verdict-refused">refused before it runs</span>  ' + escapeHtml(host) + '\n<span class="t-dim">reason: no in-scope domain match</span>\n<span class="t-dim">refusal recorded as a first-class event</span>';
+    if (labelBoundaryMatch(h, 'example.invalid')) {
+      return { ok: true, shown: shown, reason: 'host ' + h + ' matches in-scope domain',
+               trace: 'label-boundary hit on example.invalid \u00b7 this demo resolves nothing' };
+    }
+    return { ok: false, shown: shown, reason: 'host ' + h + ' not in scope (no domain match, no resolution)',
+             trace: 'label-boundary miss \u00b7 discovery path needs resolution \u2192 refused' };
   }
-  var gateTypeJob = null;
   function gateRender(raw) {
     if (!gateOut) return;
-    if (gateTypeJob) { gateTypeJob.cancel = true; gateTypeJob = null; }
-    gateOut.innerHTML = '<code>' + gateCheck(raw) + '</code>';   /* gateCheck escapes every dynamic value */
-    gateOut.setAttribute('aria-busy', 'true');
-    gateTypeJob = typewrite(gateOut, 500, function () {
-      gateOut.removeAttribute('aria-busy');
-      gateTypeJob = null;
-    });
-    if (!gateTypeJob) gateOut.removeAttribute('aria-busy');
+    var d = gateCheck(raw);
+    var lines = '<span class="' + (d.ok ? 'verdict-ok">allowed' : 'verdict-refused">refused before it runs') + '</span>  ' +
+      escapeHtml(d.shown) + '\n' +
+      '<span class="t-dim">reason: ' + escapeHtml(d.reason) + '</span>\n' +
+      '<span class="t-dim">trace:  ' + escapeHtml(d.trace) + '</span>';
+    if (!d.ok) lines += '\n<span class="t-dim">refusal recorded as a first-class event</span>';
+    gateOut.innerHTML = '<code>' + lines + '</code>';
+    say((d.ok ? 'allowed: ' : 'refused: ') + d.shown);
   }
   if (gateInput) {
     var gateBtn = document.getElementById('gate-check');
@@ -673,6 +711,7 @@
       gateInput.value = chip.getAttribute('data-gate-try');
       gateRender(gateInput.value);
     });
+    gateRender('api.shop.example.invalid');   /* one real computed check on load */
   }
 
   /* ---------- finding-state explorer (selection scoped per list) ---------- */
@@ -689,7 +728,6 @@
   });
 
   /* ---------- scroll reveals (Apple-style settle-in) ---------- */
-  var motionOk = !window.matchMedia || window.matchMedia('(prefers-reduced-motion: no-preference)').matches;
   if (motionOk && 'IntersectionObserver' in window) {
     var heroSeq = ['.hero .eyebrow', '.hero-mark-dark', 'h1.display', '.lede', '.hero-actions'];
     heroSeq.forEach(function (sel, i) {
@@ -704,7 +742,7 @@
       });
     });
     Array.prototype.slice.call(document.querySelectorAll(
-      '.sec-head, .gate-demo, .dl-tabs, .cta .title-cta, .cta-sub, .gs-more'
+      '.sec-head, .dl-tabs, .cta .title-cta, .cta-sub, .gs-more'
     )).forEach(function (el) { el.classList.add('reveal'); });
 
     var io = new IntersectionObserver(function (entries) {
