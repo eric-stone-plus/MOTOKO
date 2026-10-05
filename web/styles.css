@@ -264,7 +264,7 @@ code {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: clamp(28px, 3.6vw, 56px);
-  align-items: center;
+  align-items: start;
 }
 .hero-copy, .hero-panel { min-width: 0; }
 .hero-panel .sec-head { margin-top: 0; }
@@ -355,7 +355,8 @@ code {
 .cmd {
   display: block;
   min-width: 0;
-  overflow-x: auto;
+  overflow-x: hidden;
+  overflow-wrap: anywhere;
   background: transparent;
   border: 0;
   color: var(--term-ink);
@@ -363,7 +364,7 @@ code {
   font-size: var(--text-code);
   line-height: 1.6;
   padding: 11px 14px;
-  white-space: pre;
+  white-space: pre-wrap;
 }
 
 .copy-btn {
