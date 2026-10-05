@@ -35,7 +35,11 @@ def build_digest(db, engagement_id: str) -> str:
     active_paths = [p for p in paths if p.get("state") == "active"]
 
     top_hyps = sorted(hypotheses, key=_priority, reverse=True)[:3]
-    n_events = db.conn.execute("SELECT COUNT(*) AS c FROM events").fetchone()["c"]
+    # The log is append-only (nothing in core issues DELETE FROM events), so
+    # the live cursor IS the event count — and it is O(1) off the integer
+    # primary key. COUNT(*) is a full scan: on the camden graph (10.5M rows,
+    # no events index) it took the digest past its 120s watchdog.
+    n_events = db.conn.execute("SELECT COALESCE(MAX(seq), 0) AS c FROM events").fetchone()["c"]
     # Keep the context honest when a safety guard itself failed.  The health
     # sweep expands these into actionable issues; the digest carries only
     # bounded counts so the reflector never receives raw exception payloads.

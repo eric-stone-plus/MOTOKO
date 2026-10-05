@@ -24,7 +24,7 @@ Public-page collection still makes requests visible to the selected sites.
    complete URL templates and choose exact site IDs. `--contains` only filters
    the display; collection accepts IDs, never substring selectors or `all`.
 3. Use the campaign git root, outside the MOTOKO source tree, for evidence.
-   Set the deployment's `MOTOKO_EGRESS_MODE=lane`, `https_lane`,
+   Set the deployment's `MOTOKO_EGRESS_MODE=lane`, `https_proxy`,
    `MOTOKO_EGRESS_ECHO_URL` (HTTPS, plain IP response), and
    `MOTOKO_EGRESS_EXPECT_IP`. The collecting process checks its own lane
    route immediately before requests. Do not print lane credentials.

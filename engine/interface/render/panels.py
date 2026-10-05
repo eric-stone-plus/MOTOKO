@@ -109,7 +109,7 @@ def bar(ratio: float, width: int, theme: Theme, *, token: str = "funnel.bar") ->
 
 
 def fmt_duration(seconds: float | None) -> str:
-    """Humanize a duration: ``41m00s``, ``2m31s``, ``18s``; ``?`` when unknown."""
+    """Humanize a duration: ``41m``, ``2m31s``, ``18s``; ``?`` when unknown."""
     if seconds is None or seconds < 0:
         return "?"
     total = int(seconds)
@@ -200,9 +200,9 @@ def engagement_row_cells(eng: EngagementSnapshot, theme: Theme) -> tuple[Text, .
 def provenance_compact(served_by) -> str:
     """Compact glance provenance: the distinct collector names, deduped.
 
-    Glance style: the topbar answers "which collectors actually served this
-    frame" without per-panel detail — ``fs · ro-sqlite · adapter motoko/1``.
-    Insertion order is preserved (assembly order), duplicates
+    STAMMTISCH-glance style: the topbar answers "which collectors actually
+    served this frame" without per-panel detail — ``fs · ro-sqlite · adapter
+    motoko/1``. Insertion order is preserved (assembly order), duplicates
     (gates+reports share the adapter) collapse; an empty mapping renders ""
     and the caller omits the segment entirely (never a fake source).
     """

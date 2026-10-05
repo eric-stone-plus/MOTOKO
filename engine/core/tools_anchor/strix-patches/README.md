@@ -11,7 +11,7 @@ port, see provision.sh strix-upgrade's fail-closed checklist).
 
 | file | patch content | markers verified by `provision.sh strix-verify` |
 |---|---|---|
-| `caido_upstream.py` | new module: GraphQL createUpstreamLaneHttp wiring, fail-closed | `MOTOKO_CAIDO_UPSTREAM` |
+| `caido_upstream.py` | new module: GraphQL createUpstreamProxyHttp wiring, fail-closed | `MOTOKO_CAIDO_UPSTREAM` |
 | `caido_bootstrap.py` | after project select, inject upstream when `MOTOKO_CAIDO_UPSTREAM` set | `MOTOKO_CAIDO_UPSTREAM` |
 | `docker_client.py` | `STRIX_SANDBOX_PUBLISH_PORTS=1` → keep published ports + `_resolve_exposed_port` reads NetworkSettings.Ports → `127.0.0.1:<mapped>` (slirp4netns half-loop fix, a recorded pitfall) | `STRIX_SANDBOX_PUBLISH_PORTS`, `_resolve_exposed_port` |
 

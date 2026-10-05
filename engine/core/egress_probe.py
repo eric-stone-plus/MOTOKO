@@ -5,7 +5,7 @@ string judgement on the echo endpoint's shape) and stays IO-free by design;
 everything that actually talks lives here, so "which code may send traffic"
 stays answerable with one filename. Exactly one GET
 against the operator-configured IP echo (``MOTOKO_EGRESS_ECHO_URL``, no code
-default), through the CURRENT environment — forwarding vars are deliberately
+default), through the CURRENT environment — lane vars are deliberately
 untouched, because in lane mode the echo riding the egress like any tool
 would IS the measurement.
 

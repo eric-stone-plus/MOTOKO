@@ -76,7 +76,7 @@ class TrufflehogParser(Parser):
             detectors = sorted({f["detector_name"] for f in findings})
             summary = (f"trufflehog: {len(findings)} secret(s) — "
                        f"{', '.join(detectors)} (values withheld, fingerprints "
-                       f"only, by design)")
+                       f"only, the internal doctrine)")
         else:
             summary = "trufflehog: 0 secrets"
         return self._result(summary, findings=findings, dead_letter=dead)

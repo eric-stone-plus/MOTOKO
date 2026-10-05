@@ -214,6 +214,10 @@ _STATEMENTS: list[str] = [
         payload   TEXT                        -- JSON
     )
     """,
+    # The event log is looked up by kind constantly (digest error roll-up,
+    # health sweeps, per-entity timelines). Without this every one of those
+    # is a full scan of a multi-million-row append-only table.
+    "CREATE INDEX IF NOT EXISTS idx_events_kind_seq ON events(kind, seq)",
     """
     CREATE TABLE IF NOT EXISTS services (
         id          TEXT PRIMARY KEY,

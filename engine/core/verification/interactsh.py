@@ -10,7 +10,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from .. import executor, util
+from .. import executor, toolchain, util
 
 # `[INF] <cid>.oast.site` — the client colourises its own level token, so the
 # payload is taken from anywhere on the line rather than from a fixed column.
@@ -92,12 +92,20 @@ class InteractshCanary:
         ]
         try:
             with open(err_path, "wb") as errfh:
+                # Same privilege separation as the tool executor: the canary
+                # client is a third-party binary talking to an OOB server and
+                # must not inherit the engine's identity. This spawn does not
+                # go through executor's registry, so the drop is applied here
+                # too; assert_can_spawn() fails closed under a root engine
+                # whose tool account is missing.
+                toolchain.assert_can_spawn()
                 self._proc = subprocess.Popen(
                     argv,
                     stdin=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL,   # everything lands on stderr
                     stderr=errfh,
                     cwd=str(self.workdir),
+                    preexec_fn=toolchain.preexec_drop(),
                     start_new_session=True,      # own pgid: close() can signal it
                 )
         except (OSError, ValueError) as e:

@@ -550,12 +550,15 @@ class Orchestrator:
                 continue
             merged = dict(e)
             changed = False
+            dirty = False
             for k, v in a.items():
                 if k in ("id", "created_at", "updated_at", "frontier",
                          "expansion_count", "attempts_by_rule", "deferred_rules"):
                     continue
                 if k == "source":
-                    merged[k] = v
+                    if merged.get(k) != v and v not in (None, ""):
+                        merged[k] = v
+                        dirty = True
                     continue
                 if k == "tech" and e.get("tech") and v:
                     union = sorted(set(e["tech"]) | set(v))
@@ -569,7 +572,8 @@ class Orchestrator:
                 merged["frontier"] = True      # new facts -> re-evaluate once
                 merged["expansion_count"] = 0
                 merged.pop("deferred_rules", None)
-            self.writer.upsert_entity(merged)
+            if changed or dirty:
+                self.writer.upsert_entity(merged)
             return e["id"]
         self.writer.upsert_entity(a)
         return a["id"]
@@ -974,6 +978,11 @@ class Orchestrator:
             if budget <= 0:
                 break
             if not a.get("frontier", True):
+                continue
+            waiting = a.get("deferred_rules") or []
+            if waiting and all(
+                    proposed_by_rule.get(rid, 0) >= _MAX_PROPOSED_PER_RULE
+                    for rid in waiting):
                 continue
             facts = self._fact_view(a, assets)
             hyps = self.engine.generate(facts)
@@ -1936,7 +1945,7 @@ class Orchestrator:
             raise RuntimeError(
                 f"launch refused: exit IP {seen} != {egress.EXPECT_IP_ENV} "
                 f"{expected} — the live lane is not the expected egress "
-                f"(by design)")
+                f"(the internal design notes)")
 
     def _establish_egress_fingerprint(self) -> None:
         """Establish the exit fingerprint before the first tool_run row.

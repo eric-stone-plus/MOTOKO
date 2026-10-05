@@ -1,6 +1,6 @@
 // motoko seat plugin for opencode — control-plane adapter.
 //
-// Doctrine: the host is a configuration fact. This
+// Doctrine (motoko the internal design notes): the host is a configuration fact. This
 // plugin is a THIN control plane: every tool shells out to the gated CLI
 // (`motoko`), execution (strix sessions, shepherds) stays in systemd/timeout
 // wrappers owned by the OS, never by this process. Plugin loaded = seat
@@ -104,7 +104,7 @@ function needOneOf<T extends string>(v: unknown, name: string, allowed: readonly
 export default (async () => ({
   tool: {
     // Read-side engine surface. `doctor` reads the CALLER's shell env — for a
-    // live writer process audit /proc/<pid>/environ by hand (by design).
+    // live writer process audit /proc/<pid>/environ by hand (the internal design notes).
     motoko_status: {
       description:
         "MOTOKO engine read operations: digest (engagement context), health " +
@@ -312,7 +312,7 @@ export default (async () => ({
       if (first === "strix" || base === "strix") {
         throw new Error(
           "Blocked: raw strix invocation. Use the strix_launch tool or " +
-            "`motoko strix` / launch-strix.sh — the gated paths (by design).",
+            "`motoko strix` / launch-strix.sh — the gated paths (the internal design notes).",
         )
       }
       if (first === "motoko") {
@@ -320,7 +320,7 @@ export default (async () => ({
         if (second === "run" && !/--max-cycles|--timeout|--max-waves/.test(seg)) {
           throw new Error(
             "Blocked: unbounded `motoko run` (no wall clock, unbounded waves " +
-              "by default). Pass --max-cycles / --timeout (by design).",
+              "by default). Pass --max-cycles / --timeout (the internal design notes discipline).",
           )
         }
         // motoko strix / other motoko subcommands: allowed (strix is gated inside)
@@ -330,7 +330,7 @@ export default (async () => ({
         if (/(^|\s)--direct(\s|$)/.test(seg)) {
           throw new Error(
             "Blocked: --direct is the legacy bare uplink escape hatch, " +
-              "operator-only and refused by the CLI wrapper by design.",
+              "operator-only and refused by the CLI wrapper by design (the internal doctrine).",
           )
         }
         continue

@@ -62,14 +62,40 @@ class Verdict:
 
 
 # --- metric extraction ------------------------------------------------
+def _measured(value) -> bool:
+    """True when a metric carries a real number rather than 'not measured'.
+
+    Two of the metrics schema's fields have no producer in the engine
+    (``arch_violations``, ``coverage`` — see ``LoopRunner._collect_metrics``),
+    and they arrive as None. ``None`` must not be read as 0: 0 means "measured,
+    and it is zero", which for a violation COUNT is a clean bill of health and
+    for a coverage RATIO is an empty test run. Absence of a measurement is not
+    a measurement of absence.
+    """
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _delta(curr: dict, prev: dict | None, key: str, default: float) -> float:
+    """``curr[key] - prev[key]`` when both are measured, else 0.0."""
+    a, b = curr.get(key), (prev or {}).get(key)
+    if not (_measured(a) and _measured(b)):
+        return default
+    return float(a) - float(b)
+
+
 def reward(prev: dict | None, curr: dict, findings: list[dict]) -> float:
     ''
     tp = curr.get("test_pass_rate", 0.0)
     fixed = _count(findings, "fix_confirmed")
     regress = curr.get("new_red_tests", 0)
     dstatic = curr.get("static_warnings", 0) - (prev or {}).get("static_warnings", 0)
-    arch = curr.get("arch_violations", 0)
-    dcoverage = curr.get("coverage", 0.0) - (prev or {}).get("coverage", 0.0)
+    # Unmeasured metrics contribute nothing. The old code read a carried
+    # forward 0 and multiplied it by the weight, so -15·arch and
+    # +10·dcoverage·100 were terms in the formula that could never move the
+    # score while reading as if they measured something.
+    arch = curr.get("arch_violations")
+    arch_term = WEIGHTS["arch_violation"] * arch if _measured(arch) else 0.0
+    dcoverage = _delta(curr, prev, "coverage", 0.0)
     dcoverage = max(-0.05, min(0.05, dcoverage))
     open_conf = curr.get("open_confirmed", 0)
 
@@ -77,7 +103,7 @@ def reward(prev: dict | None, curr: dict, findings: list[dict]) -> float:
          + WEIGHTS["fix_confirmed"] * fixed
          + WEIGHTS["regression"] * regress
          + WEIGHTS["static_delta"] * max(0.0, dstatic)
-         + WEIGHTS["arch_violation"] * arch
+         + arch_term
          + WEIGHTS["coverage_delta"] * dcoverage * 100.0
          + WEIGHTS["open_confirmed"] * open_conf)
     return round(r, 2)
@@ -106,15 +132,37 @@ def _nit_ratio(findings: list[dict]) -> float:
     return nits / len(findings)
 
 
+def _grew(curr: dict, prev: dict | None, key: str) -> bool:
+    """True when a COUNT metric grew, and False when either side is unmeasured.
+
+    A count that nobody produces must never report growth. The old form
+    ``curr.get(key, 0) > prev.get(key, 0)`` is now a TypeError once the field
+    is None, and defaulting it to 0 would silently claim "no growth" for a
+    metric that does not exist — the same confusion this guards against.
+    """
+    a, b = curr.get(key), (prev or {}).get(key)
+    if not (_measured(a) and _measured(b)):
+        return False
+    return a > b
+
+
 def _pipes_unchanged(prev: dict | None, curr: dict) -> bool:
+    """C6: the measured pipes hold still. Unmeasured fields do not vote.
+
+    ``coverage`` has no producer, so both sides are always None there; a
+    literal ``==`` comparison would let a field nobody measures satisfy a
+    convergence conjunct. It is skipped instead, leaving the three metrics
+    that are actually produced to decide.
+    """
     if prev is None:
         return False
-    return (
-        prev.get("test_pass_rate") == curr.get("test_pass_rate")
-        and prev.get("static_warnings") == curr.get("static_warnings")
-        and prev.get("static_errors") == curr.get("static_errors")
-        and prev.get("coverage") == curr.get("coverage")
-    )
+    for key in ("test_pass_rate", "static_warnings", "static_errors"):
+        if prev.get(key) != curr.get(key):
+            return False
+    a, b = curr.get("coverage"), prev.get("coverage")
+    if _measured(a) and _measured(b) and a != b:
+        return False
+    return True
 
 
 def evaluate(round_num: int, prev: dict | None, curr: dict,
@@ -128,8 +176,8 @@ def evaluate(round_num: int, prev: dict | None, curr: dict,
     # --- degradation (hard first) ---
     hard_degrade = (
         curr.get("new_red_tests", 0) > 0
-        or curr.get("arch_violations", 0) > (prev or {}).get("arch_violations", 0)
-        or curr.get("static_errors", 0) > (prev or {}).get("static_errors", 0)
+        or _grew(curr, prev, "arch_violations")
+        or _grew(curr, prev, "static_errors")
     )
     if hard_degrade:
         strikes = curr.get("_regression_strikes", 0) + 1
@@ -148,8 +196,16 @@ def evaluate(round_num: int, prev: dict | None, curr: dict,
         baseline = r1_baseline or {"confirmed_findings": 1, "churn": 1}
         c2 = _confirmed_new(findings, "MEDIUM") <= max(1, 0.25 * baseline.get("confirmed_findings", 1))
         c3 = _stagnated(history, r_cur, k=2)
-        c4 = (curr.get("churn", 0) < CHURN_FLOOR
-              and curr.get("churn", 0) < CHURN_FRAC * baseline.get("churn", 1))
+        # C4 = "this round changed almost nothing". Two ways it used to lie:
+        # a missing key defaulted to 0 (always < FLOOR and < FRAC*baseline),
+        # and the metric itself read from a committed tree so a productive
+        # round also measured 0. An unmeasured churn is now None and C4 is
+        # FALSE for it — absence of evidence is not evidence of stagnation,
+        # and the remaining criteria (C2/C3, or C5∧C6) still have to agree.
+        _churn = curr.get("churn")
+        c4 = (isinstance(_churn, (int, float)) and not isinstance(_churn, bool)
+              and _churn < CHURN_FLOOR
+              and _churn < CHURN_FRAC * baseline.get("churn", 1))
         c5 = _nit_ratio(findings) >= NIT_RATIO
         c6 = _pipes_unchanged(prev, curr)
 

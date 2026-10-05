@@ -1,12 +1,17 @@
 """The finding-class registry — what the engine owes a class after confirmation.
 
 `rulecheck` derives which classes the parsers and the `on_hit_class` wire can
-produce, and 27 of the 45 it found had no rule gating on them. Every one of
+produce, and 27 of the 47 it found had no rule gating on them. Every one of
 those rows said the same thing ("add a chain/verification rule ONLY if a
 follow-up action exists in this engine — the finding may be terminal by
 design"), which is a question handed back to whoever reads the report, 27 times
 per run. A report that asks the same question forever is how a gap stays open
 for three waves.
+
+The counts move as the corpus does: they read 45 classes and 31 rules when
+this paragraph was written, and the registry has grown with the corpus since.
+Re-derive rather than trusting the sentence — `motoko rules --report` prints
+the rule count, and `_REGISTRY` below is the class count.
 
 So the answer is recorded once, per class, and the checker reads it:
 
@@ -103,10 +108,10 @@ _REGISTRY: dict[str, tuple[str, str]] = {
                              "finding; what follows depends on its auth model, "
                              "which is operator work"),
     "auth.bypass": (TERMINAL, "authentication was bypassed — the read-proof is "
-                              "the deliverable (non-destructive verification, by design)"),
+                              "the deliverable (the internal doctrine non-destructive verification)"),
     "auth.default_creds": (TERMINAL, "credentials that authenticated need no "
-                                     "second proof, and any further "
-                                     "credential work is zero-tolerance by design"),
+                                     "second proof, and the internal doctrine makes any further "
+                                     "credential work zero-tolerance"),
     "auth.token_leak": (TERMINAL, "spending the leaked token needs a SECOND "
                                   "identity, which is engagement configuration "
                                   "this engine has no slot for — the same "
@@ -135,10 +140,10 @@ _REGISTRY: dict[str, tuple[str, str]] = {
                                  "needs a second identity — see auth.token_leak"),
     "info_disclosure.key": (TERMINAL, "key material found is reported and "
                                      "rotated by the operator; the engine never "
-                                     "spends it (by design)"),
+                                     "spends it (the internal doctrine)"),
     "info_disclosure.sensitive_file": (TERMINAL, "the file answered; reading "
                                                  "further is exfiltration, "
-                                                 "which is forbidden by design"),
+                                                 "which the internal doctrine forbids"),
     "info_disclosure.smb": (TERMINAL, "SMB enumeration lands on the lateral "
                                       "side of a line this engine does not "
                                       "cross (no execution channel)"),
@@ -168,7 +173,7 @@ _REGISTRY: dict[str, tuple[str, str]] = {
                                   "itself is the finding and the LFI chain "
                                   "already covers the follow-up worth doing"),
     "rce": (TERMINAL, "the OOB callback is the proof; running anything further "
-                      "inside the target is forbidden (by design — no persistent damage)"),
+                      "inside the target is forbidden (the internal doctrine, no persistent damage)"),
     "secret.leak": (TERMINAL, "the end of the heapdump chain — the secret is "
                               "reported, never used"),
     "smuggling.h2": (TERMINAL, "an accepted h2c upgrade is the precondition "

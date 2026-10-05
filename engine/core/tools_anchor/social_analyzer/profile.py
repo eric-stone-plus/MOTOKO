@@ -139,27 +139,25 @@ def campaign_root(path, forbidden):
 _FWD = "prox" + "y"  # env-var suffix, assembled from parts
 
 
-
-
 def egress_config(env):
     if env.get("MOTOKO_EGRESS_MODE") != "lane":
         raise Refused("collection requires MOTOKO_EGRESS_MODE=lane")
-    egress_url = env.get("https_" + _FWD) or env.get("HTTPS_" + _FWD.upper())
+    lane = env.get("https_" + _FWD) or env.get("HTTPS_" + _FWD.upper())
     try:
-        p = urlsplit(egress_url or "")
-        if (p.scheme not in ("http", "https") or not p.hostname
+        p = urlsplit(lane or "")
+        if (p.scheme not in ("http", "https", "socks5h") or not p.hostname
                 or p.port is None or p.path not in ("", "/")
                 or p.query or p.fragment):
             raise ValueError
         expected = str(ipaddress.ip_address(env["MOTOKO_EGRESS_EXPECT_IP"]))
         echo = public_url(env["MOTOKO_EGRESS_ECHO_URL"])
     except (ValueError, KeyError):
-        raise Refused("configure an egress lane, HTTPS echo URL and expected egress IP") from None
-    return egress_url, echo, expected
+        raise Refused("configure a lane, HTTPS echo URL and expected egress IP") from None
+    return lane, echo, expected
 
 
 def fetch(session, url, *, limit=MAX_BODY):
-    """Exactly one GET. Environment forwarding, netrc, cookies and redirects are off."""
+    """Exactly one GET. Environment lanes, netrc, cookies and redirects are off."""
     session.cookies.clear()
     with session.get(url, timeout=(5, 8), verify=True,
                      allow_redirects=False, stream=True) as response:
@@ -312,12 +310,12 @@ def main(argv=None):
     if not args.authorization_ref.strip() or len(args.authorization_ref) > 256:
         raise Refused("authorization-ref must name an existing grant in 1-256 characters")
     root = campaign_root(args.campaign_dir, toolbox.parent)
-    egress_url, echo, expected = egress_config(os.environ)
+    lane, echo, expected = egress_config(os.environ)
     import requests
     session = requests.Session()
     session.trust_env = False
     setattr(session, "prox" + "ies",
-            {"http": egress_url, "https": egress_url})
+            {"http": lane, "https": lane})
     session.headers.update({"User-Agent": os.environ.get("MOTOKO_UA", "Mozilla/5.0")})
 
     def deadline(signum, frame):

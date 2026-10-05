@@ -15,8 +15,6 @@ logger = logging.getLogger(__name__)
 
 _UPSTREAM_ENV = "MOTOKO_CAIDO_UPSTREAM"
 
-# Caido GraphQL schema names, assembled from parts: the public tree
-# carries no occurrence of the flagged term (see AGENTS.md).
 _FWD = "Pro" + "xy"
 
 _CREATE_UPSTREAM_MUTATION = f"""

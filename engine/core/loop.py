@@ -191,8 +191,8 @@ and merged by the convergence model and drives the next round of fixes.
 Every finding carries an axis label; both axes look at the same material —
 never report on only one:
 
-- **[axis:standards]** — violates this repo's discipline: the execution
-  discipline (anti-patterns / OPSEC invariants), known invariants, existing
+- **[axis:standards]** — violates this repo's discipline: the internal design notes execution
+  discipline (anti-patterns / OPSEC invariants), known the internal design notes, existing
   architecture contracts.
 - **[axis:spec]** — deviates from this round's task intent: whether the task
   brief / fix list was faithfully implemented (including "fixed but fixed
@@ -257,9 +257,9 @@ expansion.
 _AUDIT_FOCUS_DISCIPLINE = """\
 # Audit focus (lens: repository discipline — deep pass on the standards axis)
 
-1. execution-discipline violations: the anti-pattern list, OPSEC
+1. the internal design notes execution-discipline violations: the anti-pattern list, OPSEC
    invariants, write-approval boundaries
-2. doctrine re-enactments: does new code replay a recorded mechanism
+2. the internal design notes re-enactments: does new code replay a recorded mechanism
    (including ones in the retired index)
 3. Architecture-contract drift: module boundaries, data/code separation,
    directory and naming semantics — still holding?
@@ -710,12 +710,21 @@ def _call_cli(ep: LLMEndpoint, prompt: str) -> dict:
 def _leg_health(metas: list[dict] | None) -> dict:
     """Machine leg-health for the evaluator's convergence quorum.
 
-    A leg counts healthy only when it produced a report AND exited 0. A leg
-    that raised, timed out, or was refused by its endpoint contributed no
-    lens to the round, and its silence must not read as "found nothing":
-    the leg-isolation rule keeps a broken leg out of ``audits[]``, so
-    without this counter an all-legs-dead round looks identical to a clean
-    one and converges on an empty finding set.
+    A leg counts healthy only when it produced a NON-EMPTY report AND exited
+    0. A leg that raised, timed out, or was refused by its endpoint
+    contributed no lens to the round, and its silence must not read as
+    "found nothing": the leg-isolation rule keeps a broken leg out of
+    ``audits[]``, so without this counter an all-legs-dead round looks
+    identical to a clean one and converges on an empty finding set.
+
+    The emptiness test is load-bearing, not cosmetic. A streaming HTTP leg
+    returns ``"".join(parts)`` — an empty STRING, never None — when the
+    endpoint answered 200 with no content deltas (a truncated stream, a
+    bodyless error envelope, a gateway that closes cleanly after headers).
+    ``text is not None`` counted every such leg healthy, so a round where
+    three of four legs returned nothing still satisfied the quorum and could
+    converge; the guard the docstring above describes was bypassable by the
+    one shape most likely to occur in practice.
     """
     metas = metas or []
     ok: list[str] = []
@@ -725,16 +734,23 @@ def _leg_health(metas: list[dict] | None) -> dict:
             code = int(meta.get("exit_code") or 0)
         except (TypeError, ValueError):
             code = 1
-        healthy = meta.get("text") is not None and code == 0
+        text = meta.get("text")
+        healthy = bool(text) and code == 0
         (ok if healthy else failed).append(str(meta.get("name", "?")))
     return {"legs_total": len(metas), "legs_ok": len(ok),
             "legs_failed": failed}
 
 
 def _is_confirmed(fix: dict) -> bool:
-    "Whether more than one audit LENS corroborates this fix.\n\n    This is CROSS-LENS CONSENSUS, not verification. On one substrate the\n    lenses' blind spots are correlated, so the status it earns is\n    ``consensus_confirmed``; ``verified_true`` is reserved for the VERIFY\n    beat (loop_evaluate.CONFIRMED_STATUSES).\n    "
+    'Whether more than one audit LENS corroborates this fix.\n\n    Negation-aware, because the field is free prose from a model: a plain\n    substring test counted "NOT both", "never corroborated by both" and\n    "single, not multi" as confirmation — the opposite of what they say.\n    The polarity of this predicate is load-bearing (it stamps\n    ``consensus_confirmed`` and feeds ``_guard_red_command``), so an\n    over-count here inflates cross-lens agreement exactly where the\n    doctrine warns it is weakest. A negator in the same clause now wins\n    over the corroboration token.\n\n    This is CROSS-LENS CONSENSUS, not verification. On one substrate the\n    lenses\' blind spots are correlated, so the status it earns is\n    ``consensus_confirmed``; ``verified_true`` is reserved for the VERIFY\n    beat (loop_evaluate.CONFIRMED_STATUSES).\n    '
     c = str(fix.get("consensus", "")).lower()
-    return "both" in c or "multi" in c
+    negators = ("not", "no ", "never", "neither", "without", "n't", "only one",
+                "single", "one leg", "a leg")
+    for clause in re.split(r"[,;.]| but ", c):
+        if "both" in clause or "multi" in clause:
+            if not any(n in clause for n in negators):
+                return True
+    return False
 
 
 LAND_SEVERITIES = frozenset({"p0", "high"})
@@ -855,7 +871,20 @@ class LoopRunner:
             return f"(engagement {self.engagement_id} has no graph.db yet)"
         import sqlite3
         from collections import Counter
-        con = sqlite3.connect(g)
+        # Read-only, always. This runs once per round over a db the loop only
+        # ever reads from, and a plain rw connect takes the write path: on
+        # close SQLite checkpoints residual WAL frames back into the file and
+        # removes the sidecar. Graph-health hit exactly this and was moved to
+        # a read-only connection for the reason recorded there — on a SEALED
+        # engagement the checkpoint rewrites the artifact, the sha drifts
+        # from the manifest, and `seal --verify` fails on a db nobody
+        # deliberately wrote. An unsealed db is opened plain read-only, which
+        # is safe against the live writer (WAL readers never block).
+        if (edir / "engagement.manifest.json").exists():
+            uri = f"{g.resolve().as_uri()}?mode=ro&immutable=1"
+        else:
+            uri = f"{g.resolve().as_uri()}?mode=ro"
+        con = sqlite3.connect(uri, uri=True)
         con.row_factory = sqlite3.Row
         lines: list[str] = []
         try:
@@ -1150,15 +1179,25 @@ class LoopRunner:
             else (prev_round or {}).get("_test_results")
         passed, failed, new_red = self._run_test_suite(prev_results)
         static_warnings, static_errors = self._static_analysis()
-        churn = self._churn()
+        # Measure churn from the PREVIOUS round's landed checkpoint, not from
+        # HEAD: LAND commits, so a HEAD-relative diff reads zero for every
+        # round that actually shipped work. None means "could not measure" —
+        # propagated as None, never as 0, so the evaluator's C4 treats it as
+        # absence of evidence rather than evidence of stagnation. A 0 or a
+        # negative number here would read as "nothing changed" and satisfy
+        # C4 unconditionally, which is the defect this replaces.
+        prev_checkpoint = (prev_round or {}).get("checkpoint")
+        churn = self._churn(prev_checkpoint)
+        if churn < 0:
+            churn = None
 
         return {
             "test_pass_rate": (passed / (passed + failed)) if (passed + failed) else 0.0,
             "new_red_tests": new_red,
             "static_warnings": static_warnings,
             "static_errors": static_errors,
-            "arch_violations": (prev_round or {}).get("arch_violations", 0),
-            "coverage": (prev_round or {}).get("coverage", 0.0),
+            "arch_violations": None,
+            "coverage": None,
             "open_confirmed": self._open_confirmed(),
             "churn": churn,
             "test_passed": passed,
@@ -1353,19 +1392,21 @@ class LoopRunner:
         rows, _broken = self._pyflakes_rows()
         return [(p, n, m) for p, n, m in rows]
 
-    def _churn(self) -> int:
-        """Round churn: changed lines from git diff --stat vs HEAD."""
+    def _churn(self, since: str | None = None) -> int:
+        'Round churn: changed lines this round, measured against its start.'
+        ref = since or "HEAD"
         try:
             proc = subprocess.run(
-                ["git", "diff", "--stat", "HEAD"],
+                ["git", "diff", "--stat", ref],
                 cwd=str(self.engine_root), capture_output=True, text=True,
                 timeout=30)
         except OSError:
-            return 0
-        m = re.search(r"changed\s+(\d+)\s+insertion", proc.stdout)
-        if m:
-            return int(m.group(1))
-        # parse per-file lines: " n files changed, X insertions(+), Y deletions(-)"
+            return -1          # unmeasurable, not zero — see the caller
+        if proc.returncode != 0:
+            return -1
+        # "N files changed, X insertions(+), Y deletions(-)" — both halves
+        # count as churn; the old insertions-only path disagreed with its
+        # own fallback branch about what "changed lines" means.
         ins = re.findall(r"(\d+) insertion", proc.stdout)
         dels = re.findall(r"(\d+) deletion", proc.stdout)
         return (int(ins[0]) if ins else 0) + (int(dels[0]) if dels else 0)
@@ -1462,12 +1503,27 @@ class LoopRunner:
         """
         strikes = 0
         rounds = history.get("rounds") or []
+
+        def _count_grew(m: dict, prev: dict, key: str) -> bool:
+            """Count metric grew, or False when either side is unmeasured.
+
+            The collected metrics carry None for fields with no producer
+            (``arch_violations``), and ``None > None`` is a TypeError — a
+            crash on the regression path, during history replay. Absence of
+            a measurement is not growth.
+            """
+            a, b = m.get(key), prev.get(key)
+            if not (isinstance(a, (int, float)) and not isinstance(a, bool)
+                    and isinstance(b, (int, float)) and not isinstance(b, bool)):
+                return False
+            return a > b
+
         for i in range(len(rounds) - 1, -1, -1):
             m = rounds[i].get("metrics") or {}
             prev = (rounds[i - 1].get("metrics") or {}) if i > 0 else {}
             if (m.get("new_red_tests", 0) > 0
-                    or m.get("static_errors", 0) > prev.get("static_errors", 0)
-                    or m.get("arch_violations", 0) > prev.get("arch_violations", 0)):
+                    or _count_grew(m, prev, "static_errors")
+                    or _count_grew(m, prev, "arch_violations")):
                 strikes += 1
             else:
                 break

@@ -129,7 +129,18 @@ class Database:
         self.read_only = read_only
         self._lock_fd = None
         if not read_only:
-            fd = os.open(str(self.path) + ".writer.lock", os.O_CREAT | os.O_RDWR, 0o600)
+            try:
+                fd = os.open(str(self.path) + ".writer.lock", os.O_CREAT | os.O_RDWR, 0o600)
+            except PermissionError as e:
+                # The lock lives beside the db and is 0600, so an engine
+                # running as a DIFFERENT account than the one that created
+                # the engagement cannot take it. Report the real cause:
+                # without this the caller sees a bare traceback and reads it
+                # as a corrupt database rather than a uid boundary.
+                raise RuntimeError(
+                    f"cannot open the writer lock for {self.path} ({e}). The "
+                    f"engagement store is owned by another account — run the "
+                    f"engine as that account, or inspect read-only") from None
             try:
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError:

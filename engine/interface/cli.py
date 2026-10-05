@@ -69,7 +69,7 @@ def run(args: argparse.Namespace) -> int:
                 raise
             print("MOTOKO display dependencies are missing. From the source checkout, run "
                   "`make -C engine install-interface`; for a wheel, install "
-                  "'motoko[interface]'.", file=sys.stderr)
+                  "'core-engine[interface]'.", file=sys.stderr)
             return 2
     finally:
         close_sessions()

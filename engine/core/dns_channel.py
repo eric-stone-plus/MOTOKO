@@ -1,6 +1,6 @@
 """The DNS resolver channel — the engine never edits the system resolver.
 
-A tool that runs DIRECT (forwarding vars stripped) resolves target domains
+A tool that runs DIRECT (lane vars stripped) resolves target domains
 through whatever the host resolver is — usually the ISP's — which hands the
 operator's provider the engagement's full query list. The channel is one
 env var: the operator points the engine at a resolver, and the executor

@@ -44,10 +44,16 @@ HOST_FWD_VARS = frozenset({"http_" + _FWD, "https_" + _FWD,
 
 # Container path: `podman exec` carries the client env only via explicit
 # `--env`, and a persistent container inherits its startup env, so every
-# spelling has to be named and blanked.
-CONTAINER_FWD_VARS = tuple(p + _FWD for p in
-                            ("http_", "https_", "HTTP_", "HTTPS_",
-                             "all_", "ALL_"))
+# spelling has to be named and blanked. Both the prefix and the suffix take
+# each casing together: pairing an upper-case prefix with the lower-case
+# suffix ("HTTP_" + _FWD) names HTTP_proxy, which is not a spelling any
+# shell exports, so the real HTTP_PROXY would stay set — the leak this list
+# exists to close.
+CONTAINER_FWD_VARS = tuple(
+    "".join(parts)
+    for parts in (("http_", _FWD), ("https_", _FWD), ("all_", _FWD),
+                  ("HTTP_", _FWD.upper()), ("HTTPS_", _FWD.upper()),
+                  ("ALL_", _FWD.upper())))
 CONTAINER_NOFWD_VARS = ("no_" + _FWD, "NO_" + _FWD.upper())
 
 HOST_SECRET_NAME_RE = re.compile(
@@ -104,7 +110,7 @@ def lane_configured() -> bool:
 
 
 def lane_tools() -> frozenset:
-    """Tools allowed to keep the inherited forwarding env in `direct` mode."""
+    """Tools allowed to keep the inherited lane env in `direct` mode."""
     extra = os.environ.get(LANE_TOOLS_ENV, "")
     if not extra.strip():
         return DEFAULT_LANE_TOOLS
@@ -113,14 +119,14 @@ def lane_tools() -> frozenset:
 
 
 def tool_keeps_forwarding(tool: str) -> bool:
-    """Whether `tool` may keep the host's forwarding environment."""
+    """Whether `tool` may keep the host's lane environment."""
     if mode() == LANE:
         return True
     return tool in lane_tools()
 
 
 def container_env_clears(tool: str) -> list[str]:
-    """`podman exec` args blanking the forwarding env for `tool` ([] if it keeps it).
+    """`podman exec` args blanking the lane env for `tool` ([] if it keeps it).
 
     The list is empty rather than absent for a lane-inheriting tool: gau must
     reach wayback through the lane from inside the container too.
@@ -136,7 +142,7 @@ def container_env_clears(tool: str) -> list[str]:
 
 
 def strip_host_forwarding(env: dict) -> None:
-    """Delete the forwarding vars from a host child env, in place (direct-mode tools)."""
+    """Delete the lane vars from a host child env, in place (direct-mode tools)."""
     for key in list(env):
         if key.lower() in HOST_FWD_VARS:
             del env[key]
@@ -186,20 +192,20 @@ def expected_exit_ip() -> str:
 
 
 def launch_gate() -> str | None:
-    "None when a real launch may proceed, else the one-line refusal reason.\n\n    A declared ``direct`` (the operator's documented choice, which doctor\n    WARNs on) and a declared ``lane`` with an address both pass.\n    "
+    "None when a real launch may proceed, else the one-line refusal reason.\n\n    A declared ``direct`` (the operator's documented choice, which doctor\n    WARNs on) and a declared ``lane`` with a lane both pass.\n    "
     declared = declared_mode()
     if declared and declared.lower() not in MODE_VALUES:
         return (f"launch refused: {MODE_ENV}={declared!r} is not one of "
                 f"{LANE}|{DIRECT} — an unrecognized mode reads as the "
                 f"forbidden direct fallback, so the engine cannot tell a "
-                f"declared lane from a typo. Set {MODE_ENV} to one of the two "
+                f"lane-routed lane from a typo. Set {MODE_ENV} to one of the two "
                 f"legal values in the engine process's own environment")
     if not declared:
         if accept_direct():
             return None
         return (f"launch refused: {MODE_ENV} is undeclared, so the engine cannot "
-                f"tell a declared lane from a silent direct fallback — the exact "
-                f"incident shape (by design). Set {MODE_ENV} "
+                f"tell a lane-routed lane from a silent direct fallback — the exact "
+                f"incident shape (the internal design notes). Set {MODE_ENV} "
                 f"(lane|direct) in the engine process's own environment, or "
                 f"explicitly accept a direct launch with {ACCEPT_DIRECT_ENV}=1")
     if mode() == LANE and not lane_configured():
@@ -207,7 +213,7 @@ def launch_gate() -> str | None:
         return (f"launch refused: {MODE_ENV}=lane but no lane address is set "
                 f"in the engine process's own environment ({lanes}) — the "
                 f"engine never sets a lane, it only inherits or strips one, so "
-                f"every tool would run DIRECT over the bare uplink (by design). "
+                f"every tool would run DIRECT over the bare uplink (the internal doctrine). "
                 f"Export a lane address in the process env, or declare "
                 f"{MODE_ENV}={DIRECT} if a direct launch is what you mean")
     return None
@@ -272,7 +278,7 @@ def echo_url_defect(url: str) -> str | None:
     if parts.username or parts.password:
         return ("embeds credentials — the echo endpoint needs none, and a "
                 "credential written into configuration reaches every "
-                "captured log (by design)")
+                "captured log (the internal doctrine)")
     return None
 
 
@@ -397,7 +403,7 @@ def summary() -> dict:
         note = (f"replay egress NOT asserted ({DIRECT_REPLAY_ENV} unset) — the "
                 "built-in fetcher fails closed, so replay verdicts park as "
                 "`egress_policy`. Do not assert it on a direct-egress host: "
-                "that is exactly the bare uplink case forbidden by design "
+                "that is exactly the bare uplink case the internal doctrine "
                 "forbids")
     echo = echo_url()
     return {

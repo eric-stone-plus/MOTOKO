@@ -76,7 +76,7 @@
       </div>
       <div class="hero-panel" id="interface">
         <figure class="fig">
-          <div class="shot" role="img" aria-label="Illustrative mockup of the glance dashboard: topbar, engagements table, run progress, and activity feed">
+          <div class="shot" role="img" aria-label="Illustrative mockup of the glance dashboard: topbar, engagements table, run progress, and the scan queue">
             <div class="shot-bar"><span class="shot-title">motoko status — glance</span></div>
             <div class="shot-body">
               <p class="shot-line shot-topbar"><b>MOTOKO</b>&nbsp; <span class="shot-clock">2026-10-04 09:31:19</span>&nbsp; · &nbsp;3 eng 2 live&nbsp; · &nbsp;watch example&nbsp; · &nbsp;src: fs · ro-sqlite · adapter motoko/1&nbsp; · &nbsp;up 41m</p>
@@ -101,11 +101,12 @@
                   <p class="shot-line">tools 3/7&nbsp;&nbsp;&nbsp;<span class="t-ok">findings +2</span>&nbsp;&nbsp;&nbsp;<span class="t-warm">cd 1</span>&nbsp; <span class="t-warm">429:1</span></p>
                 </div>
                 <div class="shot-panel">
-                  <p class="shot-panel-title">ACTIVITY FEED</p>
-                  <p class="shot-line shot-feed"><span class="t-dim">09:31:02</span><span class="feed-kind"><span class="t-ok">tool_run.transition</span></span><span class="feed-detail">subfinder -d example.invalid -silent</span></p>
-                  <p class="shot-line shot-feed"><span class="t-dim">09:31:08</span><span class="feed-kind"><span class="t-warm">opsec_cooldown_skip</span></span><span class="feed-detail">origin cooling down; rule deferred</span></p>
-                  <p class="shot-line shot-feed"><span class="t-dim">09:31:11</span><span class="feed-kind">observation.processed</span><span class="feed-detail">14 obs · dedup_pass 12 · dedup_hit 2</span></p>
-                  <p class="shot-line shot-feed"><span class="t-dim">09:31:12</span><span class="feed-kind">verification_blocked</span><span class="feed-detail">missing_backend · egress_policy<span class="shot-caret" aria-hidden="true">▌</span></span></p>
+                  <p class="shot-panel-title">QUEUE</p>
+                  <p class="shot-line shot-feed"><span class="t-ok">▸</span><span class="feed-kind">nuclei</span><span class="feed-detail">#1281 · running · 0:42</span></p>
+                  <p class="shot-line shot-feed"><span class="t-ok">▸</span><span class="feed-kind">ffuf</span><span class="feed-detail">#1284 · running · 0:11</span></p>
+                  <p class="shot-line shot-feed"><span class="t-dim">origin-7f</span><span class="feed-kind">R-RECON-SUB-001</span><span class="feed-detail">subfinder</span></p>
+                  <p class="shot-line shot-feed"><span class="t-dim">origin-7f</span><span class="feed-kind">R-CTX-WAF-001</span><span class="feed-detail">httpx</span></p>
+                  <p class="shot-line shot-feed"><span class="t-ok">queued 12</span><span class="feed-detail">· testing 3 · done 47</span></p>
                 </div>
               </div>
   
@@ -409,7 +410,7 @@
   <div class="wrap foot-inner">
     <div class="foot-brand">
       <p class="brand-name">MOTOKO</p>
-      <p class="foot-tag">Nothing runs off the record.</p>
+      <p class="foot-tag" lang="la">Prius limes, deinde ferrum.</p>
       <a class="foot-github" href="https://github.com/eric-stone-plus/MOTOKO" rel="noopener">
         <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
         GitHub

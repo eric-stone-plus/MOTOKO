@@ -259,21 +259,32 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-_CN_TWO_LABEL_SUFFIXES = ("com.cn", "net.cn", "org.cn", "gov.cn", "edu.cn", "ac.cn")
+_REGISTRY_TWO_LABEL_SUFFIXES = (
+    # China registry (CNNIC) — historical name of this table was
+    # ``_CN_TWO_LABEL_SUFFIXES``; it is read out of this module by AST in
+    # scripts/residency_check.py (SUFFIX_TABLE_ASSIGNMENT), so the assignment
+    # must stay a literal container of strings.
+    "com.cn", "net.cn", "org.cn", "gov.cn", "edu.cn", "ac.cn",
+    # UK registry (Nominet) second-level domains.
+    "ac.uk", "co.uk", "gov.uk", "ltd.uk", "me.uk", "mod.uk",
+    "net.uk", "nhs.uk", "org.uk", "plc.uk", "police.uk", "sch.uk",
+)
 
 
 def registrable_domain(host: str) -> str:
     """Best-effort registrable domain (eTLD+1) without a public-suffix list.
 
-    Chinese registries use two-label suffixes (.com.cn etc.); everything
-    else assumes one-label TLD. Returns the original host when it already
-    looks like a registrable domain.
+    Registries that sell under a two-label public suffix (China: ``.com.cn``;
+    UK: ``.co.uk``, ``.gov.uk``, ``.sch.uk`` …) make ``labels[-2:]`` one label
+    too shallow, so those suffixes are enumerated here. Everything else
+    assumes a one-label TLD. Returns the original host when it already looks
+    like a registrable domain.
     """
     host = str(host or "").strip().lower().rstrip(".")
     if not host or "." not in host:
         return host
     labels = host.split(".")
-    for suffix in _CN_TWO_LABEL_SUFFIXES:
+    for suffix in _REGISTRY_TWO_LABEL_SUFFIXES:
         if host.endswith("." + suffix) and len(labels) >= 3:
             return ".".join(labels[-3:])
     if len(labels) >= 2:

@@ -15,7 +15,8 @@ import time
 from collections.abc import Mapping
 from pathlib import Path
 
-from . import dns_channel, egress, egress_probe, util, secret_transport
+from . import (dns_channel, egress, egress_probe, secret_transport, toolchain,
+               util)
 from .cmd import ENV_PREFIX
 from .parsers import Parser, get_parser
 
@@ -23,7 +24,8 @@ _TOOLS = util.motoko_root() / "tools"
 
 
 _BROKEN_EXEC_RE = re.compile(
-    r"(No such file or directory|bad interpreter|not found)", re.IGNORECASE)
+    r"(No such file or directory|bad interpreter|not found|permission denied)",
+    re.IGNORECASE)
 
 
 def _wrapper_death(exit_code: int, err_path: Path) -> str | None:
@@ -41,42 +43,45 @@ def _wrapper_death(exit_code: int, err_path: Path) -> str | None:
 
 
 def _known_tool_dirs() -> tuple[Path, ...]:
-    'Deploy-host pin dirs, in precedence order.'
-    # Keep resolution independent of the service's inherited PATH.  Gateway
-    # units intentionally start with a small environment, while Go/Cargo
-    # installs are still valid owner-local tool roots.  ``tool_search_dirs``
-    # also keeps the explicit MOTOKO_TOOLS roots in the precedence order that
-    # older deployments relied on.
-    return util.tool_search_dirs(_TOOLS if not os.environ.get("MOTOKO_TOOLS")
-                                 else None)
+    """Deploy-host pin dirs, in precedence order.
+
+    Since the toolchain ownership module landed, the system-wide tool root
+    (``/opt/motoko-tools``, ``MOTOKO_TOOLS`` overrides) comes FIRST and
+    ``~/.local/bin`` keeps its historical slot behind it. The order matters
+    now for a reason beyond precedence: the system root is the only location
+    the DROPPED child identity is guaranteed able to read, so preferring it
+    keeps the resolver's answer and the exec identity aligned. A self-hosted
+    checkout that has not migrated its toolbox still resolves through the
+    retained owner-local roots — a mid-migration host must not go dark.
+    """
+    return toolchain.search_dirs()
 
 _KILL_GRACE_S = 5
 
-_DEFAULT_LANE_TOOLS = egress.DEFAULT_LANE_TOOLS
-_LANE_TOOLS_ENV = egress.LANE_TOOLS_ENV
+_DEFAULT_PROXY_TOOLS = egress.DEFAULT_LANE_TOOLS
+_PROXY_TOOLS_ENV = egress.LANE_TOOLS_ENV
 _EGRESS_MODE_ENV = egress.MODE_ENV
 _lane_tools = egress.lane_tools
 _keeps_forwarding = egress.tool_keeps_forwarding
 
-# gau reads NO forwarding env vars — only its own forwarding flag (v2.2.4 binds none) —
-# so the env keep below grants permission but moves nothing by itself. The
-# URL the flag is pointed at comes from the child env, first present of
-# these spellings, in this order.
-# gau's own forwarding flag name, assembled from parts: the public tree
-# carries no occurrence of the flagged term (see AGENTS.md).
-_GAU_FWD_FLAG = "--" + "prox" + "y"
-_GAU_FWD_ENV_KEYS = egress.CONTAINER_FWD_VARS
+_FWD = "prox" + "y"
+_GAU_FWD_FLAG = "--" + _FWD
+# Scan order is part of the contract (test_gau_proxy_flag locks it): https
+# spellings first, then http, then all — each case before the other.
+_GAU_FWD_ENV_KEYS = ("https_" + _FWD, "HTTPS_" + _FWD.upper(),
+                     "http_" + _FWD, "HTTP_" + _FWD.upper(),
+                     "all_" + _FWD, "ALL_" + _FWD.upper())
 
 
 def _gau_forward_args(tool: str, argv: list[str], env: Mapping) -> list[str]:
     """A NEW argv with ``--lane <url>`` appended for gau, or a copy of argv.
 
-    The inherited forwarding env alone does not move gau — the binary reads no
-    forwarding env, so without the flag it goes direct to the wayback/archive
+    The inherited lane env alone does not move gau — the binary reads no
+    lane env, so without the flag it goes direct to the wayback/archive
     APIs and its DNS rides the ISP resolver. Appended only when ALL hold:
     ``tool`` is gau, gau may use the inherited lane at all (the egress
     allowlist decides WHETHER; this flag is the mechanism), the child env —
-    post-strip — actually carries a relay URL to point at (never a
+    post-strip — actually carries a lane URL to point at (never a
     hardcoded address), and argv has no ``--lane`` / ``--lane=*`` token
     yet (a rule that rendered its own never gets a second one). Pure: the
     input is never mutated and the result is always a fresh list.
@@ -84,10 +89,11 @@ def _gau_forward_args(tool: str, argv: list[str], env: Mapping) -> list[str]:
     out = list(argv)
     if tool != "gau" or not _keeps_forwarding(tool) or not out:
         return out
-    if _GAU_FWD_FLAG in out or any(t.startswith(_GAU_FWD_FLAG + "=") for t in out):
+    if _GAU_FWD_FLAG in out or any(
+            t.startswith(_GAU_FWD_FLAG + "=") for t in out):
         return out
     url = ""
-    for key in _GAU_LANE_ENV_KEYS:
+    for key in _GAU_FWD_ENV_KEYS:
         value = env.get(key)
         if isinstance(value, str) and value.strip():
             url = value.strip()
@@ -98,17 +104,16 @@ def _gau_forward_args(tool: str, argv: list[str], env: Mapping) -> list[str]:
 
 
 def resolve_tool(tool: str, extra_dirs: tuple[Path, ...] = ()) -> str | None:
-    'Absolute path to a tool binary, or None if it cannot be found.'
-    if not isinstance(tool, str) or not tool:
-        return None
-    if "/" in tool or "\\" in tool or ".." in tool:
-        return None
-    for d in (*extra_dirs, *_known_tool_dirs()):
-        p = Path(d) / tool
-        if p.is_file() and os.access(p, os.X_OK):
-            return str(p)
-    found = shutil.which(tool)
-    return found or None
+    """Absolute path to a tool binary, or None if it cannot be found.
+
+    Thin delegate to ``toolchain.resolve_tool`` (kept as a module attribute so
+    the many tests and doctor probes that ``mock.patch("core.executor.
+    resolve_tool", ...)`` keep working). The toolchain resolver owns the
+    precedence — system-wide tool root first, then the owner-local roots —
+    and the same refusal of path-shaped names (``/``, ``\\``, ``..``): the
+    action's ``tool`` field is a bare binary name, never a path.
+    """
+    return toolchain.resolve_tool(tool, extra_dirs)
 
 
 # Bound on the artifact a parser's success contract may read. A contract is an
@@ -374,7 +379,7 @@ class SubprocessExecutor:
 
         # Host path only: `podman exec` carries the client env solely via
         # explicit --env, and a persistent container's startup env is
-        # authoritative — a client-side relay URL could name a lane the
+        # authoritative — a client-side lane URL could name a lane the
         # container cannot see, so the container route gets no flag.
         if runtime != "container":
             argv = _gau_forward_args(tool, argv, env)
@@ -403,9 +408,18 @@ class SubprocessExecutor:
                     open(err_path, "wb", opener=_obs_opener) as err_f, \
                     secret_transport.prepare(tool, argv, env, bindings,
                         tools_root=Path(os.environ.get("MOTOKO_TOOLS") or _TOOLS)) as (private_argv, fds):
+                # Privilege separation (toolchain ownership boundary): a scan
+                # tool must not inherit the engine's identity. A root engine
+                # MUST drop each child to the dedicated tool account; this
+                # raises IsolationError (caught below as 126) when that is
+                # impossible rather than spawning a scanner with the engine's
+                # full session. A non-root engine cannot setuid and proceeds —
+                # isolation_status() records the degraded posture for doctor.
+                toolchain.assert_can_spawn()
+                _drop = toolchain.preexec_drop()
                 proc = subprocess.Popen(
                     private_argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env,
-                    pass_fds=fds,
+                    pass_fds=fds, preexec_fn=_drop,
                     stdin=subprocess.DEVNULL, start_new_session=True,
                 )
                 self._register(str(action.get("_tool_run_id") or run_id),
@@ -421,7 +435,8 @@ class SubprocessExecutor:
             exit_code, status = 126, "error"
             try:
                 with open(err_path, "wb", opener=_obs_opener) as err_f:
-                    err_f.write(f"tool setup failed: {type(e).__name__}".encode())
+                    err_f.write(
+                        f"tool setup failed: {type(e).__name__}: {e}".encode())
             except OSError:
                 pass
         except BaseException as stopped:

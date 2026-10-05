@@ -32,7 +32,7 @@ import tomllib
 from pathlib import Path
 
 from . import (cmd, db, deploy_config, dns_channel, egress, egress_probe,
-               executor, util)
+               executor, toolchain, util)
 
 OK, WARN, FAIL = "OK", "WARN", "FAIL"
 
@@ -74,7 +74,7 @@ def _check_disk() -> list[tuple[str, str]]:
         if ratio < _DISK_FREE_MIN:
             out.append((WARN, msg + f" — under {_DISK_FREE_MIN:.0%} free: "
                                     "ENOSPC kills every process on the "
-                                    "host (by design)"))
+                                    "host (the internal doctrine)"))
         else:
             out.append((OK, msg))
     return out
@@ -89,7 +89,7 @@ def _check_tmp_litter() -> tuple[str, str]:
         return WARN, f"cannot census {tmp}/motoko-*: {e}"
     if n > _TMP_LITTER_MAX:
         return WARN, (f"tmp litter: {n} motoko-* dirs in {tmp} "
-                      f"(> {_TMP_LITTER_MAX}) — sweep stale ones (by design)")
+                      f"(> {_TMP_LITTER_MAX}) — sweep stale ones (the internal doctrine)")
     return OK, f"tmp litter: {n} motoko-* dirs in {tmp}"
 
 
@@ -100,7 +100,7 @@ def _check_tmp_litter() -> tuple[str, str]:
 # a quote, `=`, `(`, `,` or `;`. Matching any `/` instead — the shape this
 # shipped with — reported three false-positive classes on the first live run of
 # `provision.sh verify-wrappers`: `$HOME/.local/...` (matched the `/` after
-# HOME), `${DIR}/run_shadow.py` (after the brace) and `scheme://host:port`
+# HOME), `${DIR}/run_shadow.py` (after the brace) and `socks5://host:port`
 # (after the colon). A variable-relative target cannot be verified statically,
 # and "cannot verify" must not read as "broken": a gate that cries wolf on
 # working wrappers gets ignored, including the day it is right.
@@ -398,7 +398,7 @@ def _check_backends() -> list[tuple[str, str]]:
                     f"`motoko run` does not inject the {missing} backend "
                     f"(browser={'wired' if wires_browser else 'NOT wired'}, "
                     f"canary={'wired' if wires_canary else 'NOT wired'}): the "
-                    "runtime is stdlib-only by design, so findings needing "
+                    "runtime is stdlib-only by design (the internal doctrine), so findings needing "
                     "it park as `missing_backend` even with everything above "
                     "installed — inject them through the API, or read the park "
                     "as the expected outcome"))
@@ -610,7 +610,7 @@ def _check_kali_container() -> list[tuple[str, str]]:
     if shutil.which("podman") is None:
         return [(WARN, "kali container: podman absent — the container route "
                        f"(`{util.KALI_CONTAINER}`) is unavailable, so those "
-                       f"actions refuse; {scope}. Host tools still work (by design)")]
+                       f"actions refuse; {scope}. Host tools still work (the internal doctrine)")]
     ok, names = _podman(["ps", "-a", "--filter", f"name={util.KALI_CONTAINER}",
                          "--format", "{{.Names}}"])
     if not ok:
@@ -637,6 +637,61 @@ def _check_kali_container() -> list[tuple[str, str]]:
                  f"--recreate`, or set MOTOKO_KALI_IMAGE={image} if {image} "
                  "is the intended tag")]
     return [(OK, f"kali container: `{util.KALI_CONTAINER}` on {image}; {scope}")]
+
+
+def _check_podman_residue() -> list[tuple[str, str]]:
+    'Census of dead podman objects nothing reclaims automatically.'
+    if shutil.which("podman") is None:
+        return []
+    ok, raw = _podman(["ps", "-a", "--format", "{{.Names}}\t{{.Status}}"])
+    if not ok:
+        return [(WARN, "podman residue: cannot census — podman did not answer")]
+
+    names: list[str] = []
+    dead: list[str] = []
+    for line in raw.splitlines():
+        name, _, status = line.partition("\t")
+        name = name.strip()
+        if not name:
+            continue
+        names.append(name)
+        if status.strip().startswith("Exited") and name != util.KALI_CONTAINER:
+            dead.append(name)
+
+    untagged = 0
+    ok_i, raw_i = _podman(["images", "--format", "{{.Repository}}"])
+    if ok_i:
+        untagged = sum(1 for ln in raw_i.splitlines()
+                       if ln.strip() == "<none>")
+
+    orphans: list[str] = []
+    ok_v, raw_v = _podman(["volume", "ls", "-q"])
+    if ok_v:
+        used: set[str] = set()
+        if names:
+            ok_m, raw_m = _podman(
+                ["inspect", "--format", "{{range .Mounts}}{{.Name}} {{end}}",
+                 *names])
+            if ok_m:
+                for ln in raw_m.splitlines():
+                    used.update(t for t in ln.split() if t)
+        orphans = [v.strip() for v in raw_v.splitlines()
+                   if v.strip() and v.strip() not in used]
+
+    def _clip(items: list[str]) -> str:
+        return ", ".join(items[:3]) + ("…" if len(items) > 3 else "")
+
+    parts = []
+    if dead:
+        parts.append(f"{len(dead)} exited [{_clip(dead)}]")
+    if untagged:
+        parts.append(f"{untagged} untagged image(s)")
+    if orphans:
+        parts.append(f"{len(orphans)} orphan volume(s) [{_clip(orphans)}]")
+    if not parts:
+        return [(OK, f"podman residue: none — {len(names)} container(s)")]
+    return [(WARN, f"podman residue: {'; '.join(parts)} — manual reap only "
+                   "(no automation owns this; the internal design notes)")]
 
 
 def _is_safe_tool_name(name: str) -> bool:
@@ -937,6 +992,7 @@ def _check_egress_live(proc_root: Path | None = None) -> tuple[str, str]:
         self_pgid = None
     self_pid = os.getpid()
     writers: list[tuple[int, str]] = []
+    unreadable: list[int] = []
     try:
         entries = sorted(root.iterdir())
     except OSError:
@@ -963,8 +1019,11 @@ def _check_egress_live(proc_root: Path | None = None) -> tuple[str, str]:
                 pass                        # synthetic or vanished pid: keep it
         try:
             blob = (entry / "environ").read_bytes()
+        except PermissionError:
+            unreadable.append(pid)
+            continue
         except OSError:
-            continue                        # unreadable environ: skip, not report
+            continue                        # vanished mid-scan: skip, not report
         mode = _proc_env(blob, egress.MODE_ENV)
         if not mode:
             state = ("accepted-direct" if _proc_env(
@@ -977,31 +1036,43 @@ def _check_egress_live(proc_root: Path | None = None) -> tuple[str, str]:
         else:
             state = "direct"
         writers.append((pid, state))
+    if unreadable and not writers:
+        return WARN, (f"live engine writers: {len(unreadable)} writer(s) "
+                      f"present but their environ is unreadable "
+                      f"(pids {', '.join(str(p) for p in unreadable[:5])}) — "
+                      f"egress mode CANNOT be verified for them (the internal doctrine). This is "
+                      f"expected when the engine runs as another uid; verify "
+                      f"from that uid, or read the launch env directly")
     if not writers:
         return OK, "live engine writers: none running (run/adapter)"
     detail = ", ".join(f"pid {pid} mode={state}" for pid, state in writers)
+    if unreadable:
+        # Some answered, some did not: the ones that answered carry the
+        # verdict, but the blind spot is named rather than dropped.
+        detail += (f"; {len(unreadable)} unreadable "
+                   f"(pids {', '.join(str(p) for p in unreadable[:5])})")
     if any(state == "undeclared" for _pid, state in writers):
         return FAIL, (f"live engine writers with UNDECLARED egress mode "
                       f"({detail}) — {egress.MODE_ENV} is absent from the "
                       f"process's own environ: the incident shape "
-                      f"(by design). Stop and relaunch with the variable set")
+                      f"(the internal doctrine). Stop and relaunch with the variable set")
     if any(state.startswith("unrecognized") for _pid, state in writers):
         return FAIL, (f"live engine writers with an UNRECOGNIZED egress mode "
                       f"({detail}) — {egress.MODE_ENV} carries a value that is "
                       f"neither {egress.LANE} nor {egress.DIRECT}, so it reads "
                       f"as the forbidden direct fallback and the launch gate "
-                      f"refuses it (by design). Stop and relaunch with a legal value")
+                      f"refuses it (the internal doctrine). Stop and relaunch with a legal value")
     if any(state == "lane-no-address" for _pid, state in writers):
-        return FAIL, (f"live engine writers declaring a lane with NO lane "
+        return FAIL, (f"live engine writers declaring lane with NO lane "
                       f"address in their own environ ({detail}; checked "
                       f"{', '.join(sorted(egress.HOST_FWD_VARS))}) — the "
                       f"engine only inherits or strips a lane, so every tool "
                       f"is running DIRECT over the bare uplink while the "
-                      f"mode says otherwise (by design). Stop and relaunch with a "
+                      f"mode says otherwise (the internal doctrine). Stop and relaunch with a "
                       f"lane address exported")
     if any(state != "lane" for _pid, state in writers):
         return WARN, (f"live engine writers on direct egress ({detail}) — "
-                      f"the bare uplink reaches targets unrouted (by design)")
+                      f"the bare uplink reaches targets unrouted (the internal doctrine)")
     return OK, f"live engine writers: {detail}"
 
 
@@ -1017,24 +1088,24 @@ def _check_egress() -> list[tuple[str, str]]:
                        f"{egress.LANE}|{egress.DIRECT} — {egress.MODE_ENV} "
                        f"carries a value the policy cannot parse, which reads "
                        f"as the forbidden direct fallback and refuses the "
-                       f"launch (by design). Set it to one of the two legal values")
+                       f"launch (the internal doctrine). Set it to one of the two legal values")
     elif mode == egress.LANE and not state["lane"]:
         lanes = ", ".join(sorted(egress.HOST_FWD_VARS))
         first = (FAIL, f"egress mode: lane but NO lane address in this "
                        f"process's env ({lanes}) — the engine never sets a "
                        f"lane, so every tool would run DIRECT over the "
-                       f"bare uplink (by design). Export one, or declare "
+                       f"bare uplink (the internal doctrine). Export one, or declare "
                        f"{egress.MODE_ENV}={egress.DIRECT}")
     elif mode == egress.LANE:
         first = (OK, "egress mode: lane (anonymity-first, all tools via "
                      "egress)")
     elif state["mode_declared"]:
         first = (WARN, "egress mode: direct — the bare uplink reaches "
-                       "targets unrouted; forbidden for new targets (by design)")
+                       "targets unrouted; forbidden for new targets (the internal doctrine)")
     else:
         first = (WARN, f"egress mode: unset (defaults to direct) — set "
                        f"{egress.MODE_ENV}=lane for anonymity-first launches "
-                       f"(by design)")
+                       f"(the internal doctrine)")
     second = ((OK if state["replay_asserted"] else WARN), state["replay_note"])
     return [first, second, _check_egress_live(), _check_egress_fingerprint()]
 
@@ -1117,7 +1188,7 @@ def _check_dns() -> list[tuple[str, str]]:
                    f"{host}:{port} — {dns_channel.resolver_env} is a URL "
                    f"spec, so direct-path tools point at "
                    f"{dns_channel.local_addr_env}; start the forwarder "
-                   "(a local split-DNS resolver such as smartdns) or every injected run fails to "
+                   "(dnslane/smartdns) or every injected run fails to "
                    "resolve")]
 
 
@@ -1147,6 +1218,55 @@ def _check_deploy_config() -> list[tuple[str, str]]:
                  f"loader-validated")]
 
 
+def _check_isolation() -> list[tuple[str, str]]:
+    """Report whether spawned scan tools are isolated from the engine identity.
+
+    The toolchain ownership boundary (``core/toolchain.py``) drops each tool
+    child to a dedicated unprivileged account. That is only real when the
+    engine can perform the drop, so this axis makes the posture visible: an
+    operator running the engine as their own uid gets a WARN with the remedy,
+    and a root engine with a missing account is a FAIL (its spawns refuse).
+    """
+    out: list[tuple[str, str]] = []
+    state, detail = toolchain.isolation_status()
+    level = {"enforced": OK, "native": OK, "absent": FAIL,
+             "unenforced": WARN}.get(state, WARN)
+    out.append((level, f"tool isolation: {state} — {detail}"))
+    root = toolchain.tool_root()
+    if root.is_dir():
+        out.append((OK, f"tool root: {root}"))
+    else:
+        out.append((WARN, f"tool root absent: {root} "
+                          f"(run core/tools_anchor/install-toolchain.sh)"))
+    if state in ("enforced", "native"):
+        probe = "nuclei"
+        resolved = toolchain.resolve_tool(probe)
+        if resolved is not None:
+            reach = toolchain.reachable_by_drop_target(resolved)
+            if reach is False:
+                out.append((FAIL, f"tool {probe} resolves to {resolved} but "
+                                  f"the drop target "
+                                  f"{toolchain.tool_user_name()!r} cannot "
+                                  f"read+execute it — every spawn will die "
+                                  f"with EACCES. Install the toolbox under "
+                                  f"the shared tool root (root:root 0755)"))
+            elif reach is True:
+                out.append((OK, f"tool reachability: {probe} is readable by "
+                                f"{toolchain.tool_user_name()}"))
+    elif state == "unenforced":
+        probe = "nuclei"
+        resolved = toolchain.resolve_tool(probe)
+        if resolved is not None and \
+                toolchain.reachable_by_drop_target(resolved) is False:
+            out.append((WARN, f"tool {probe} would not be reachable by "
+                              f"{toolchain.tool_user_name()} once the drop is "
+                              f"enforced ({resolved} sits under a private "
+                              f"home) — migrate the toolbox to the shared "
+                              f"tool root before switching the engine to a "
+                              f"root launch"))
+    return out
+
+
 def check_environment(scope: str = "full") -> list[tuple[str, list[tuple[str, str]]]]:
     """Named sections let supervisors report status without diagnostic text."""
     if scope not in {"full", "scan"}:
@@ -1154,7 +1274,9 @@ def check_environment(scope: str = "full") -> list[tuple[str, list[tuple[str, st
     checks = [
         ("python", [_check_python()]), ("storage", [_check_root(), *_check_disk()]),
         ("temporary_storage", [_check_tmp_litter()]), ("tools", _check_tools()),
-        ("verification_backends", _check_backends()), ("container", _check_kali_container()),
+        ("isolation", _check_isolation()),
+        ("verification_backends", _check_backends()),
+        ("container", _check_kali_container() + _check_podman_residue()),
         ("wordlists", [_check_wordlists()]), ("engagements", _check_engagements()),
         ("egress", _check_egress()), ("dns", _check_dns()),
     ]

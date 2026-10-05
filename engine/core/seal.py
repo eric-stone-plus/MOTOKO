@@ -87,8 +87,10 @@ def _census(conn: sqlite3.Connection, engagement_id: str) -> dict:
     testing = sum(n for k, s, n in rows if k == "hypothesis" and s == "testing")
     census["hypotheses_testing"] = testing
 
+    # Append-only log (core never DELETEs from events), so the live cursor
+    # is the count — and it is O(1) instead of a multi-million-row scan.
     census["events"] = cur.execute(
-        "SELECT COUNT(*) FROM events").fetchone()[0]
+        "SELECT COALESCE(MAX(seq), 0) FROM events").fetchone()[0]
     census["edges"] = cur.execute(
         "SELECT COUNT(*) FROM edges").fetchone()[0]
     census["observations_total"] = cur.execute(
@@ -127,7 +129,18 @@ def seal_engagement(engagement_id: str, root: Path | None = None) -> dict:
     # below only catch a writer that ALREADY wrote — the flock is what
     # keeps an engine writer out between the checkpoint, the hash, and the
     # manifest write.
-    lock_fd = os.open(str(graph) + ".writer.lock", os.O_CREAT | os.O_RDWR, 0o600)
+    lock_fd = None
+    try:
+        lock_fd = os.open(str(graph) + ".writer.lock", os.O_CREAT | os.O_RDWR, 0o600)
+    except PermissionError as e:
+        # The lock is 0600 beside a 0700 engagement dir, so a sealer running
+        # as another account cannot even open it. Say that, rather than
+        # letting a bare PermissionError escape: the operator would read a
+        # uid boundary as a broken artifact.
+        raise SealError(
+            f"{engagement_id}: cannot open the writer lock ({e}). The "
+            f"engagement store is owned by another account — seal as that "
+            f"account") from None
     try:
         fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
@@ -167,6 +180,18 @@ def seal_engagement(engagement_id: str, root: Path | None = None) -> dict:
                 raise SealError(f"{engagement_id}: foreign_key_check reported "
                                 f"{len(fk)} violations")
 
+            replay = events.verify(conn, graph=str(graph),
+                                   engagement_id=engagement_id)
+            if not replay.ok:
+                first = replay.violations[0]
+                raise SealError(
+                    f"{engagement_id}: the event log does not replay "
+                    f"({len(replay.violations)} violation(s); first: "
+                    f"{first.check} seq={first.seq} {first.detail[:160]}) — "
+                    f"refusing to seal a product unit whose log cannot be "
+                    f"rebuilt from itself. Inspect with "
+                    f"`motoko events {engagement_id} --verify`")
+
             # -- record the seal inside the event log (pre-hash) ----------
             # Through events.insert_row, the same funnel every other writer
             # uses, so the kind vocabulary is checked here too and the seal
@@ -205,6 +230,12 @@ def seal_engagement(engagement_id: str, root: Path | None = None) -> dict:
             "graph_db": {"sha256": _sha256_file(graph), "bytes": graph.stat().st_size},
             "integrity": {"integrity_check": "ok", "foreign_key_check": "ok",
                           "wal_removed": True},
+            # The replay gate's own verdict, carried by the artifact. A
+            # consumer reading a manifest can now tell "the log was checked
+            # and replayed" from "nothing looked" — the sha proves the bytes,
+            # this proves they mean something.
+            "events_verified": {"ok": True, "events": replay.events,
+                                "warnings": len(replay.warnings)},
             "census": census,
         }
 
