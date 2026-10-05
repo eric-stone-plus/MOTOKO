@@ -87,9 +87,9 @@ refuses anything on its own.
   the next wave. Failures reduce rank; duplicate evidence earns no discovery
   credit. Completed and interrupted wave policy persists across runs. Category reservations and
   serial batches bound dispatch; producer failures block dependent actions.
-- **Host adapter and remote operation**: the opencode seat plugin
-  (`engine/scripts/plugin.ts`) drives the engine through the gated `motoko`
-  CLI; the engine-side `motoko/1` adapter serves interface collectors over
+- **Host adapter and remote operation**: the opencode seat drives the engine
+  directly through the `motoko` CLI; the engine-side `motoko/1` adapter serves
+  interface collectors over
   local pipes or encrypted SSH, with pinned host keys, bounded frames and
   disconnect cancellation. Raw evidence stays on the engine host. See
   [HOSTS.md](HOSTS.md).
@@ -140,7 +140,6 @@ parallel fan-out, and host-resource budgeting live in the operator shell.
 | `engine/core/verification/` | Deterministic validators (replay / dom / oob), plus the interactsh canary manager that supplies the OOB leg's IO |
 | `engine/interface/` | Read-only terminal interface (Textual; the `interface` optional extra) |
 | `engine/pyproject.toml` | Packaging manifest; provides the `motoko` console script |
-| `engine/scripts/plugin.ts` | The opencode seat plugin — the sole host adapter |
 | `HOSTS.md` | Host boundaries, remote protocol and installation contract |
 | `LICENSE` / `NOTICE` | AGPL-3.0-or-later for original files; instrument attribution |
 | `AGENTS.md` | Contributor rules |

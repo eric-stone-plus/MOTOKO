@@ -38,7 +38,7 @@ See [INSTRUMENTS.md](INSTRUMENTS.md).
 
 | Shell | What it is in the body |
 |---|---|
-| opencode seat | Operator-facing body — a plugin, a thin control plane over the engine CLI. Not the ghost. |
+| opencode seat | Operator-facing body — a CLI-driven control plane over the engine. Not the ghost. |
 | Operator profile | Persona, templates, motoko scheduler skill. Still a shell. |
 | Strix | Offensive cognition that insists on proof. A specialist organ. |
 | Nuclei | Reflex scan: templates against a surface. |

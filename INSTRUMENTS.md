@@ -89,7 +89,7 @@ both are now rule-driven like the table's tools.)
 
 The control flow is the graph in [GRAPH.md](GRAPH.md). Short form:
 
-1. The agent seat invokes the graph through the opencode plugin (the seat
+1. The agent seat invokes the graph by driving the `motoko` CLI (the seat
    is outside the graph).
 2. `scope` → signed authorization. Empty scope → END.
 3. `recon` → fingerprint (whatweb), OSINT (uncover), crawl (katana),
@@ -142,14 +142,15 @@ scanner binaries in `MOTOKO_TOOLS` share one release cycle.
 | Component | Version or revision | Source of truth | Status |
 |---|---|---|---|
 | MOTOKO engine | `0.7.0` | `engine/pyproject.toml` | engine package |
-| opencode seat plugin | `0.0.0-main-202609302229` (as of 2026-10-01) | `engine/scripts/plugin.ts` verified-API-surface stamp | sole shipped seat adapter |
+| opencode seat | `0.0.0-main-202610052203` (as of 2026-10-06) | seat drives the `motoko` CLI directly; a thin plugin once carried this surface and was removed 2026-10-06 | sole shipped seat adapter |
 | Security Agent reference | `1b039e9ed509de6f5dceb065d27d659109e7a223` | upstream commit | reviewed reference |
 | Strix | deployment-selected | host deployment manifest and `strix --version` | doctor compares source and deployed bytes |
 | Kali recon image | `2026.3` (deploy-host snapshot tag) | deploy-host environment (`MOTOKO_KALI_IMAGE`) | active host snapshot; rebuild before treating as a pin |
 
 The prior seat plugin, standalone host client and Pi extension were
-retired 2026-09-28 along with their version-matrix row; the opencode
-seat plugin (`engine/scripts/plugin.ts`) is the sole shipped adapter. Strix is intentionally deployment-selected: the engine records
+retired 2026-09-28; the opencode seat drives the `motoko` CLI directly as
+the sole shipped adapter, and the thin TypeScript plugin that briefly
+carried this surface was removed 2026-10-06. Strix is intentionally deployment-selected: the engine records
 and reports a source/deployed mismatch through `doctor` rather than exporting
 one host's tool revision as a public requirement.
 

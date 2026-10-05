@@ -6,12 +6,12 @@ messaging gateway. An adapter must not add another scheduler or edit SQLite.
 
 | Host | Adapter | Status |
 |---|---|---|
-| [opencode](https://github.com/anomalyco/opencode) | TypeScript plugin (`engine/scripts/plugin.ts`) exposing the read-side CLI surface, gated `motoko strix`, shepherd control and report ingest | Tool surface verified against 0.0.0-main-202609302229 (plugin.ts verified-API-surface stamp, 2026-10-01; a later live seat acceptance on 2026-10-02 under a newer main re-checked the same surface: doctor/rules/health/query/events/digest payloads match the direct CLI, ingest with engine-side scope rejection and idempotent re-ingest, seal verify `manifest match`, six-gate refusal with no launch, seat bash gate blocking raw `strix`/unbounded `motoko run`/`--direct`, shepherd status as data and stop refusing without `force`); thin control plane — execution stays in OS-owned wrappers. |
-The opencode seat plugin (`engine/scripts/plugin.ts`) is a thin
-control plane: it exposes the read-side CLI surface (digest, health, query,
-events), gated `motoko strix` through the six-gate wrapper, shepherd unit
-control and strix-report ingest. Execution stays in OS-owned wrappers — the
-plugin adds no scheduler and never edits SQLite. Existing host gateways can
+| [opencode](https://github.com/anomalyco/opencode) | Direct `motoko` CLI driving — the seat agent runs the read-side subcommands, gated `motoko strix`, `systemctl --user` shepherd control and `motoko ingest-strix` report intake. A thin TypeScript plugin briefly carried this surface and was deleted 2026-10-06 | Read-side subcommands verified against the direct CLI (doctor/rules/health/query/events/digest payloads match); ingest carries engine-side scope rejection and idempotent re-ingest; seal verifies `manifest match`; a gated launch refuses with no launch when a gate fails. Raw `strix` is refused at the host's strix shim (`~/.local/bin/strix`) unless the caller is the gated wrapper or a shepherd. Execution stays in OS-owned wrappers. |
+The opencode seat drives the engine through the installed `motoko` CLI: the
+read-side subcommands (digest, health, query, events), gated `motoko strix`
+through the six-gate wrapper, `systemctl --user` shepherd control and
+`motoko ingest-strix` report intake. Execution stays in OS-owned wrappers —
+the seat adds no scheduler and never edits SQLite. Existing host gateways can
 carry operator messages; SSH carries the engine protocol. No host is
 required by the engine.
 
@@ -23,12 +23,13 @@ Install the engine on the scan machine:
 pip install "git+https://github.com/eric-stone-plus/MOTOKO.git#subdirectory=engine"
 ```
 
-The engine is Python 3.11+, stdlib only. For the opencode seat, copy or
-symlink `engine/scripts/plugin.ts` into opencode's plugin directory
-(`~/.config/opencode/plugin/`); it wraps the installed `motoko` CLI and
-adds no Python-side host requirements. The engine-side adapter
-(`motoko adapter --stdio`) needs no host install. Deployment paths are
-operator inputs, never model inputs.
+The engine is Python 3.11+, stdlib only. For the opencode seat, install the
+`motoko` CLI on the host (or reach it over SSH); the seat calls it directly
+and adds no Python-side host requirements. Protect raw launches with the
+strix shim (`~/.config/strix/strix-wrapper.sh`, installed as
+`~/.local/bin/strix`), which admits `strix` only from a gated ancestor. The
+engine-side adapter (`motoko adapter --stdio`) needs no host install.
+Deployment paths are operator inputs, never model inputs.
 
 The engine-side adapter runs where the engine runs; remote collectors
 reach it over SSH (posture below). Provision the engine account and
@@ -36,7 +37,7 @@ target egress separately.
 
 The host tools require an existing authorized engagement. Initialization,
 scope changes and secret provisioning remain operator deployment tasks. The
-plugin does not start work merely by being installed or loaded.
+seat starts no work merely by being connected or loaded.
 
 ## Protocol and lifecycle
 
@@ -94,9 +95,9 @@ isolation appropriate to the deployment. Aggregates still disclose operational
 metadata to the host; raw evidence remains in engine storage.
 
 Acceptance covers synthetic local scanners and real loopback SSH (including
-abrupt client loss) for the engine-side adapter, and the opencode plugin's
-tool surface against 0.0.0-main-202609302229 (bash gate, gated strix
-passthrough, shepherd control, report ingest; stamp refreshed 2026-10-01 to
-the installed build, API unchanged since the 2026-09-28 check). It does not establish production gateway
+abrupt client loss) for the engine-side adapter, and the seat's direct CLI
+surface (read-side subcommands matching the CLI, gated strix passthrough,
+shepherd control, report ingest; the plugin that once carried this was
+deleted 2026-10-06). It does not establish production gateway
 reliability, agent-facing effective-tool behavior inside a model session,
 or model quality.
