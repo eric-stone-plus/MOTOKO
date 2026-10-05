@@ -376,27 +376,23 @@
         </div>
         <div class="tabpanes">
           <div class="tabpane" id="pane-pip" role="tabpanel" aria-labelledby="tab-pip" data-print-label="pip" tabindex="0">
-            <p>The engine package installs as <code>motoko</code> and provides the console script of the same name. From a clone, or straight from the GitHub repository — the one place this project is hosted; re-run the same command to update after each push.</p>
-            <div class="cmd-card">
-              <code class="cmd" id="cmd-cta-pip">pip install ./engine</code>
-              <button type="button" class="copy-btn" data-copy="cmd-cta-pip">Copy</button>
-            </div>
+            <p>The engine package installs as <code>motoko</code> and provides the console script of the same name. From the GitHub repository — the one place this project is hosted; re-run the same command to update after each push.</p>
             <div class="cmd-card">
               <code class="cmd" id="cmd-cta-pipgit">pip install "git+https://github.com/eric-stone-plus/MOTOKO.git#subdirectory=engine"</code>
               <button type="button" class="copy-btn" data-copy="cmd-cta-pipgit">Copy</button>
             </div>
           </div>
           <div class="tabpane" id="pane-interface" role="tabpanel" aria-labelledby="tab-interface" data-print-label="with interface" tabindex="0">
-            <p>Optional read-only terminal interface (Textual), installed from a clone. <code>motoko status</code> and <code>motoko watch</code> stay stdlib.</p>
+            <p>Optional read-only terminal interface (Textual), installed from the same repository. <code>motoko status</code> and <code>motoko watch</code> stay stdlib.</p>
             <div class="cmd-card">
-              <code class="cmd" id="cmd-cta-iface">pip install './engine[interface]'</code>
+              <code class="cmd" id="cmd-cta-iface">pip install "motoko[interface] @ git+https://github.com/eric-stone-plus/MOTOKO.git#subdirectory=engine"</code>
               <button type="button" class="copy-btn" data-copy="cmd-cta-iface">Copy</button>
             </div>
           </div>
           <div class="tabpane" id="pane-source" role="tabpanel" aria-labelledby="tab-source" data-print-label="source tree" tabindex="0">
             <p>Run without installing, straight from the source tree.</p>
             <div class="cmd-card">
-              <code class="cmd" id="cmd-cta-src">cd engine && python3 -m core --help</code>
+              <code class="cmd" id="cmd-cta-src">git clone https://github.com/eric-stone-plus/MOTOKO.git && cd MOTOKO/engine && python3 -m core --help</code>
               <button type="button" class="copy-btn" data-copy="cmd-cta-src">Copy</button>
             </div>
           </div>
@@ -411,7 +407,7 @@
   <div class="wrap foot-inner">
     <div class="foot-brand">
       <p class="brand-name">MOTOKO</p>
-      <p class="foot-tag">Every agent answers to one engine.</p>
+      <p class="foot-tag">Nothing runs off the record.</p>
       <a class="foot-github" href="https://github.com/eric-stone-plus/MOTOKO" rel="noopener">
         <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
         GitHub

@@ -20,7 +20,7 @@ required by the engine.
 Install the engine on the scan machine:
 
 ```bash
-pip install ./engine
+pip install "git+https://github.com/eric-stone-plus/MOTOKO.git#subdirectory=engine"
 ```
 
 The engine is Python 3.11+, stdlib only. For the opencode seat, copy or
