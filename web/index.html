@@ -48,7 +48,9 @@
   <section class="hero">
     <div class="wrap hero-grid">
       <div class="hero-copy">
-        <img class="hero-mark hero-mark-dark" src="motoko-wordmark.svg" alt="MOTOKO" width="340" height="90">
+        <!-- Screen mark is the nav's own wordmark 68px above, so only the
+             print variant stays here: the stylesheet hides .nav when
+             printing, and the paper mark is then the only brand on the page. -->
         <img class="hero-mark hero-mark-print" src="motoko-wordmark-paper.svg" alt="MOTOKO" width="340" height="90">
         <h1 class="display">Pentest automation,<br><span class="tt">on the record</span>.</h1>
         <p class="lede">MOTOKO binds the scanners and agents you already trust into one governed graph. Scope is checked before anything runs; every action lands in an append-only record. It replaces nothing — no scanner, no agent runtime, no rewrite of the tools your team already runs.</p>
@@ -61,10 +63,10 @@
           <a class="btn btn-ghost" href="#tools">See a tool run →</a>
         </div>
         <dl class="hero-stats">
-          <div><dt>40</dt><dd>rule packs, statically checked</dd></div>
-          <div><dt>0</dt><dd>runtime dependencies</dd></div>
-          <div><dt>23</dt><dd>tools, rule-driven</dd></div>
-          <div><dt>$0</dt><dd>AGPL-3.0-or-later</dd></div>
+          <div><dt>Stdlib</dt><dd>no runtime deps</dd></div>
+          <div><dt>Gated</dt><dd>scope checked first</dd></div>
+          <div><dt>Logged</dt><dd>append-only events</dd></div>
+          <div><dt>AGPL</dt><dd>free to audit</dd></div>
         </dl>
       <div class="sec-head">
           <p class="kicker">The interface</p>
@@ -164,7 +166,7 @@
   <span class="t-dim">parked reasons:</span> missing_backend <span class="t-dim">·</span> egress_policy</code>
           </div>
           <div class="term-stat">
-            <span><b>rules</b> 40 packs</span>
+            <span><b>rules</b> whole corpus</span>
             <span><b>render</b> placeholders</span>
             <span><b>gate</b> ACT</span>
             <span><b>parse</b> events</span>
@@ -332,7 +334,7 @@
         <li class="gs-step">
           <div class="gs-idx">03</div>
           <div class="gs-body">
-            <p><strong>Check the corpus.</strong> 40 rule packs, statically checked — no traffic, no LLM.</p>
+            <p><strong>Check the corpus.</strong> The whole rule corpus, statically checked — no traffic, no LLM.</p>
             <div class="cmd-card">
               <code class="cmd" id="cmd-rules">motoko rules --report</code>
               <button type="button" class="copy-btn" data-copy="cmd-rules">Copy</button>
@@ -725,7 +727,12 @@
 
   /* ---------- scroll reveals (Apple-style settle-in) ---------- */
   if (motionOk && 'IntersectionObserver' in window) {
-    var heroSeq = ['.hero .eyebrow', '.hero-mark-dark', 'h1.display', '.lede', '.hero-actions'];
+    // Only selectors that match something: a missing one is skipped by the
+    // `if (el)` guard below but still consumes its slot, pushing every later
+    // element one 0.09s step out of the intended rhythm. `.hero .eyebrow`
+    // was already dead here (no such element), and the screen wordmark went
+    // with the fold fix — the nav 68px above carries the brand.
+    var heroSeq = ['h1.display', '.lede', '.hero-actions'];
     heroSeq.forEach(function (sel, i) {
       var el = document.querySelector(sel);
       if (el) { el.classList.add('reveal'); el.style.setProperty('--rd', (i * 0.09) + 's'); }

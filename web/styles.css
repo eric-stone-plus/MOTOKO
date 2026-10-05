@@ -257,7 +257,12 @@ code {
 /* ---------- hero ---------- */
 
 .hero {
-  padding: clamp(36px, 4.2vw, 56px) 0 clamp(1.5rem, 2vw, 1.9rem);
+  /* Top padding is sized so the whole first screen — nav, headline, lede,
+     install command, stat row and the interface mock — lands above the fold
+     on a 1920x1080 display (993px viewport minus the 68px nav leaves 925px;
+     the hero measures 923px at that width). Enlarging this or the gaps below
+     pushes the mock off the fold, so the numbers are load-bearing. */
+  padding: clamp(28px, 3vw, 40px) 0 clamp(1.25rem, 1.6vw, 1.5rem);
 }
 
 .hero-grid {
@@ -389,7 +394,10 @@ code {
 
 /* ---------- figure / terminal ---------- */
 
-.fig { margin-top: var(--space-8); }
+/* 40px, not the 4rem (64px) this started at: the hero's right column is the
+   taller of the two, so its leading margin is the cheapest place to buy fold
+   height without touching the copy. */
+.fig { margin-top: 40px; }
 
 /* hero wordmark (brand asset from ../logo/) */
 .hero-mark {
@@ -496,7 +504,11 @@ code {
   padding: 14px 16px 16px;
   font-family: var(--font-mono);
   font-size: 11.5px;
-  line-height: 1.75;
+  /* 1.6, not the 1.75 this started at: the mock is the tallest block in the
+     hero, and its line rhythm is what decides whether the first screen fits.
+     1.6 still reads as terminal output — the rows are separated by borders
+     and panel padding, not by leading — and it buys ~50px of fold. */
+  line-height: 1.6;
   color: var(--term-ink);
   overflow-x: hidden;
 }
