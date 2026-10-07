@@ -98,7 +98,7 @@ def main():
     parser.add_argument("--tools-dir", type=Path,
                         default=Path(os.environ.get("MOTOKO_TOOLS", HERE.parents[3] / "tools")))
     parser.add_argument("--bin-dir", type=Path, default=Path.home() / ".local/bin")
-    parser.add_argument("--skill-dir", type=Path, default=Path.home() / ".config/opencode/skills")
+    parser.add_argument("--skill-dir", type=Path, default=Path.home() / ".codewhale/plugins/motoko/skills")
     parser.add_argument("--source", help="optional reviewed local clone; revision and hashes still enforced")
     args = parser.parse_args()
     install(args)

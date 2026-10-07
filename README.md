@@ -87,7 +87,7 @@ refuses anything on its own.
   the next wave. Failures reduce rank; duplicate evidence earns no discovery
   credit. Completed and interrupted wave policy persists across runs. Category reservations and
   serial batches bound dispatch; producer failures block dependent actions.
-- **Host adapter and remote operation**: the opencode seat drives the engine
+- **Host adapter and remote operation**: the codewhale seat drives the engine
   directly through the `motoko` CLI; the engine-side `motoko/1` adapter serves
   interface collectors over
   local pipes or encrypted SSH, with pinned host keys, bounded frames and

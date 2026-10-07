@@ -13,6 +13,7 @@ Citations are **upstream**. Operator forks, if any, are out of scope here.
 |---|---|---|---|
 | MOTOKO (this repo) | Ontology + graph contract | [eric-stone-plus/MOTOKO](https://github.com/eric-stone-plus/MOTOKO) | AGPL-3.0-or-later |
 | Pi | Agent shell / lightweight host (retired seat line, 2026-09-28) | [earendil-works/pi](https://github.com/earendil-works/pi) | MIT |
+| Codewhale | Terminal coding agent / host (live seat line, 2026-10-07) | [codewhale-hq/Codewhale](https://github.com/codewhale-hq/Codewhale) | MIT |
 | Security Agent | Reference architecture for a single-agent planning/execution loop | [wr0ld/security-agent](https://github.com/wr0ld/security-agent) | Upstream terms; reference only |
 | Strix | Autonomous pentest; PoC-validated findings | [usestrix/strix](https://github.com/usestrix/strix) | Apache-2.0 |
 | Nuclei | Template CVE / misconfig scanner | [projectdiscovery/nuclei](https://github.com/projectdiscovery/nuclei) | MIT |
@@ -117,7 +118,7 @@ event-sourced `graph.db` is the durable engagement state, hypotheses and scan
 waves are the bounded action queue, `motoko/core` performs execution-time
 scope and tool checks, and loop bundles retain round evidence before any
 truncation. Finding identity and evidence references stay governed by the
-MOTOKO graph and seal rules. The opencode seat exposes the read-side CLI
+MOTOKO graph and seal rules. The codewhale seat exposes the read-side CLI
 surface; the engine-side `motoko/1` adapter (interface collectors) carries
 aggregate state, never the reference project's web runtime or raw artifact
 store.
@@ -142,15 +143,17 @@ scanner binaries in `MOTOKO_TOOLS` share one release cycle.
 | Component | Version or revision | Source of truth | Status |
 |---|---|---|---|
 | MOTOKO engine | `0.7.0` | `engine/pyproject.toml` | engine package |
-| opencode seat | `0.0.0-main-202610052203` (as of 2026-10-06) | seat drives the `motoko` CLI directly; a thin plugin once carried this surface and was removed 2026-10-06 | sole shipped seat adapter |
+| opencode seat | retired 2026-10-08 (last noted build `0.0.0-main-202610052203`, 2026-10-06) | former seat drove the `motoko` CLI directly; a thin plugin once carried this surface and was removed 2026-10-06 | retired |
+| codewhale seat | seat package 2026-10-07 | verb-gated unsandboxed wrappers over the `motoko` CLI; the host default shell sandbox defeats the strix shim's process walk and strips engine environment | live seat adapter |
 | Security Agent reference | `1b039e9ed509de6f5dceb065d27d659109e7a223` | upstream commit | reviewed reference |
 | Strix | deployment-selected | host deployment manifest and `strix --version` | doctor compares source and deployed bytes |
 | Kali recon image | `2026.3` (deploy-host snapshot tag) | deploy-host environment (`MOTOKO_KALI_IMAGE`) | active host snapshot; rebuild before treating as a pin |
 
 The prior seat plugin, standalone host client and Pi extension were
-retired 2026-09-28; the opencode seat drives the `motoko` CLI directly as
-the sole shipped adapter, and the thin TypeScript plugin that briefly
-carried this surface was removed 2026-10-06. Strix is intentionally deployment-selected: the engine records
+retired 2026-09-28. The opencode seat (2026-09-28 through 2026-10-08) is
+retired. The live seat is codewhale (since 2026-10-07); it drives the
+`motoko` CLI directly. The thin TypeScript plugin that briefly carried
+the opencode surface was removed 2026-10-06. Strix is intentionally deployment-selected: the engine records
 and reports a source/deployed mismatch through `doctor` rather than exporting
 one host's tool revision as a public requirement.
 
