@@ -206,11 +206,6 @@ code {
 .nav-links a { color: var(--ink-2); }
 .nav-links a:hover { color: var(--ink); text-decoration: none; }
 
-#interface .sec-head { margin-bottom: var(--space-4); }
-#interface .sec-head .kicker { margin-bottom: 4px; }
-#interface .sec-head .title { margin: 0; font-size: clamp(1.5rem, 2.4vw, 1.95rem); }
-#interface .sec-head .sec-sub { margin-top: 10px; max-width: 62ch; }
-
 .nav-links a.is-active {
   color: var(--ink);
   box-shadow: inset 0 -2px 0 var(--accent-deep);
@@ -272,7 +267,6 @@ code {
   align-items: start;
 }
 .hero-copy, .hero-panel { min-width: 0; }
-.hero-panel .sec-head { margin-top: 0; }
 .hero-copy .sec-head { margin: var(--space-6) 0 0; }
 
 .hero-stats {
@@ -298,21 +292,6 @@ code {
 
 @media (max-width: 980px) {
   .hero-grid { grid-template-columns: minmax(0, 1fr); }
-}
-
-.eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  font-family: var(--font-mono);
-  font-size: var(--text-caption);
-  letter-spacing: var(--ls-mono);
-  text-transform: uppercase;
-  color: var(--ink-2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-pill);
-  padding: 6px 14px;
-  background: var(--bg-soft);
 }
 
 .display {
@@ -692,8 +671,6 @@ code {
   gap: var(--grid-gap);
   align-items: stretch;
 }
-.card-wide { grid-column: 1 / -1; }
-
 .card-title {
   font-size: var(--text-h3);
   font-weight: var(--w-head);
@@ -858,6 +835,14 @@ code {
 }
 .foot-group a { color: var(--ink-2); }
 .foot-group a:hover { color: var(--ink); }
+
+.foot-use {
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+  color: var(--ink-3);
+  font-size: var(--text-caption);
+}
 
 /* ---------- responsive ---------- */
 
@@ -1070,10 +1055,6 @@ html:not(.js) .state-row:hover { background: transparent; }
   overflow-wrap: anywhere;
 }
 
-/* responsive: interactive components (after their base rules) */
-@media (max-width: 1100px) {}
-@media (max-width: 640px) {}
-
 /* ---------- motion: scroll reveals, dashboard life, HUD cursor ---------- */
 /* Initial-hidden states only exist with JS + motion allowed; without JS, with
    reduced-motion, and in print everything renders at its final state. */
@@ -1087,19 +1068,12 @@ html:not(.js) .state-row:hover { background: transparent; }
   }
   .js .reveal.in { opacity: 1; transform: none; }
 
-  /* dashboard: everything renders at once; only the live dots breathe
-     and the caret fakes the refresh */
+  /* dashboard: everything renders at once; only the live dots breathe */
   .js .shot-live { animation: live-pulse 2.6s ease-in-out infinite; }
-  .js .shot .shot-caret { animation: caret-blink 1.1s steps(1) infinite; }
 
   /* HUD cursor (fine pointers only) */
   .js.hud-on, .js.hud-on * { cursor: none !important; }
   .js.hud-on .hud-cursor { display: block; }
-}
-
-@keyframes caret-blink {
-  0%, 49% { opacity: 1; }
-  50%, 100% { opacity: 0; }
 }
 
 @keyframes live-pulse {
@@ -1248,7 +1222,6 @@ html:not(.js) .state-row:hover { background: transparent; }
   .shot .shot-topbar, .shot .shot-tr, .shot .shot-drill,
   .shot .shot-cols .shot-panel, .shot .shot-foot { opacity: 1 !important; transform: none !important; }
   .shot-gauge-fill { width: 8ch !important; }
-  .shot-caret { opacity: 1 !important; }
   .hud-cursor { display: none !important; }
   .tabpane::before {
     content: attr(data-print-label);
@@ -1258,6 +1231,5 @@ html:not(.js) .state-row:hover { background: transparent; }
     margin-bottom: 6px;
   }
   /* paper wordmark swaps in on paper */
-  .hero-mark-dark { display: none !important; }
   .hero-mark-print { display: block; }
 }

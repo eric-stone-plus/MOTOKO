@@ -11,6 +11,12 @@
 <meta property="og:description" content="The scanners and agents you already trust, under one engine — scope-checked before every call, with a human interrupt where the contract demands one.">
 <meta property="og:image" content="https://raw.githubusercontent.com/eric-stone-plus/MOTOKO/main/logo/og.png">
 <meta name="twitter:card" content="summary_large_image">
+<meta property="og:url" content="https://eric-stone-plus.github.io/MOTOKO/">
+<meta property="og:site_name" content="MOTOKO">
+<meta property="og:image:alt" content="MOTOKO wordmark on a dark background">
+<meta name="twitter:title" content="MOTOKO — pentest automation, on the record">
+<meta name="twitter:description" content="Scanners and agents under one governed graph: scope-checked before every call, append-only on evidence. Open source, AGPL-3.0-or-later.">
+<link rel="canonical" href="https://eric-stone-plus.github.io/MOTOKO/">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="styles.css">
 <script>
@@ -18,6 +24,9 @@
 (function () {
   document.documentElement.classList.add('js');
 })();
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"MOTOKO","description":"Pentest automation, on the record. Scanners and agents bound into one governed graph — scope-checked before every call, append-only on evidence.","url":"https://eric-stone-plus.github.io/MOTOKO/","codeRepository":"https://github.com/eric-stone-plus/MOTOKO","license":"https://spdx.org/licenses/AGPL-3.0-or-later.html","applicationCategory":"SecurityApplication"}
 </script>
 </head>
 <body>
@@ -35,6 +44,7 @@
       <a href="#research">Research</a>
       <a href="#trust">Trust</a>
       <a href="#start">Getting started</a>
+      <a href="#license">License</a>
     </nav>
     <div class="nav-actions">
       <a class="btn btn-primary" href="#install">Install</a>
@@ -130,7 +140,7 @@
 
       <div class="card gate-demo" id="gate">
         <div class="gate-head">
-          <p class="gate-title">Try the gate</p>
+          <h3 class="gate-title">Try the gate</h3>
           <p class="gate-scope">demo scope: example.invalid · 203.0.113.0/24</p>
         </div>
         <p class="sec-sub">Label-boundary matching and CIDR checks, in the browser. The engine applies the same arithmetic in <code>engine/core/scope.py</code> — this demo sends no traffic and performs no resolution.</p>
@@ -183,12 +193,12 @@
       <div class="sec-head">
         <p class="kicker">Research</p>
         <h2 class="title">Borrowed from CISA, NIST, DARPA and allied programs</h2>
-        <p class="sec-sub">RESEARCH.md surveys how military-grade programs are actually graded — assurance, provenance, adjudication — across 20 absorbable patterns (12 US, 8 allied). MOTOKO claims no such grade; it adopts only patterns that need nothing beyond the Python stdlib.</p>
+        <p class="sec-sub"><a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/RESEARCH.md" rel="noopener">RESEARCH.md</a> surveys how military-grade programs are actually graded — assurance, provenance, adjudication — across 20 absorbable patterns (12 US, 8 allied). MOTOKO claims no such grade; it adopts only patterns that need nothing beyond the Python stdlib.</p>
       </div>
 
       <div class="trust-grid">
         <div class="card">
-          <p class="card-title">US programs</p>
+          <h3 class="card-title">US programs</h3>
           <dl class="def-rows">
             <dt>CISA · ScubaGear</dt>
             <dd>The unified verdict record — every check names its tool call, its normative strength, and declares what it cannot evaluate instead of dropping it</dd>
@@ -207,7 +217,7 @@
           </dl>
         </div>
         <div class="card">
-          <p class="card-title">Allied programs</p>
+          <h3 class="card-title">Allied programs</h3>
           <dl class="def-rows">
             <dt>Canada CSE · AssemblyLine</dt>
             <dd>A heuristic must be declared in the manifest before it can fire; the server recomputes scores and rejects unknown heuristics</dd>
@@ -234,11 +244,11 @@
       <div class="sec-head">
         <p class="kicker">Trust</p>
         <h2 class="title">What the engine enforces, and what it leaves to the operator</h2>
-        <p class="sec-sub">Each row names who enforces it — the engine or the operator. The contract (GRAPH.md) is larger than the engine; IMPLEMENTATION.md marks what is implemented and what is not.</p>
+        <p class="sec-sub">Each row names who enforces it — the engine or the operator. The contract (<a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/GRAPH.md" rel="noopener">GRAPH.md</a>) is larger than the engine; <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/IMPLEMENTATION.md" rel="noopener">IMPLEMENTATION.md</a> marks what is implemented and what is not.</p>
       </div>
       <div class="trust-grid">
         <div class="card">
-          <p class="card-title">Where enforcement lives</p>
+          <h3 class="card-title">Where enforcement lives</h3>
           <dl class="def-rows">
             <dt>Scope</dt>
             <dd>Engine-side, fail-closed; refusals are first-class events</dd>
@@ -252,7 +262,7 @@
           <p class="card-note">Also operator-side today: bounded parallel fan-out and host-resource budgeting. <code>motoko loop</code> audits engineering changes (ROLLBACK/STOP verdicts) — separate from scan waves.</p>
         </div>
         <div class="card">
-          <p class="card-title">Finding states are explicit</p>
+          <h3 class="card-title">Finding states are explicit</h3>
           <ul class="state-rows">
             <li>
               <button type="button" class="state-row" aria-pressed="false">
@@ -303,6 +313,45 @@
     </div>
   </section>
 
+  <!-- ================= LICENSE & COMMERCIAL USE ================= -->
+  <section class="sec" id="license">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="kicker">License</p>
+        <h2 class="title">AGPL-3.0-or-later, and what it asks of a deployment</h2>
+        <p class="sec-sub">Original MOTOKO files are free software: run them, modify them, redistribute them — including commercially. Two things decide whether anything beyond the license is needed: who interacts with a modified engine over a network, and which instruments you bind. This is a summary; the <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/LICENSE" rel="noopener">LICENSE</a> text controls.</p>
+      </div>
+      <div class="trust-grid">
+        <div class="card">
+          <h3 class="card-title">What the license covers</h3>
+          <dl class="def-rows">
+            <dt>Self-host</dt>
+            <dd>No fee, no seat count, no hosted tier. The engine is a CLI you run on hardware you control; private use is not distribution.</dd>
+            <dt>Network use</dt>
+            <dd>If users interact with a <em>modified</em> version over a network, AGPL §13 requires that they are offered its Corresponding Source. An unmodified copy running for your own team does not trigger that offer.</dd>
+            <dt>Instruments</dt>
+            <dd>The scanners and agents you bind keep their own licenses, upstreams and terms — MOTOKO does not relicense them. Some carry commercial-use conditions of their own; check <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/INSTRUMENTS.md" rel="noopener">INSTRUMENTS.md</a> before binding one into client work.</dd>
+            <dt>Commercial</dt>
+            <dd>Commercial use is already permitted under AGPL-3.0-or-later. No separate commercial license is published today; if your organization's policy cannot accept these terms, raise it with the <a href="https://github.com/eric-stone-plus" rel="noopener">maintainer</a>.</dd>
+          </dl>
+          <p class="card-note">The full summary and FAQ live in the <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/README.md#license-and-commercial-use" rel="noopener">README</a>.</p>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Authorized use only</h3>
+          <p class="card-note">MOTOKO drives scanners and agents. It is built to be pointed at systems you have written authorization to test — nothing else.</p>
+          <dl class="def-rows">
+            <dt>Scope</dt>
+            <dd>Scope is operator-declared; the engine refuses anything outside it, before it runs. A passing <code>motoko doctor</code> is not authorization, and neither is a clean rule report.</dd>
+            <dt>Responsibility</dt>
+            <dd>Every engagement needs the written authorization behind it, a deliberate outbound posture, and instruments whose own terms you have checked. The operator carries all three.</dd>
+            <dt>Evidence</dt>
+            <dd>Sealed evidence is append-only and SHA256-manifested, but not encrypted at rest — handle it as the sensitive material it is.</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ================= GETTING STARTED ================= -->
   <section class="sec" id="start">
     <div class="wrap">
@@ -325,7 +374,7 @@
         <li class="gs-step">
           <div class="gs-idx">02</div>
           <div class="gs-body">
-            <p><strong>Check the environment.</strong> Read-only — a passing doctor is not authorization to scan. Its WARN lines name the unresolved binaries for your own agent to fetch — upstreams and licenses in <code>INSTRUMENTS.md</code>.</p>
+            <p><strong>Check the environment.</strong> Read-only — a passing doctor is not authorization to scan. Its WARN lines name the unresolved binaries for your own agent to fetch — upstreams and licenses in <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/INSTRUMENTS.md" rel="noopener"><code>INSTRUMENTS.md</code></a>.</p>
             <div class="cmd-card">
               <code class="cmd" id="cmd-doctor">motoko doctor</code>
               <button type="button" class="copy-btn" data-copy="cmd-doctor">Copy</button>
@@ -379,7 +428,7 @@
         </div>
         <div class="tabpanes">
           <div class="tabpane" id="pane-pip" role="tabpanel" aria-labelledby="tab-pip" data-print-label="pip" tabindex="0">
-            <p>The engine package installs as <code>motoko</code> and provides the console script of the same name. From the GitHub repository — the one place this project is hosted; re-run the same command to update after each push.</p>
+            <p>The engine distribution installs as <code>core-engine</code> and provides the <code>motoko</code> console script. From the GitHub repository — the one place this project is hosted; re-run the same command to update after each push.</p>
             <div class="cmd-card">
               <code class="cmd" id="cmd-cta-pipgit">pip install "git+https://github.com/eric-stone-plus/MOTOKO.git#subdirectory=engine"</code>
               <button type="button" class="copy-btn" data-copy="cmd-cta-pipgit">Copy</button>
@@ -388,7 +437,7 @@
           <div class="tabpane" id="pane-interface" role="tabpanel" aria-labelledby="tab-interface" data-print-label="with interface" tabindex="0">
             <p>Optional read-only terminal interface (Textual), installed from the same repository. <code>motoko status</code> and <code>motoko watch</code> stay stdlib.</p>
             <div class="cmd-card">
-              <code class="cmd" id="cmd-cta-iface">pip install "motoko[interface] @ git+https://github.com/eric-stone-plus/MOTOKO.git#subdirectory=engine"</code>
+              <code class="cmd" id="cmd-cta-iface">pip install "core-engine[interface] @ git+https://github.com/eric-stone-plus/MOTOKO.git#subdirectory=engine"</code>
               <button type="button" class="copy-btn" data-copy="cmd-cta-iface">Copy</button>
             </div>
           </div>
@@ -426,7 +475,11 @@
       <p class="foot-label">Project</p>
       <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/LICENSE" rel="noopener">AGPL-3.0-or-later License</a>
       <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/NOTICE" rel="noopener">NOTICE</a>
+      <a href="#license">Commercial use</a>
     </nav>
+  </div>
+  <div class="wrap">
+    <p class="foot-use">Use MOTOKO only against systems you are authorized to test. <a href="#license">License &amp; commercial use →</a></p>
   </div>
 </footer>
 
