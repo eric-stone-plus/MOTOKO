@@ -2,10 +2,12 @@
 
 # MOTOKO
 
-[![smoke](https://github.com/eric-stone-plus/MOTOKO/actions/workflows/smoke.yml/badge.svg)](https://github.com/eric-stone-plus/MOTOKO/actions/workflows/smoke.yml)
-[![license: AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue)](LICENSE)
-[![python: 3.11 | 3.12 | 3.13](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)](engine/pyproject.toml)
-[![site](https://img.shields.io/badge/site-landing%20page-blue)](https://eric-stone-plus.github.io/MOTOKO/)
+<p align="center">
+  <a href="https://github.com/eric-stone-plus/MOTOKO/actions/workflows/smoke.yml"><img src="https://github.com/eric-stone-plus/MOTOKO/actions/workflows/smoke.yml/badge.svg" alt="smoke"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue" alt="license: AGPL-3.0-or-later"></a>
+  <a href="engine/pyproject.toml"><img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue" alt="python: 3.11 | 3.12 | 3.13"></a>
+  <a href="https://eric-stone-plus.github.io/MOTOKO/"><img src="https://img.shields.io/badge/site-landing%20page-blue" alt="site"></a>
+</p>
 
 **Pentest automation, on the record.** The scanners and agents you already
 trust, bound into one governed graph — scope-checked before every call,
