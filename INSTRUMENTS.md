@@ -19,6 +19,7 @@ Citations are **upstream**. Operator forks, if any, are out of scope here.
 | Nuclei | Template CVE / misconfig scanner | [projectdiscovery/nuclei](https://github.com/projectdiscovery/nuclei) | MIT |
 | Firecrawl | Web scrape/crawl/JS-render (self-host stack; research-fetch lane, not a scan instrument) | [firecrawl/firecrawl](https://github.com/firecrawl/firecrawl) | AGPL-3.0 |
 | LangGraph | Graph *contract* runtime, if compiled | [langchain-ai/langgraph](https://github.com/langchain-ai/langgraph) | MIT |
+| Social Analyzer | Pinned public-profile heuristics for the optional `social-profile` skill; installed from the engine checkout, never vendored | [qeeqbox/social-analyzer](https://github.com/qeeqbox/social-analyzer) | AGPL-3.0 |
 | Kali Linux | CLI pentest environment / playbook surface | [kali.org](https://www.kali.org/) | Distro; packages keep their own licenses |
 | Tailscale | Optional overlay network carrying the SSH transport | [tailscale/tailscale](https://github.com/tailscale/tailscale) | BSD-3-Clause |
 
