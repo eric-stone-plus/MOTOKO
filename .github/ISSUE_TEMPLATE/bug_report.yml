@@ -1,0 +1,40 @@
+name: Bug report
+description: Report a defect in the engine or the documentation.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not report security vulnerabilities here — use the private channel
+        described in SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: Output of `pip show core-engine`, or the commit you run.
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Install method
+      options:
+        - pip from the git URL
+        - source tree (python3 -m core)
+        - other
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: "`motoko doctor` output"
+      description: Paste the full report; redact hosts and credentials.
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Expected vs actual, with the exact command and output.
+    validations:
+      required: true

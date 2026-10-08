@@ -55,4 +55,21 @@ jobs:
           "
       - name: Assert no build artifacts are tracked
         run: |
-          ! git ls-files | grep -qE '(^|/)(build|dist)/'
+          ! git ls-files | grep -qE '(^|/)(build|dist)/|\.egg-info/'
+
+  policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Public-tree language policy (AGENTS.md): the flagged network-forwarding
+      # term must not appear outside LICENSE. The pattern is assembled from
+      # parts so this file does not itself carry the term. engine/ is a
+      # one-way export and is checked in its source tree, so this job covers
+      # the files maintained here.
+      - name: Check the public-tree language policy
+        run: |
+          pat="pr""oxy"
+          if grep -rIni --exclude-dir=.git --exclude-dir=engine --exclude=LICENSE -e "$pat" .; then
+            echo "::error::flagged term found outside LICENSE (see AGENTS.md)"
+            exit 1
+          fi
