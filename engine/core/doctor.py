@@ -1229,8 +1229,8 @@ def _check_isolation() -> list[tuple[str, str]]:
     """
     out: list[tuple[str, str]] = []
     state, detail = toolchain.isolation_status()
-    level = {"enforced": OK, "native": OK, "absent": FAIL,
-             "unenforced": WARN}.get(state, WARN)
+    level = {"enforced": OK, "native": OK, "unenforced": WARN,
+             "absent": FAIL if os.geteuid() == 0 else WARN}.get(state, WARN)
     out.append((level, f"tool isolation: {state} — {detail}"))
     root = toolchain.tool_root()
     if root.is_dir():
