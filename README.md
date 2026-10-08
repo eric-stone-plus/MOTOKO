@@ -2,6 +2,15 @@
 
 # MOTOKO
 
+[![smoke](https://github.com/eric-stone-plus/MOTOKO/actions/workflows/smoke.yml/badge.svg)](https://github.com/eric-stone-plus/MOTOKO/actions/workflows/smoke.yml)
+[![license: AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue)](LICENSE)
+[![python: 3.11 | 3.12 | 3.13](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)](engine/pyproject.toml)
+[![site](https://img.shields.io/badge/site-landing%20page-blue)](https://eric-stone-plus.github.io/MOTOKO/)
+
+**Pentest automation, on the record.** The scanners and agents you already
+trust, bound into one governed graph — scope-checked before every call,
+append-only on evidence.
+
 > Shirow Masamune《攻殻機動隊》, Oshii Mamoru *Ghost in the Shell* (1995) —
 > prosthetic shells, and the ghost that is not in any of them.
 
@@ -13,6 +22,19 @@ graph, with gates where a scope check or a human must speak. Each
 instrument keeps its own upstream repository and license; a complete agent
 is the citation graph, not a vendor directory. The name is a callsign,
 not a character.
+
+> **Important — authorized use only.** MOTOKO is an offensive-security
+> orchestration engine. Use it only against systems you own or have explicit
+> written authorization to test. Unauthorized scanning, exploitation, or
+> access is illegal in most jurisdictions and can carry criminal liability.
+> The scope gate is a safety mechanism, not a license: a green `doctor`
+> report and an in-scope asset are not authorization.
+>
+> **Warning.** The engine drives third-party scanners that keep their own
+> licenses, rate limits, and commercial-use conditions (WPScan is the named
+> case in [INSTRUMENTS.md](INSTRUMENTS.md)). Raw evidence can contain
+> discovered secrets and is not encrypted at rest. A refused *first* seal
+> leaves no manifest — verify before relying on an engagement unit.
 
 ## What this is
 
@@ -42,6 +64,19 @@ refuses anything on its own.
 - Not a copyrighted character, voice, likeness, or mark. The wordmark in
   `logo/` is original lettering, and the named works are cited for the
   question they pose, the way one cites a film.
+
+### Who it is for
+
+- Professional pentest and red teams running authorized engagements.
+- Consultancies that must hand clients verifiable evidence rather than a
+  tool's self-report.
+- Internal security teams that need an auditable, reproducible scan trail.
+- Researchers building assurance patterns without adopting a vendor stack.
+
+It is not built for unattended mass scanning, and it is not a point-and-shoot
+exploit product: the destructive-edge interrupt is specified in
+[GRAPH.md](GRAPH.md) and enforced by the operator shell, not by this engine
+(see [IMPLEMENTATION.md](IMPLEMENTATION.md)).
 
 ## Features
 
@@ -153,10 +188,10 @@ parallel fan-out, and host-resource budgeting live in the operator shell.
 # Re-run the same command to update after each push:
 pip install "git+https://github.com/eric-stone-plus/MOTOKO.git#subdirectory=engine"
 
-motoko --help               # the package installs as `motoko` (`pip show motoko`)
+motoko --help               # the distribution installs as `core-engine` (`pip show core-engine`)
 
 # optional: the read-only terminal interface
-pip install "motoko[interface] @ git+https://github.com/eric-stone-plus/MOTOKO.git#subdirectory=engine"
+pip install "core-engine[interface] @ git+https://github.com/eric-stone-plus/MOTOKO.git#subdirectory=engine"
 motoko                      # opens it; `motoko status` / `motoko watch` stay stdlib
 
 # without installing, from the source tree:
@@ -250,6 +285,9 @@ defaults land beside the interpreter rather than in a source tree. Set
   different repo
 - [RESEARCH.md](RESEARCH.md) — military-grade assurance survey and the
   M1–M15 adoption roadmap
+- [SECURITY.md](SECURITY.md) — private vulnerability reporting
+- [CONTRIBUTING.md](CONTRIBUTING.md) — contributor contract
+- [CHANGELOG.md](CHANGELOG.md) — release notes
 
 The `engine/` tree ships code, rule packs, and packaging only; its design
 docs and test suite are maintained outside this export by policy.
@@ -262,9 +300,10 @@ on every push and pull request, on Python 3.11 / 3.12 / 3.13: a clean
 assertion from the *installed* site-packages tree that the rule packs
 actually shipped (a floor of 31 beneath the current 40-pack corpus — it
 guards accidental shrinkage, and a deliberate retirement lowers it on purpose),
-and a check that no build artifacts are tracked.
+and a check that no build artifacts are tracked. A second job enforces the
+public-tree language policy in [AGENTS.md](AGENTS.md).
 
-## License
+## License and commercial use
 
 Original files in this repository are under the
 [GNU Affero General Public License v3.0](https://www.gnu.org/licenses/agpl-3.0.txt)
@@ -274,6 +313,61 @@ Original files in this repository are under the
 (MIT), Strix (Apache-2.0), or LangGraph (MIT). Citing
 a shell is not combining it; those instruments keep their own terms,
 including commercial use. See `NOTICE`.
+
+What the license asks of a deployment — a summary, not legal advice:
+
+- **Internal use publishes nothing.** Running MOTOKO inside one
+  organization, unmodified, carries no source-offer duty. Your engagements,
+  graphs, and reports are your own work product.
+- **Conveying copies triggers the source-offer duty** — modified or not.
+  Distributing the Program outside your organization comes with the
+  AGPL/GPL obligation to offer its Corresponding Source.
+- **A modified network service triggers AGPL §13.** If users interact over a
+  network with a version you modified, they must be offered the
+  Corresponding Source of your modifications.
+- **Client deliverables are your work product.** Delivering reports produced
+  with MOTOKO is fine; the line is offering a modified engine to clients as a
+  network service.
+- **Instruments keep their own terms.** Some carry commercial-use conditions
+  of their own — WPScan is the named case in
+  [INSTRUMENTS.md](INSTRUMENTS.md). Check upstream before binding a tool into
+  paid work.
+
+No separate commercial license is published today. If your organization's
+policy cannot accept AGPL-3.0-or-later, raise it with the maintainer
+([github.com/eric-stone-plus](https://github.com/eric-stone-plus)).
+
+### FAQ
+
+**Does AGPL force us to publish our internal deployment?** No. Internal use
+of an unmodified copy publishes nothing; the source-offer duties attach when
+you convey copies, or when users interact with a modified version over a
+network (§13).
+
+**Can we run paid client engagements with MOTOKO?** Yes — reports and
+findings are your work product. If you modify the engine and let clients
+interact with it over a network, §13 applies to your modifications.
+
+**Does MOTOKO bundle or download scanners?** No. You bring the binaries
+(`motoko doctor` names what is missing); each keeps its upstream license, and
+a missing binary is recorded as a degradation rather than papered over.
+
+**How do we verify an engagement?** `motoko seal <id> --verify` reconciles a
+sealed unit against its SHA256 manifest and census; `motoko events <id>
+--verify` (and `--rebuild`) checks the append-only log. Independent
+recomputation of every finding from the event stream is roadmap item M4 in
+[RESEARCH.md](RESEARCH.md).
+
+**Is the human interrupt enforced by the engine?** Not yet — it is specified
+in [GRAPH.md](GRAPH.md) and enforced by the operator shell;
+[IMPLEMENTATION.md](IMPLEMENTATION.md) records the gap. The engine-side
+guarantees are the scope gate and the evidence chain.
+
+**Name and marks.** MOTOKO is the project's callsign; the wordmark in `logo/`
+is original lettering and no trademark registration is claimed. Forks and
+modified distributions may state their provenance but must not imply
+endorsement; this project claims no affiliation with the cited film or manga
+rights holders.
 
 ## Cultural anchors
 
