@@ -1,4 +1,12 @@
-'Rules are JSON files under ``rules/<category>/*.json`` (stdlib-only, no\nPyYAML dependency on the headless deploy box). Matching is pure Python\nassertion evaluation over a fact view; there is NO decision tree and NO LLM\nin the fast path. An LLM planner only runs on rule-missed nodes (orchestrator\nlayer), and its output must land back in this same hypothesis schema.\n'
+"""Hypothesis engine — deterministic rule matching (rules are data).
+
+Rules are JSON files under ``rules/<category>/*.json`` (stdlib-only, no
+PyYAML dependency on the headless deploy box). Matching is pure Python
+assertion evaluation over a fact view; there is NO decision tree and NO LLM
+in this path — the orchestrator's EXPAND beat is rule matching only (no
+planner exists today). A future planner would have to land its output back
+in this same hypothesis schema.
+"""
 
 from __future__ import annotations
 

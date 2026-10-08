@@ -183,16 +183,22 @@ def engagement_row_cells(eng: EngagementSnapshot, theme: Theme) -> tuple[Text, .
     else:
         state = Text("idle", style=theme.style("text.muted"))
         dot = Text("○", style=theme.style("sealed.dot"))
-    hyps = sum(eng.hyps.values()) if eng.hyps else 0
-    finds = sum(eng.findings.values()) if eng.findings else 0
+    if eng.graph_error:
+        # The graph could not be read: the counts are UNKNOWN, not zero —
+        # an em-dash, never a fabricated 0 (P6).
+        hyps = finds = None
+    else:
+        hyps = sum(eng.hyps.values()) if eng.hyps else 0
+        finds = sum(eng.findings.values()) if eng.findings else 0
     if eng.stale:
         state = Text(f"{state.plain} ▲ stale", style=theme.style("state.warn"))
+    count_style = theme.style("text.muted" if eng.graph_error else "text.primary")
     return (
         Text(eng.id, style=theme.style("text.primary")),
         state,
         dot,
-        Text(f"{hyps:>4}", style=theme.style("text.primary")),
-        Text(f"{finds:>4}", style=theme.style("text.primary")),
+        Text(f"{fmt_count(hyps):>4}", style=count_style),
+        Text(f"{fmt_count(finds):>4}", style=count_style),
         letter_flags(derive_flags(eng), theme),
     )
 
@@ -326,7 +332,7 @@ def run_progress(eng: EngagementSnapshot | None, theme: Theme) -> Group:
         line2 = Text()
         line2.append(f"tools {wave.tools_done}/{wave.tools_total}")
         findings_style = "state.ok" if wave.findings_new else "text.muted"
-        line2.append(f"   findings +{wave.findings_new}",
+        line2.append(f"   findings +{fmt_count(wave.findings_new)}",
                      style=theme.style(findings_style))
         n_cd = len(eng.cooldowns)
         if n_cd:
@@ -366,6 +372,8 @@ def queue(eng: EngagementSnapshot, theme: Theme) -> Group:
     are masked stable labels (P5); the footer keeps the full counts honest
     even though the preview is bounded.
     """
+    if eng.graph_error:
+        return Group(empty_note("graph unavailable — queue unknown", theme))
     if not eng.inflight and not eng.queue_preview:
         return Group(empty_note("queue empty — nothing scheduled", theme))
     rows = Table.grid(padding=(0, 2))
@@ -417,6 +425,8 @@ def hypotheses(eng: EngagementSnapshot, theme: Theme, *, compact: bool = False) 
     ``compact=True`` uses a two-column count grid so the overview cell stays
     readable at 80×24; the drill-down keeps the per-state bars.
     """
+    if eng.graph_error:
+        return Group(empty_note("graph unavailable — hypothesis counts unknown", theme))
     total = max(1, sum(eng.hyps.values()))
     note = Text()
     if eng.hyps.get("testing"):
@@ -481,6 +491,8 @@ def finding_funnel(eng: EngagementSnapshot, theme: Theme, *, compact: bool = Fal
     """
     from interface.snapshot import FINDING_STATES
 
+    if eng.graph_error:
+        return Group(empty_note("graph unavailable — finding counts unknown", theme))
     order = list(FINDING_STATES)
     total = max(1, sum(eng.findings.get(state, 0) for state in order))
     if compact:

@@ -327,7 +327,7 @@ def scan_tool_runs(writer, engagement_id: str, *, limit: int = 500) -> list[Fail
 def recycle_stuck_hypotheses(writer, engagement_id: str, *,
                              priority_penalty: float = 25.0,
                              max_attempts: int = 3) -> tuple[int, int]:
-    '      * attempts remain -> back to ``proposed`` at reduced priority, so the\n        planner can route around it;\n      * attempts exhausted -> ``rejected`` with a reason, so it stops counting\n        as open work and shows up in the health sweep as abandoned.\n\n    Requires a ``db.Database`` WRITER: state changes go through\n    ``upsert_entity`` so they are event-logged and kind-frozen. Attempt\n    counters live in the domain payload (the ``data`` column).\n\n    Raises on a real schema/writer fault instead of returning (0, 0) — see the\n    module docstring for why silence here is the bug, not the safety.\n    Returns ``(recycled, abandoned)``.\n    '
+    '      * attempts remain -> back to ``proposed`` at reduced priority, so the\n        loop can route around it (PRIORITIZE re-picks it);\n      * attempts exhausted -> ``rejected`` with a reason, so it stops counting\n        as open work and shows up in the health sweep as abandoned.\n\n    Requires a ``db.Database`` WRITER: state changes go through\n    ``upsert_entity`` so they are event-logged and kind-frozen. Attempt\n    counters live in the domain payload (the ``data`` column).\n\n    Raises on a real schema/writer fault instead of returning (0, 0) — see the\n    module docstring for why silence here is the bug, not the safety.\n    Returns ``(recycled, abandoned)``.\n    '
     con = _conn_of(writer)
     inflight_marks = ",".join("?" * len(_INFLIGHT))
     rows = con.execute(

@@ -705,7 +705,7 @@ class EventLogOverlay(ModalScreen):
             return
         self.query_one("#eventlog-scroll", VerticalScroll).mount(
             *[Static(panels.event_line(event, theme), classes="eventlog-line")
-              for event in tail])
+              for event in reversed(tail)])
 
 
 class ConfirmButton(Button):
@@ -1540,8 +1540,12 @@ class InterfaceApp(App[None]):
         state = "active" if eng.live else "sealed" if eng.sealed else "idle"
         if eng.stale:
             state += " ▲ stale"
-        hyps = sum(eng.hyps.values()) if eng.hyps else 0
-        finds = sum(eng.findings.values()) if eng.findings else 0
+        if eng.graph_error:
+            # Counts are unknown, not zero — never copy a fabricated 0 (P6).
+            hyps = finds = "—"
+        else:
+            hyps = sum(eng.hyps.values()) if eng.hyps else 0
+            finds = sum(eng.findings.values()) if eng.findings else 0
         flags = letter_flags(panels.derive_flags(eng), self.ui_theme).plain
         return f"{eng.id} {state} flags={flags} hyps={hyps} finds={finds}"
 

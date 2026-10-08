@@ -605,6 +605,9 @@ def _call_anthropic(ep: LLMEndpoint, prompt: str) -> dict:
         "stream": True,
         "messages": [{"role": "user", "content": prompt}],
     }
+    # Anthropic-compatible gateways require extended thinking to be
+    # explicitly enabled: thinking.budget_tokens >= 1024 and < max_tokens,
+    # else the gateway 400s the whole request.
     body["thinking"] = {"type": "enabled", "budget_tokens": 8192}
     wire = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(
@@ -742,7 +745,27 @@ def _leg_health(metas: list[dict] | None) -> dict:
 
 
 def _is_confirmed(fix: dict) -> bool:
-    'Whether more than one audit LENS corroborates this fix.\n\n    Negation-aware, because the field is free prose from a model: a plain\n    substring test counted "NOT both", "never corroborated by both" and\n    "single, not multi" as confirmation — the opposite of what they say.\n    The polarity of this predicate is load-bearing (it stamps\n    ``consensus_confirmed`` and feeds ``_guard_red_command``), so an\n    over-count here inflates cross-lens agreement exactly where the\n    doctrine warns it is weakest. A negator in the same clause now wins\n    over the corroboration token.\n\n    This is CROSS-LENS CONSENSUS, not verification. On one substrate the\n    lenses\' blind spots are correlated, so the status it earns is\n    ``consensus_confirmed``; ``verified_true`` is reserved for the VERIFY\n    beat (loop_evaluate.CONFIRMED_STATUSES).\n    '
+    """Whether more than one audit LENS corroborates this fix.
+
+    Tolerant match: adjudicators write "both", "both legs", "multi"… A
+    single-lens report ("a leg only", "single") carries neither
+    token and stays excluded — a single leg's claim does not move the
+    convergence needle, though it is never dropped (it goes to VERIFY).
+
+    Negation-aware, because the field is free prose from a model: a plain
+    substring test counted "NOT both", "never corroborated by both" and
+    "single, not multi" as confirmation — the opposite of what they say.
+    The polarity of this predicate is load-bearing (it stamps
+    ``consensus_confirmed`` and feeds ``_guard_red_command``), so an
+    over-count here inflates cross-lens agreement exactly where the
+    doctrine warns it is weakest. A negator in the same clause now wins
+    over the corroboration token.
+
+    This is CROSS-LENS CONSENSUS, not verification. On one substrate the
+    lenses' blind spots are correlated, so the status it earns is
+    ``consensus_confirmed``; ``verified_true`` is reserved for the VERIFY
+    beat (loop_evaluate.CONFIRMED_STATUSES).
+    """
     c = str(fix.get("consensus", "")).lower()
     negators = ("not", "no ", "never", "neither", "without", "n't", "only one",
                 "single", "one leg", "a leg")

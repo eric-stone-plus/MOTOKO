@@ -1,4 +1,4 @@
-'States: candidate -> triaged -> reproduced -> verified -> exploitable ->\nconfirmed_impact, with terminal branches false_positive / duplicate /\nout_of_scope / wont_test.'
+'Finding state machine — influence ladder + triaged budget gate.\n\nStates: candidate -> triaged -> reproduced -> verified -> exploitable ->\nconfirmed_impact, with terminal branches false_positive / duplicate /\nout_of_scope / wont_test.'
 
 from __future__ import annotations
 

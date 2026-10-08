@@ -98,9 +98,18 @@ def main():
     parser.add_argument("--tools-dir", type=Path,
                         default=Path(os.environ.get("MOTOKO_TOOLS", HERE.parents[3] / "tools")))
     parser.add_argument("--bin-dir", type=Path, default=Path.home() / ".local/bin")
-    parser.add_argument("--skill-dir", type=Path, default=Path.home() / ".codewhale/plugins/motoko/skills")
+    parser.add_argument("--skill-dir", type=Path, default=None,
+                        help="skill root to link the social-profile skill into; the "
+                             "seat/host owns this path. Required unless MOTOKO_SKILL_DIR "
+                             "is set — the engine carries no seat default")
     parser.add_argument("--source", help="optional reviewed local clone; revision and hashes still enforced")
     args = parser.parse_args()
+    if args.skill_dir is None:
+        env_skill_dir = os.environ.get("MOTOKO_SKILL_DIR")
+        if not env_skill_dir:
+            parser.error("--skill-dir is required (or set MOTOKO_SKILL_DIR): the skill "
+                         "root is a host fact, not an engine default")
+        args.skill_dir = Path(env_skill_dir)
     install(args)
 
 

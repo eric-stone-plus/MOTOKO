@@ -64,7 +64,9 @@ class WaveProgress:
     total: int
     tools_done: int
     tools_total: int
-    findings_new: int
+    #: Findings discovered in the current wave. None = unknown (the
+    #: no-graph heartbeat fallback cannot know) — never a fabricated 0 (P6).
+    findings_new: int | None
     eta_s: float | None  # 60s-smoothed; None while too few samples
     #: Engine verdict from the newest ``scan.wave.completed`` payload:
     #: "exhausted" (no pending work left — genuine completion) vs
@@ -152,6 +154,12 @@ class EngagementSnapshot:
     # True once an ``opsec_canary_skip`` event was observed for this
     # engagement (sticky for the collector session — see GraphCollector).
     canary_tripped: bool = False
+    #: Non-None when the ro-SQLite collector could not read this
+    #: engagement's graph (missing/corrupt db, open failure). ``hyps``,
+    #: ``findings``, ``inflight`` and ``queue_preview`` are then EMPTY
+    #: BECAUSE UNREADABLE, not zero — panels render "—"/"unknown", never a
+    #: fabricated 0 or "empty" (P6).
+    graph_error: str | None = None
 
 
 @dataclass(frozen=True)

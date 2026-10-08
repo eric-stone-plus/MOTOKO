@@ -174,6 +174,9 @@ EVENT_TABLE_BY_KIND: dict[str, str] = {
 EVENT_UNSOURCED_TABLES = frozenset({"scan_cache"})
 
 _STATEMENTS: list[str] = [
+    # ------------------------------------------------------------------
+    # Graph core
+    # ------------------------------------------------------------------
     """
     CREATE TABLE IF NOT EXISTS entities (
         id            TEXT PRIMARY KEY,
@@ -218,6 +221,9 @@ _STATEMENTS: list[str] = [
     # health sweeps, per-entity timelines). Without this every one of those
     # is a full scan of a multi-million-row append-only table.
     "CREATE INDEX IF NOT EXISTS idx_events_kind_seq ON events(kind, seq)",
+    # ------------------------------------------------------------------
+    # Absorbed tables
+    # ------------------------------------------------------------------
     """
     CREATE TABLE IF NOT EXISTS services (
         id          TEXT PRIMARY KEY,

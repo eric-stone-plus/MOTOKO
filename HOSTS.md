@@ -6,7 +6,6 @@ messaging gateway. An adapter must not add another scheduler or edit SQLite.
 
 | Host | Adapter | Status |
 |---|---|---|
-| [opencode](https://github.com/anomalyco/opencode) | Retired 2026-10-08. From 2026-09-28 through that date the seat drove the `motoko` CLI directly: read-side subcommands, gated `motoko strix`, `systemctl --user` shepherd control and `motoko ingest-strix`. A thin TypeScript plugin briefly carried this surface and was deleted 2026-10-06. No opencode adapter ships in this tree. | Retired. Former verification, not a live adapter: read-side subcommands verified against the direct CLI (doctor/rules/health/query/events/digest payloads match); ingest carries engine-side scope rejection and idempotent re-ingest; seal verifies `manifest match`; a gated launch refuses with no launch when a gate fails. Raw `strix` is refused at the host's strix shim (`~/.local/bin/strix`) unless the caller is the gated wrapper or a shepherd. Execution stays in OS-owned wrappers. |
 | [codewhale](https://github.com/codewhale-hq/Codewhale) (live seat since 2026-10-07) | Direct `motoko` CLI driving through verb-gated seat tools `~/.codewhale/plugins/motoko/tools/motoko-read` (doctor/rules/status/digest/health/query/events) and `motoko-launch` (strix/ingest-strix/seal, per-call approval), plus `systemctl --user` shepherd control. The seat is the `motoko` **plugin bundle** (`~/.codewhale/plugins/motoko/`: `plugin.toml`, `skills/motoko-seat-ops/`, `commands/motoko.md`, `agents/motoko-ops.toml`, `hooks/hooks.toml` with the inlined secret-path-guard, `tools/`, and the `INTERFACE.md` seam contract). Script tools load trust-free via `[tools] plugin_dir` in config.toml; skills/commands/agents/hooks are reviewed plugin components — `/plugin trust motoko` activates them (content freezes into the staged snapshot). Ops panel: Codewhale tmux lane `lane start --runtime tmux --goal "MOTOKO ops panel" -- sh -c 'exec motoko interface </dev/tty >/dev/tty 2>&1'` (the lane log-proxy pipes child stdout to the NDJSON journal — a TUI must bind the pane's tty; `lane attach` gives keyboard nav). The wrappers run unsandboxed on purpose: Codewhale's default `exec_shell` sandbox (workspace-write/bwrap) defeats the strix shim's `/proc` ancestor walk and `doctor`'s `/proc` scan, strips `MOTOKO_*`/`DOCKER_HOST`, and denies writes to the engagement tree | Acceptance 2026-10-07: read-side parity vs direct CLI (A1) and raw-strix refusal (A3) verified from the seat tool path; shepherd control read-only surface verified (A4); hygiene negative checks pass (A6, incl. the 2026-10-07 replacement of the seat→tree `social-profile` symlink by a copy). Wave calls (`motoko run`/`loop`) are documented as an operator-shell/shepherd lane — they outlive the tool host's 120 s cap and write the graph. Gate rehearsal (A2) passed synthetically 2026-10-07 (local self-test target, `--dry-run`: all six gates green, `[dry] all gates passed; not launching`; refusal half observed at the `--no-rotate` scope gate and the raw-strix shim). A5 ingest/seal idempotency passed synthetically 2026-10-07 (double ingest of a synthetic report: 4 urls/2 findings then 0/0 with 2 duplicates merged; `seal --verify` "manifest match"); real-engagement seals remain operator work. Bundle components were trusted 2026-10-07. A later edit of a reviewed component needs a new trust before the staged snapshot picks it up. |
 The live seat is codewhale (since 2026-10-07). It drives the engine through
 the installed `motoko` CLI: read-side subcommands (digest, health, query,
@@ -14,8 +13,7 @@ events), gated `motoko strix` through the six-gate wrapper,
 `systemctl --user` shepherd control and `motoko ingest-strix` report intake.
 Execution stays in OS-owned wrappers — the seat adds no scheduler and never
 edits SQLite. Verb-gated wrappers are the seat's call surface; wave calls
-stay on the operator-shell or shepherd lane. The opencode seat (2026-09-28
-through 2026-10-08) is retired. Existing host gateways can carry operator
+stay on the operator-shell or shepherd lane. Existing host gateways can carry operator
 messages; SSH carries the engine protocol. No host is required by the engine.
 
 ## Install
@@ -28,7 +26,7 @@ pip install "git+https://github.com/eric-stone-plus/MOTOKO.git#subdirectory=engi
 
 The engine is Python 3.11+, stdlib only. For the codewhale seat, install the
 `motoko` CLI on the host (or reach it over SSH); the seat calls it directly
-and adds no Python-side host requirements. The opencode seat is retired.
+and adds no Python-side host requirements.
 Protect raw launches with the
 strix shim (`~/.config/strix/strix-wrapper.sh`, installed as
 `~/.local/bin/strix`), which admits `strix` only from a gated ancestor. The
@@ -101,9 +99,7 @@ metadata to the host; raw evidence remains in engine storage.
 Acceptance covers synthetic local scanners and real loopback SSH (including
 abrupt client loss) for the engine-side adapter, and the seat's direct CLI
 surface (read-side subcommands matching the CLI, gated strix passthrough,
-shepherd control, report ingest; the plugin that once carried this was
-deleted 2026-10-06). Per-seat acceptance status is recorded in each seat's
-table row above (opencode: retired 2026-10-08; codewhale: accepted
-2026-10-07). It does not establish production gateway
+shepherd control, report ingest). Per-seat acceptance status is recorded in each seat's
+table row above (codewhale: accepted 2026-10-07). It does not establish production gateway
 reliability, agent-facing effective-tool behavior inside a model session,
 or model quality.

@@ -50,9 +50,11 @@ unknowns); 1 means some collection failed; 2 means preflight refused/failed.
 Expired deadlines produce no completed report. Never label them a clean result.
 
 If absent, install from the engine checkout with
-`python3 core/tools_anchor/social_analyzer/install.py` (git and uv required).
-It creates an external pinned checkout plus an isolated Python environment,
-the CLI, and this seat's discoverable skill link. The engine keeps its stdlib
+`python3 core/tools_anchor/social_analyzer/install.py --skill-dir <skill root>`
+(git and uv required; `MOTOKO_SKILL_DIR` may name the root instead). The
+skill root belongs to the seat/host — the engine carries no default. It
+creates an external pinned checkout plus an isolated Python environment,
+the CLI, and the skill link into that root. The engine keeps its stdlib
 runtime. The source remains on its upstream AGPL-3.0 license; it is not vendored.
 Do not run the raw upstream CLI: it disables TLS verification, widens site
 selection by substring, and retries. Update pins only with source review and

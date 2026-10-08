@@ -1,4 +1,4 @@
-''
+'Unlike the earlier linear weighting (which used status to compute confidence and\nconfidence to change status — a cycle), this is a source prior + additive\nlog-odds signal model. Every transition is a numeric, explainable delta.\n'
 
 from __future__ import annotations
 

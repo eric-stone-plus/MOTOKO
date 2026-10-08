@@ -143,17 +143,14 @@ scanner binaries in `MOTOKO_TOOLS` share one release cycle.
 | Component | Version or revision | Source of truth | Status |
 |---|---|---|---|
 | MOTOKO engine | `0.7.0` | `engine/pyproject.toml` | engine package |
-| opencode seat | retired 2026-10-08 (last noted build `0.0.0-main-202610052203`, 2026-10-06) | former seat drove the `motoko` CLI directly; a thin plugin once carried this surface and was removed 2026-10-06 | retired |
 | codewhale seat | seat package 2026-10-07 | verb-gated unsandboxed wrappers over the `motoko` CLI; the host default shell sandbox defeats the strix shim's process walk and strips engine environment | live seat adapter |
 | Security Agent reference | `1b039e9ed509de6f5dceb065d27d659109e7a223` | upstream commit | reviewed reference |
 | Strix | deployment-selected | host deployment manifest and `strix --version` | doctor compares source and deployed bytes |
 | Kali recon image | `2026.3` (deploy-host snapshot tag) | deploy-host environment (`MOTOKO_KALI_IMAGE`) | active host snapshot; rebuild before treating as a pin |
 
 The prior seat plugin, standalone host client and Pi extension were
-retired 2026-09-28. The opencode seat (2026-09-28 through 2026-10-08) is
-retired. The live seat is codewhale (since 2026-10-07); it drives the
-`motoko` CLI directly. The thin TypeScript plugin that briefly carried
-the opencode surface was removed 2026-10-06. Strix is intentionally deployment-selected: the engine records
+retired 2026-09-28. The live seat is codewhale (since 2026-10-07); it drives the
+`motoko` CLI directly. Strix is intentionally deployment-selected: the engine records
 and reports a source/deployed mismatch through `doctor` rather than exporting
 one host's tool revision as a public requirement.
 

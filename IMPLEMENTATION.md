@@ -35,9 +35,7 @@ runtime dependencies, and a packaging manifest (`pyproject.toml` with a
   `motoko rules --report`; installed binaries alone do not prove a working chain.
 - **Host adapter**: the codewhale seat drives the `motoko` CLI directly —
   read-side status, gated `motoko strix`, `systemctl --user` shepherd control
-  and report ingest. The opencode seat that previously did this was retired
-  2026-10-08. A thin TypeScript plugin once carried this surface and
-  was removed 2026-10-06; the seat calls the CLI itself. The engine-side
+  and report ingest. The engine-side
   `motoko/1` JSONL adapter (local pipes or SSH) remains for interface
   collectors: strict SSH host-key/identity settings, finite deadlines and
   pipe-disconnect cancellation are implemented. Hosts receive aggregate state

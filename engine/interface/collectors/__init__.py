@@ -247,10 +247,13 @@ def _wave_progress(files: EngagementFiles, graph: GraphFacts) -> WaveProgress | 
                             findings_new=wave.findings_new, eta_s=None,
                             stop_reason=wave.stop_reason)
     if files.progress_total is not None:
+        # Heartbeat-only fallback: the files know wave/done/total, but
+        # nothing here can know this wave's new findings — None, never a
+        # fabricated 0 (P6).
         return WaveProgress(current=files.wave_count, total=files.wave_count,
                             tools_done=files.progress_done or 0,
                             tools_total=files.progress_total,
-                            findings_new=0, eta_s=None)
+                            findings_new=None, eta_s=None)
     return None
 
 
@@ -277,6 +280,7 @@ def _assemble(files: EngagementFiles, graph: GraphFacts,
         stuck_testing_s=graph.stuck_testing_s,
         canary_tripped=graph.canary_tripped,
         stale=files.stale,
+        graph_error=graph.error,
     )
 
 
