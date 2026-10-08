@@ -17,8 +17,8 @@ In scope, for example:
   refusal that can be evaded;
 - secret handling — an argv, log, or evidence path that exposes a
   `MOTOKO_SECRET_*` value or a host credential;
-- egress-policy bypass — a tool or replay fetch that leaves through an
-  undeclared route;
+- egress-policy bypass — a tool call or the egress probe that leaves through
+  an undeclared route;
 - parser command injection — tool output that can inject argv or shell
   tokens;
 - evidence integrity — a seal or event-log verification that passes over
