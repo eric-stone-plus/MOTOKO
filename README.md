@@ -4,7 +4,6 @@
   <a href="https://github.com/eric-stone-plus/MOTOKO/actions/workflows/smoke.yml"><img src="https://github.com/eric-stone-plus/MOTOKO/actions/workflows/smoke.yml/badge.svg" alt="smoke"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue" alt="license: AGPL-3.0-or-later"></a>
   <a href="engine/pyproject.toml"><img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue" alt="python: 3.11 | 3.12 | 3.13"></a>
-  <a href="https://eric-stone-plus.github.io/MOTOKO/"><img src="https://img.shields.io/badge/site-landing%20page-blue" alt="site"></a>
 </p>
 
 # MOTOKO
@@ -337,7 +336,7 @@ What the license asks of a deployment — a summary, not legal advice:
 
 No separate commercial license is published today. If your organization's
 policy cannot accept AGPL-3.0-or-later, raise it with the maintainer
-([github.com/eric-stone-plus](https://github.com/eric-stone-plus)).
+([github.com/eric-stone-plus/MOTOKO](https://github.com/eric-stone-plus/MOTOKO)).
 
 ### FAQ
 
