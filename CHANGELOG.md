@@ -26,6 +26,13 @@ exported.
   additional term; no other section-7 additional terms are asserted.
 - The engine wheel declares AGPL-3.0-or-later as a PEP 639 license
   expression, with project URLs and classifiers in its metadata.
+- The public export surface names the engine capability skills: they live
+  under `engine/skills/<name>/` and travel with the engine export (the
+  social-profile installer depends on them), replacing a blanket
+  "no skills here" rule in AGENTS.md.
+- The social preview image is served from the Pages site itself: `web/og.png`
+  is added and og:image points at the Pages URL instead of
+  raw.githubusercontent.com.
 
 ## [0.7.0] - 2026-10-08
 

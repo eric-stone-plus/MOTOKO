@@ -7,9 +7,10 @@ name = "core-engine"
 # Seal manifests and export receipts record the source revision separately.
 version = "0.7.0"
 description = "MOTOKO attack-graph orchestration engine"
-# License metadata follows PEP 639: the expression only. LICENSE and NOTICE
-# travel with the repository; the wheel carries no license files today (add
-# license-files when a package-index publication is actually prepared).
+# License metadata follows PEP 639: the expression only. LICENSE and NOTICE sit
+# at the repository root, outside this project, so the wheel carries no license
+# files today; shipping them means copying the texts under engine/ before any
+# package-index publication (license-files paths resolve inside the project).
 license = "AGPL-3.0-or-later"
 readme = { content-type = "text/markdown", text = """MOTOKO attack-graph
 orchestration engine.
@@ -18,10 +19,12 @@ Scanners and agents run under one governed graph: a scope gate before every
 call and an append-only evidence chain behind every finding, with sealed
 engagements as the unit of delivery.
 
-This wheel ships the engine core, the rule packs, the capability skill and
-packaging only. The concept documents, the design notes and the test suite
-live in the repository:
+This wheel ships the engine core, the rule packs and the packaging. The
+capability skill travels with the engine source export, not this wheel. The
+concept documents live in the repository; the design notes and the test
+suite are maintained outside this export by policy:
 
+- Copyright (c) 2026 the MOTOKO contributors.
 - Repository: https://github.com/eric-stone-plus/MOTOKO
 - License: AGPL-3.0-or-later (LICENSE and NOTICE in the repository)
 """ }
