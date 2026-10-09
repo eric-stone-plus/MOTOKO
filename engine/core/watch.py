@@ -168,17 +168,24 @@ def _scan_strix_runs(runs_dir: Path) -> dict[str, dict]:
     return runs
 
 
-def sweep(root: Path, extra_roots: list[Path] | None = None) -> dict:
+def sweep(root: Path, extra_roots: list[Path] | None = None,
+          cursor_file: Path | None = None) -> dict:
     """Scan the tasks root and return deltas + the advanced cursor.
 
     Pure with respect to the on-disk cursor: the caller decides when (and
     whether) to persist ``result["cursor"]``, so a failed save never eats
     the printed deltas.
+
+    ``cursor_file`` overrides the default ``<root>/watch-cursor.json``. A host UI
+    that must not write inside the tasks tree (the native panel's read-only
+    contract) passes its own cursor path outside the tree; the default
+    keeps every existing caller unchanged.
     """
     root = Path(root)
     if not root.is_dir():
         raise WatchError(f"tasks root not found: {root}")
-    path = cursor_path(root)
+    path = (Path(cursor_file).expanduser() if cursor_file is not None
+            else cursor_path(root))
     cursor, first_run = _load_cursor(path)
     seen_engagements: dict[str, list[str]] = {
         str(eng): sorted(str(fid) for fid in ids)
@@ -279,35 +286,41 @@ def cmd_watch(args) -> int:
         return 2
     extra = [Path(p).expanduser()
              for p in (getattr(args, "strix_root", None) or [])]
+    cursor = getattr(args, "cursor", None)
+    # `is not None`: an explicitly passed empty value must not silently fall
+    # back to the default in-tree cursor (the write this option exists to
+    # avoid); it fails loudly on save instead.
+    cursor = Path(cursor).expanduser() if cursor is not None else None
     try:
-        result = sweep(root, extra_roots=extra)
+        result = sweep(root, extra_roots=extra, cursor_file=cursor)
     except WatchError as exc:
         print(f"watch: {exc}", file=sys.stderr)
         return 1
 
     if getattr(args, "json", False):
-        shape = [{k: v for k, v in delta.items() if k != "finding_severities"}
-                 for delta in result["deltas"]]
         print(json.dumps({
             "cursor": str(result["cursor_path"]),
             "first_run": result["first_run"],
-            "deltas": shape,
+            "deltas": result["deltas"],
             "errors": result["errors"],
         }, ensure_ascii=False, indent=2))
     else:
         _print_human(result)
-        if result["first_run"]:
-            stats = result["stats"]
-            print(f"watch cursor established: {result['cursor_path']} "
-                  f"({stats['engagements']} engagements, "
-                  f"{stats['strix_runs_seen']} terminal strix runs already "
-                  f"seen — reporting from now on)", file=sys.stderr)
 
     try:
         _save_cursor(result["cursor_path"], result["cursor"])
     except WatchError as exc:
         print(f"watch: {exc}", file=sys.stderr)
         return 1
+
+    if not getattr(args, "json", False) and result["first_run"]:
+        # Only claim the cursor is established once it is on disk: with a
+        # missing parent directory the save above fails first.
+        stats = result["stats"]
+        print(f"watch cursor established: {result['cursor_path']} "
+              f"({stats['engagements']} engagements, "
+              f"{stats['strix_runs_seen']} terminal strix runs already "
+              f"seen — reporting from now on)", file=sys.stderr)
 
     for err in result["errors"]:
         print(f"watch: {err}", file=sys.stderr)

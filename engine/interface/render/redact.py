@@ -1,7 +1,7 @@
 """Redaction helpers — the interface's P5 doctrine, in one place.
 
 Every string that leaves a collector toward the UI passes through here.
-Design rules (design/DESIGN.md section 9):
+Design rules (the internal design notes section 9):
 
 - never render raw target identifiers: hosts/domains/IPs/URLs are masked to a
   stable short label so tables stay diffable without leaking the target;

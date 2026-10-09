@@ -1,4 +1,4 @@
-'AdapterClient — defensive client for the engine\'s ``motoko/1`` stdio adapter.\n\nThe protocol is implemented strictly from the engine source\n(``engine/core/adapter.py``, read-only): newline-delimited JSON frames, each\nrequest ``{"protocol": "motoko/1", "request_id": <int>, "operation": str,\n"engagement_id": str|null, "options": object|null}`` and each response\n``{"protocol": "motoko/1", "request_id": int, "ok": bool, "exit_code": int,\n"result"|"error": ...}``.\n\nSafety envelope (design/DESIGN.md sections 1, 2 and 9):\n\n- ONLY read operations are ever sent: capabilities, doctor, rules, digest,\n  health (plus query/events, which this prototype does not need because the\n  activity feed reads ro-SQLite directly). The mutating ``run`` operation is\n  NEVER sent; it is only detected in the capabilities response so the UI can\n  honestly report the engine\'s advertised capability set.\n- The adapter subprocess uses this installation\'s Python and ``-m core``;\n  if the binary is absent or the handshake fails, the client degrades to\n  unavailable (every call returns ``None``) and panels render\n  "adapter unavailable". Nothing raises into the UI.\n- The engine serves at most 32 requests per process (``MAX_REQUESTS``); the\n  client counts every sent request and transparently restarts the subprocess\n  once the budget is exhausted.\n- A child we spawned ourselves is stopped with ``terminate()``/``kill()`` by\n  PID handle — never by process name.'
+'AdapterClient — defensive client for the engine\'s ``motoko/1`` stdio adapter.\n\nThe protocol is implemented strictly from the engine source\n(``engine/core/adapter.py``, read-only): newline-delimited JSON frames, each\nrequest ``{"protocol": "motoko/1", "request_id": <int>, "operation": str,\n"engagement_id": str|null, "options": object|null}`` and each response\n``{"protocol": "motoko/1", "request_id": int, "ok": bool, "exit_code": int,\n"result"|"error": ...}``.\n\nSafety envelope (the internal design notes sections 1, 2 and 9):\n\n- ONLY read operations are ever sent: capabilities, doctor, rules, status,\n  digest, health (plus query/events, which this prototype does not need\n  because the activity feed reads ro-SQLite directly). The mutating ``run``\n  operation is\n  NEVER sent; it is only detected in the capabilities response so the UI can\n  honestly report the engine\'s advertised capability set.\n- The adapter subprocess uses this installation\'s Python and ``-m core``;\n  if the binary is absent or the handshake fails, the client degrades to\n  unavailable (every call returns ``None``) and the UI renders\n  "adapter unavailable". Nothing raises into the UI.\n- The engine serves at most 32 requests per process (``MAX_REQUESTS``); the\n  client counts every sent request and transparently restarts the subprocess\n  once the budget is exhausted.\n- A child we spawned ourselves is stopped with ``terminate()``/``kill()`` by\n  PID handle — never by process name.'
 
 from __future__ import annotations
 
@@ -28,7 +28,8 @@ REAP_WAIT_S = 2.0
 """Bounded per-child wait on emergency reaps so exits never hang."""
 
 READ_OPERATIONS = frozenset(
-    {"capabilities", "doctor", "rules", "digest", "query", "events", "health"})
+    {"capabilities", "doctor", "rules", "status", "digest", "query", "events",
+     "health"})
 MUTATING_OPERATIONS = frozenset({"run"})  # detected only, never sent
 
 
@@ -219,8 +220,8 @@ class AdapterClient:
 
         The timeout bounds the WHOLE line, not just time-to-first-byte: a
         peer that writes a partial frame and then goes quiet would
-        otherwise wedge the caller's single provider thread forever (the
-        TUI's one-worker gate never re-fires; ``motoko status`` hangs
+        otherwise wedge the caller's single provider thread forever (a
+        one-worker caller never re-fires; ``motoko status`` hangs
         instead of degrading after its documented timeout). Reads bypass
         the buffered reader via ``os.read`` so the wait stays interruptible;
         bytes over-read past the newline stay in ``self._read_buffer`` for
@@ -349,7 +350,7 @@ class AdapterClient:
 
         The interface never drives the engine loop from the data layer; run
         capability is only surfaced via ``mutating_operations`` in the
-        capabilities payload (design section 5.3: control flows through the
+        capabilities payload (the internal design notes: control flows through the
         UI's structured confirm paths, not the collector).
         """
         raise NotImplementedError("the interface never sends mutating ops")

@@ -1,4 +1,4 @@
-'DemoCollector — fully synthetic, deterministic interface data (--demo).\n\nThree synthetic engagements so every panel has something to show on a\nmachine with no MOTOKO runtime (design section 8, demo mode):\n\nThe ``reports`` mapping is filled with clearly-labelled synthetic adapter\ntexts (doctor/rules/digest) so the REPORTS screen shows real content shape\nwithout any adapter process.\n\nEverything is a pure function of ``time.time()`` (or an injected ``now``):\nthe same instant always yields the same snapshot, and successive instants\nstream — event seq numbers advance, cooldowns count down, tool durations\ngrow. Fixture-style target identifiers use ``example.invalid`` and\n``203.0.113.0/24`` only, and every summary/origin/report passes through\n``render.redact`` exactly like the real collectors do.\n'
+'DemoCollector — fully synthetic, deterministic interface data (--demo).\n\nThree synthetic engagements so the panel has something to show on a\nmachine with no MOTOKO runtime (the internal design notes, demo mode):\n\nThe ``reports`` mapping is filled with clearly-labelled synthetic adapter\ntexts (doctor/rules/digest) so the reports view shows real content shape\nwithout any adapter process.\n\nEverything is a pure function of ``time.time()`` (or an injected ``now``):\nthe same instant always yields the same snapshot, and successive instants\nstream — event seq numbers advance, cooldowns count down, tool durations\ngrow. Fixture-style target identifiers use ``example.invalid`` and\n``203.0.113.0/24`` only, and every summary/origin/report passes through\n``render.redact`` exactly like the real collectors do.\n'
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ _TAIL_SIZE = 12
 
 # Scripted live-feed cycle: (kind, summary template). Templates may embed
 # ``{url}``, which is redacted before the Event is frozen. Kinds mirror the
-# real writer vocabulary (research/04) so the feed renderer gets exercise.
+# real writer vocabulary (the internal research notes) so the feed renderer gets exercise.
 _EVENT_SCRIPT: tuple[tuple[str, str], ...] = (
     ("act.dedup", "act.dedup target={url}"),
     ("entity.transition", "hyp#a1b2c3d4 from=testing to=done"),
@@ -65,7 +65,7 @@ _SEALED_CANARY_EVENT: tuple[int, str, str, str] = (
     "hyp#4c3b2a19 tool=nuclei",
 )
 
-# Stuck-testing ages straddling the strix 7200s budget (research/04): the
+# Stuck-testing ages straddling the strix 7200s budget (the internal research notes): the
 # live engagement's oldest testing hypothesis drifts upward from 6900s but
 # wraps every 240s, so it never crosses the budget; the sealed one is
 # stranded just over it. Both sides of the ``S`` threshold stay exercisable.
@@ -82,7 +82,7 @@ DEMO_SERVED_BY: dict[str, str] = {
     "gates": "demo synthetic",
     "reports": "demo synthetic",
 }
-"""Provenance stamp for demo frames: every panel is honestly labelled as
+"""Provenance stamp for demo frames: every frame is honestly labelled as
 synthetic — the demo path must never pass for a real collector source
 (same doctrine as the "(demo projection, synthetic)" report labels)."""
 

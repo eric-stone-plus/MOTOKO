@@ -15,6 +15,7 @@ import select
 import signal
 import sys
 import threading
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -24,7 +25,7 @@ PROTOCOL = "motoko/1"
 MAX_FRAME_BYTES = 64 * 1024
 MAX_RESPONSE_BYTES = 64 * 1024
 MAX_REQUESTS = 32
-READ_OPERATIONS = frozenset({"capabilities", "doctor", "rules", "digest", "query", "events", "health"})
+READ_OPERATIONS = frozenset({"capabilities", "doctor", "rules", "status", "digest", "query", "events", "health"})
 MUTATING_OPERATIONS = frozenset({"run"})
 OPERATIONS = READ_OPERATIONS | MUTATING_OPERATIONS
 KINDS = frozenset({"asset", "finding", "hypothesis", "evidence", "access", "path"})
@@ -42,6 +43,22 @@ HEALTH_KINDS = frozenset({"no_graph", "orphan_assets", "tool_without_parser", "d
     "stuck_testing", "on_hit_class_orphan", "service_no_consumer", "scope_blocked_volume",
     "verification_blocked", "dangling_edges", "uningested_observations",
     "runtime_error_event"})
+
+# Status projection bounds. The wire frame cap is MAX_RESPONSE_BYTES (64 KiB);
+# a status frame carries every engagement's panel facts, so each list is
+# capped and _status_result drops whole engagements (tail first — the
+# collector sorts live/sealed first) until the serialized payload fits
+# STATUS_BYTE_BUDGET. Free-text fields are capped because heartbeat messages
+# and error strings are writable by the engine/operator and must not let one
+# engagement push the frame over the wire cap.
+STATUS_ENGAGEMENT_CAP = 20
+STATUS_INFLIGHT_CAP = 8
+STATUS_QUEUE_CAP = 12
+STATUS_COOLDOWN_CAP = 8
+STATUS_LEG_CAP = 5
+STATUS_TEXT_CAP = 200
+STATUS_BYTE_BUDGET = 48_000
+GATES_TTL_S = 15.0
 
 
 class AdapterError(ValueError):
@@ -84,7 +101,7 @@ def validate(request: AdapterRequest) -> dict:
     if request.options is not None and not isinstance(request.options, dict):
         raise AdapterError("options must be an object")
     options = dict(request.options or {})
-    if op in {"capabilities", "doctor", "rules"}:
+    if op in {"capabilities", "doctor", "rules", "status"}:
         if request.engagement_id is not None:
             raise AdapterError("this operation does not accept an engagement")
     else:
@@ -94,6 +111,7 @@ def validate(request: AdapterRequest) -> dict:
             raise AdapterError("invalid engagement identifier") from None
     allowed = {
         "capabilities": set(), "doctor": {"scope"}, "rules": {"json"}, "digest": set(),
+        "status": {"limit"},
         "health": set(), "query": {"kind", "state", "limit", "after"},
         "events": {"limit", "after"},
         "run": {"max_cycles", "wave_cycles", "max_waves", "timeout", "wall_timeout"},
@@ -104,8 +122,9 @@ def validate(request: AdapterRequest) -> dict:
         raise AdapterError("invalid doctor scope")
     if "json" in options and options["json"] is not True:
         raise AdapterError("rules always returns JSON")
-    if op in {"query", "events"}:
-        options["limit"] = _bounded_int(options, "limit", 20, 100)
+    if op in {"query", "events", "status"}:
+        options["limit"] = _bounded_int(options, "limit", 20,
+                                        STATUS_ENGAGEMENT_CAP if op == "status" else 100)
         if "after" in options:
             options["after"] = _bounded_int(options, "after", 0, 2**63 - 1, 0)
     if op == "query":
@@ -211,6 +230,8 @@ def _read(request, options):
         return 0, {"rules_total": report.rules_total, "fireable": len(report.fireable),
                    "counts": {level: report.count(level) for level in ("HIGH", "MEDIUM", "LOW")},
                    "by_code": report.by_code()}
+    if op == "status":
+        return _status_result(options)
     graph = db.engagement_dir(db.default_root(), request.engagement_id) / "graph.db"
     if not graph.is_file():
         return 2, {"error": "engagement_not_found"}
@@ -271,6 +292,186 @@ def _read(request, options):
                    "next_cursor": selected[-1]["seq"] if selected else (after or 0)}
     finally:
         ro.close()
+
+
+_GATES_CACHE: dict[str, Any] = {"at": float("-inf"), "value": None}
+
+
+def _clip(value, limit=STATUS_TEXT_CAP):
+    """A wire-safe bounded string; non-strings collapse to None."""
+    if not isinstance(value, str):
+        return None
+    return value if len(value) <= limit else value[:limit] + "..."
+
+
+def _number_or_none(value):
+    return value if _number(value) else None
+
+
+def _ref_or_none(value):
+    """A hypothesis/tool-run reference: ints pass, strings are clipped."""
+    if _int(value, 0, 2**53 - 1):
+        return value
+    return _clip(value, 64)
+
+
+def _state_counts(counts, vocabulary):
+    """Known-vocabulary state histogram only (never free text)."""
+    if not isinstance(counts, dict):
+        return {}
+    return {state: counts[state] for state in vocabulary
+            if _int(counts.get(state))}
+
+
+def _gates_projection():
+    """Doctor + rules -> the GATES badge, cached for GATES_TTL_S.
+
+    Mirrors interface.collectors._gates_from_payloads without importing it:
+    the same degradation ladder (rules-only -> doctor_available=False,
+    ok=False; both unusable -> None), so the panel can never show a pass the
+    engine cannot vouch for. Never raises — a failing check degrades.
+    """
+    now = time.monotonic()
+    if now - _GATES_CACHE["at"] < GATES_TTL_S:
+        return _GATES_CACHE["value"], max(0.0, now - _GATES_CACHE["at"])
+    sections_ok = sections_total = failures = 0
+    doctor_ok = False
+    try:
+        from .doctor import check_environment
+        for _category, rows in check_environment("full"):
+            sections_total += 1
+            fails = sum(1 for row in rows if row[0] == "FAIL")
+            failures += fails
+            if fails == 0:
+                sections_ok += 1
+        doctor_ok = sections_total > 0
+    except Exception:
+        doctor_ok = False
+    rules_ok = False
+    total = fireable = high = 0
+    try:
+        from .rulecheck import check_corpus
+        report = check_corpus(util.default_rules_dir())
+        total = report.rules_total
+        fireable = len(report.fireable)
+        high = report.count("HIGH")
+        rules_ok = isinstance(total, int) and not isinstance(total, bool)
+    except Exception:
+        rules_ok = False
+    if not doctor_ok and not rules_ok:
+        value = None
+    elif not doctor_ok:
+        value = {"sections_ok": 0, "sections_total": 0,
+                 "rules_never_fires": max(0, total - fireable), "rules_high": high,
+                 "ok": False, "doctor_available": False}
+    else:
+        value = {"sections_ok": sections_ok, "sections_total": sections_total,
+                 "rules_never_fires": max(0, total - fireable), "rules_high": high,
+                 "ok": failures == 0, "doctor_available": True}
+    _GATES_CACHE["at"] = now
+    _GATES_CACHE["value"] = value
+    return value, 0.0
+
+
+def _status_size(result):
+    """Serialized bytes of one result payload (same encoding as the wire)."""
+    return len(json.dumps(result, ensure_ascii=True, allow_nan=False).encode())
+
+
+def _status_engagement(snap):
+    """One engagement's panel facts, bounded and vocabulary-only."""
+    row = {
+        # Engagement ids are validated single-name ASCII up to 128 chars
+        # (db.engagement_dir); the generic text cap would mangle a legal
+        # 65-128 char id and make it unaddressable for digest/health/query.
+        "id": _clip(snap.id, 128),
+        "live": bool(snap.live),
+        "sealed": bool(snap.sealed),
+        "stale": bool(snap.stale),
+        "heartbeat_age_s": _number_or_none(snap.heartbeat_age_s),
+        "heartbeat_msg": _clip(snap.heartbeat_msg),
+        "runner_alive": bool(snap.runner_alive),
+        "hyps": _state_counts(snap.hyps, STATES),
+        "findings": _state_counts(snap.findings, STATES),
+        "graph_error": _clip(snap.graph_error, 120),
+        "stuck_testing_s": _number_or_none(snap.stuck_testing_s),
+        "canary_tripped": bool(snap.canary_tripped),
+    }
+    inflight = list(snap.inflight)[:STATUS_INFLIGHT_CAP]
+    row["inflight"] = [
+        {"tool": _clip(run.tool, 32), "hypothesis_ref": _ref_or_none(run.hypothesis_id),
+         "state": _clip(run.state, 24), "duration_s": _number_or_none(run.duration_s)}
+        for run in inflight
+    ]
+    row["inflight_total"] = len(snap.inflight)
+    queue = list(snap.queue_preview)[:STATUS_QUEUE_CAP]
+    row["queue_preview"] = [
+        {"origin": _clip(item.origin, 64), "rule": _clip(item.rule, 48),
+         "tool": _clip(item.tool, 32)}
+        for item in queue
+    ]
+    # The preview is capped (QUEUE_PREVIEW_LIMIT); the true queue depth is
+    # the proposed-hypothesis histogram the preview is drawn from.
+    row["queue_total"] = row["hyps"].get("proposed", 0)
+    cooldowns = list(snap.cooldowns)[:STATUS_COOLDOWN_CAP]
+    row["cooldowns"] = [
+        {"origin": _clip(cd.origin, 64), "remaining_s": max(0, int(cd.remaining_s))
+         if _number(cd.remaining_s) else 0, "reason": _clip(cd.reason, 32)}
+        for cd in cooldowns
+    ]
+    row["cooldowns_total"] = len(snap.cooldowns)
+    wave = snap.wave
+    row["wave"] = None if wave is None else {
+        "current": int(wave.current), "total": int(wave.total),
+        "tools_done": int(wave.tools_done), "tools_total": int(wave.tools_total),
+        "findings_new": wave.findings_new if _int(wave.findings_new) else None,
+        "stop_reason": _clip(wave.stop_reason, 32),
+    }
+    legs = list(snap.legs)[:STATUS_LEG_CAP]
+    row["legs"] = [
+        {"name": _clip(leg.name, 32), "state": _clip(leg.state, 24),
+         "last_round": leg.last_round if _int(leg.last_round) else None,
+         "verdict": _clip(leg.verdict, 32)}
+        for leg in legs
+    ]
+    row["legs_total"] = len(snap.legs)
+    return row
+
+
+def _status_result(options):
+    """One bounded frame of engagement/panel facts for a host UI.
+
+    Read-only: collectors open graphs with mode=ro (sealed: immutable=1); the
+    only writes a caller can observe are SQLite's cosmetic -wal/-shm
+    sidecars, never graph content or the writer lock. Gates come from the
+    same doctor/rules calls the doctor/rules ops use, cached for GATES_TTL_S.
+    """
+    root = db.default_root()
+    if not root.is_dir():
+        return 2, {"error": "runtime_root_unavailable"}
+    from interface.collectors import build_interface_snapshot
+    snapshot = build_interface_snapshot(util.motoko_root(), demo=False,
+                                        runtime_root=root, use_adapter=False)
+    gates, gates_age = _gates_projection()
+    engagements = list(snapshot.engagements)
+    limit = options.get("limit", STATUS_ENGAGEMENT_CAP)
+    result = {
+        "taken_at": snapshot.taken_at,
+        "engagements_total": len(engagements),
+        "truncated": len(engagements) > limit,
+        "collector_error": _clip(snapshot.collector_error),
+        "gates": gates,
+        "gates_age_s": round(gates_age, 3),
+        "engagements": [_status_engagement(snap) for snap in engagements[:limit]],
+    }
+    # Byte budget: the collector sorts live/sealed first, so the tail is the
+    # least interesting row and the honest casualty of a frame that would
+    # not fit. A single engagement stays far below the budget by the caps
+    # above, so the loop terminates at 1.
+    while len(result["engagements"]) > 1 and _status_size(result) > STATUS_BYTE_BUDGET:
+        result["engagements"].pop()
+        result["truncated"] = True
+    return 0, result
 
 
 def dispatch(request: AdapterRequest) -> dict:

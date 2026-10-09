@@ -923,7 +923,7 @@ def _check_egress_fingerprint() -> tuple[str, str]:
 _LIVE_WRITER_COMMANDS = frozenset({"run", "adapter"})
 # Top-level CLI options that consume a separate value token; the subcommand
 # is the first bare token after them (cli.build_parser's _interface_options).
-_CLI_VALUE_OPTIONS = frozenset({"--root", "--theme"})
+_CLI_VALUE_OPTIONS = frozenset({"--root"})
 
 
 def _writer_command(tokens: list[str]) -> str | None:

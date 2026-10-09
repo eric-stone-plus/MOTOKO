@@ -1,11 +1,11 @@
 """MOTOKO CLI — single-writer process entry point.
 
 Commands:
-    interface open the terminal interface (also the default without a command)
-    status    print a read-only interface snapshot
-    watch     watch read-only interface snapshots; --once runs the findings
-              watchdog sweep (new findings + strix completions since the
-              cursor) and exits — the host-consumable delta mode
+    status    print a read-only interface snapshot (also the default without
+              a command)
+    watch     --once runs the findings watchdog sweep (new findings + strix
+              completions since the cursor) and exits — the host-consumable
+              delta mode; bare watch is refused
     init      create an engagement (dir + graph.db + scope row)
     run       run the six-beat main loop with the real tool executor
     adapter   dispatch one host-neutral, bounded JSON request
@@ -1014,7 +1014,7 @@ def cmd_adapter(args) -> int:
 
 
 def cmd_interface(args) -> int:
-    """Launch the optional UI against the same runtime as the engine."""
+    """Print the read-only status snapshot against the engine runtime."""
     from interface.cli import run
 
     args.root = (args.root or db.default_root()).expanduser().resolve()
@@ -1022,64 +1022,46 @@ def cmd_interface(args) -> int:
 
 
 def cmd_watch(args) -> int:
-    """Watch dispatch: interface snapshot watcher, or the watchdog sweep.
-
-    Bare ``watch`` stays the interface's live snapshot mode. ``--once`` is
-    the engine primitive (core/watch.py, successor of the retired shell
-    watchdog looper): print the deltas since the cursor and advance it,
-    with the host owning scheduling. The interface is never imported on
-    the ``--once`` path, so the sweep works without the display
-    dependencies.
-    """
+    'Watch dispatch: only the ``--once`` findings sweep remains.'
     if getattr(args, "once", False):
         from . import watch as watch_mod
 
         return watch_mod.cmd_watch(args)
-    if getattr(args, "json", False) or getattr(args, "strix_root", None):
-        print("--json/--strix-root apply only to `watch --once` (the findings "
-              "watchdog sweep); bare `watch` is the interface snapshot mode",
-              file=sys.stderr)
-        return 2
-    return cmd_interface(args)
+    print("bare `watch` (the live snapshot view) was retired; use "
+          "`watch --once` for the findings watchdog sweep "
+          "(--json/--strix-root/--cursor apply only with --once)",
+          file=sys.stderr)
+    return 2
 
 
-def _interface_options(parser: argparse.ArgumentParser) -> None:
+def _interface_options(parser: argparse.ArgumentParser, *,
+                       demo: bool = True) -> None:
     # Suppressed defaults preserve top-level options before a subcommand.
-    parser.add_argument("--demo", action="store_true", default=argparse.SUPPRESS,
-                        help="show synthetic MOTOKO data")
+    if demo:
+        parser.add_argument("--demo", action="store_true",
+                            default=argparse.SUPPRESS,
+                            help="show synthetic MOTOKO data")
     parser.add_argument("--root", type=Path, default=argparse.SUPPRESS, metavar="PATH",
                         help="engagement runtime directory (default: MOTOKO_HOME "
                              "or the engine tasks/ directory)")
-    parser.add_argument("--theme", default=argparse.SUPPRESS, metavar="NAME",
-                        help="MOTOKO theme name or theme file")
 
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="motoko", description="MOTOKO attack-graph orchestrator",
-        epilog="Without a command, open MOTOKO (print status when output is redirected).")
-    p.set_defaults(func=cmd_interface, mode="tui", root=None, demo=False,
-                   theme="motoko-dark")
+        epilog="Without a command, print the read-only status snapshot.")
+    p.set_defaults(func=cmd_interface, root=None, demo=False)
     _interface_options(p)
     sub = p.add_subparsers(dest="command")
 
-    interface = sub.add_parser("interface", help="open MOTOKO in the terminal")
-    _interface_options(interface)
-    interface.set_defaults(func=cmd_interface, mode="tui")
-    interface_modes = interface.add_subparsers(dest="interface_mode")
-    for name, description in (("status", "print a read-only snapshot"),
-                              ("watch", "watch read-only snapshots")):
-        view = interface_modes.add_parser(name, help=description)
-        _interface_options(view)
-        view.set_defaults(func=cmd_interface, mode=name)
     status = sub.add_parser("status", help="print a read-only snapshot")
     _interface_options(status)
-    status.set_defaults(func=cmd_interface, mode="status")
+    status.set_defaults(func=cmd_interface)
 
     watch = sub.add_parser(
-        "watch", help="watch read-only snapshots; --once prints the findings "
-                      "watchdog deltas since the cursor and exits")
-    _interface_options(watch)
+        "watch", help="findings-watchdog deltas since the cursor (--once); "
+                      "bare watch was retired")
+    _interface_options(watch, demo=False)
     watch.add_argument("--once", action="store_true",
                        help="single findings-watchdog sweep (engine primitive, "
                             "no display dependencies): new findings and strix "
@@ -1093,7 +1075,12 @@ def build_parser() -> argparse.ArgumentParser:
                        help="extra strix run root outside the tasks tree "
                             "(repeatable; engagement strix_runs/ dirs are "
                             "always scanned)")
-    watch.set_defaults(func=cmd_watch, mode="watch")
+    watch.add_argument("--cursor", default=None, metavar="PATH",
+                       help="cursor file to read/advance instead of the default "
+                            "<tasks>/watch-cursor.json (with --once); lets a "
+                            "host keep its own cursor outside the tasks tree. "
+                            "The parent directory must exist")
+    watch.set_defaults(func=cmd_watch)
 
     pi = sub.add_parser("init", help="initialize an engagement")
     pi.add_argument("engagement_id")
@@ -1304,9 +1291,8 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    if args.func not in (cmd_interface, cmd_watch) and \
-            (args.demo or args.theme != "motoko-dark"):
-        parser.error("--demo and --theme apply only to interface, status, and watch")
+    if args.func is not cmd_interface and args.demo:
+        parser.error("--demo applies only to status")
     # Resolve owner-local defaults once for the complete CLI lifetime.  A
     # gateway deliberately supplies a small environment, so tool discovery
     # and the default tasks root must be identical for direct commands,

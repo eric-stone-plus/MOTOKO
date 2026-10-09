@@ -6,6 +6,18 @@ is the package version in `engine/pyproject.toml`; the engine tree is a
 one-way export from its source tree, so engine changes appear here as
 exported.
 
+## [Unreleased]
+
+### Changed
+
+- The terminal interface is retired: `motoko` with no command prints the
+  one-shot read-only status snapshot, `motoko watch --once` is the
+  findings-watchdog sweep (bare `watch` and `motoko interface` are
+  refused), and the `interface` packaging extra is gone — the status path
+  stays stdlib-only.
+- The CI language-policy guard also scans `engine/` and tracked file
+  names, and refuses to pass when a scan cannot complete.
+
 ## [0.7.0] - 2026-10-08
 
 First tagged public snapshot: the engine package (`core-engine` 0.7.0,

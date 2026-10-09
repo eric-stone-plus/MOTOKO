@@ -1,4 +1,4 @@
-'FileCollector — engagement discovery and runtime-file parsing.\n\nPure stdlib, zero SQLite (design/DESIGN.md section 8, collector 1). All data\ncomes from the filesystem under the MOTOKO home root:\n\nLive-vs-sealed heuristics (best effort by design; this is a read-only\nobserver, never the authority):\n\n1. ``engagement.manifest.json`` present -> sealed. Sealed wins, full stop.\n2. Else the engagement is LIVE when any of:\n   - the writer lock is HELD: we open ``graph.db.writer.lock`` O_RDONLY (no\n     O_CREAT — we never create engine files) and try ``flock(LOCK_EX|NB)``;\n     ``BlockingIOError`` means a writer owns it. The fd is closed at once.\n   - the heartbeat file is fresh (age below ``LIVE_WINDOW_S``).\n   - ``graph.db-wal`` has a fresh mtime — a WAL with frames implies recent\n     writes. This is the stand-in for "fresh events.at" without SQLite; the\n     0-byte cosmetic WAL that read-only connections leave next to sealed\n     databases is irrelevant here because sealed wins in rule 1.\n\nNothing that carries a target identifier may leave this module unredacted:\ncooldown origins pass through ``redact.origin_label``, and TSV rows (which\ncontain raw target URLs) are counted, never returned.\n'
+'FileCollector — engagement discovery and runtime-file parsing.\n\nPure stdlib, zero SQLite (the internal design notes section 8, collector 1). All data\ncomes from the filesystem under the MOTOKO home root:\n\nLive-vs-sealed heuristics (best effort by design; this is a read-only\nobserver, never the authority):\n\n1. ``engagement.manifest.json`` present -> sealed. Sealed wins, full stop.\n2. Else the engagement is LIVE when any of:\n   - the writer lock is HELD: we open ``graph.db.writer.lock`` O_RDONLY (no\n     O_CREAT — we never create engine files) and try ``flock(LOCK_EX|NB)``;\n     ``BlockingIOError`` means a writer owns it. The fd is closed at once.\n   - the heartbeat file is fresh (age below ``LIVE_WINDOW_S``).\n   - ``graph.db-wal`` has a fresh mtime — a WAL with frames implies recent\n     writes. This is the stand-in for "fresh events.at" without SQLite; the\n     0-byte cosmetic WAL that read-only connections leave next to sealed\n     databases is irrelevant here because sealed wins in rule 1.\n\nNothing that carries a target identifier may leave this module unredacted:\ncooldown origins pass through ``redact.origin_label``, and TSV rows (which\ncontain raw target URLs) are counted, never returned.\n'
 
 from __future__ import annotations
 
@@ -89,7 +89,7 @@ def _parse_beat_ts(ts_raw: str) -> float | None:
     """Parse a heartbeat timestamp into an epoch value.
 
     The backfill runner writes local wall time via ``time.strftime`` with no
-    offset (research/04), so a naive timestamp is interpreted in the local
+    offset (the internal research notes), so a naive timestamp is interpreted in the local
     zone — matching the producer. An offset-aware value (if a future writer
     upgrades the format) is honoured as-is.
     """
@@ -141,7 +141,7 @@ def parse_runner_pid(text: str) -> int | None:
 
 
 def pid_alive(pid: int | None) -> bool:
-    """Liveness via /proc only (research/04: read, never signal).
+    """Liveness via /proc only (the internal research notes: read, never signal).
 
     Falls back to ``os.kill(pid, 0)`` — which sends no signal — only on
     systems where /proc is not mounted.
@@ -188,7 +188,7 @@ def writer_lock_held(path: Path) -> bool:
 def parse_cooldowns(text: str, *, now: float | None = None) -> tuple[Cooldown, ...]:
     """Parse ``opsec-cooldowns.json`` into redacted Cooldown records.
 
-    Two formats are accepted (research/04):
+    Two formats are accepted (the internal research notes):
 
     - current engine format (``CooldownBoard.snapshot()``):
       ``{"saved_at": <epoch>, "entries": [{"origin", "reason", "remaining_s"}]}``;
@@ -407,7 +407,7 @@ class FileCollector:
 
         Per-engagement artifacts (``tasks/<eng>/heartbeat``, ``runner.pid``,
         ``ALL_DONE``, TSVs) always win. The engine-owned global directory
-        (``RUNNER_STATE_FALLBACK`` — org-level backfill lineage, research/04)
+        (``RUNNER_STATE_FALLBACK`` — org-level backfill lineage, the internal research notes)
         is consulted only for UNSEALED engagements without their own files:
         binding a shared runner's age to a finished sealed engagement would
         wrongly flag it stale.

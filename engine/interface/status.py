@@ -1,32 +1,4 @@
-"""``motoko status`` — one-shot summary tier (DESIGN section 0, tier 1).
-
-Renders one frozen :class:`InterfaceSnapshot` as a compact static table and
-exits: the cron/script/SSH glance whose zero-dependency claim is binding.
-Rich is used for table layout *only when importable*; every path degrades
-to a plain ASCII table rendered by stdlib code, so the tier stays usable in
-a bare python3. Output is deliberately uncolored plain text (grep-able,
-log-friendly); ASCII placeholders ("-" for unknown, a fixed-width ``·`` flag
-cell mirroring render.theme.FLAG_SPECS order) keep it pipe-safe.
-
-P5 redaction: this tier renders *counts and shapes* only. All content
-arrives pre-redacted upstream (collectors -> render.redact) and event
-summaries are contract-safe, so they render as-is; the only free text that
-is NOT contract-clean — the heartbeat message (a raw engine-written file)
-and the collector error string — passes through
-:func:`interface.render.redact.redact_text` as belt-and-braces. No
-filesystem, no network, no subprocess is touched.
-
-stdlib + rich(-if-present) only; no Textual import.
-
-Future cli.py wiring (cli.py is owned by another stream — add exactly this):
-
-    status_parser = subparsers.add_parser(
-        "status", help="one-shot plain summary (zero-dependency tier)")
-    status_parser.add_argument("--demo", action="store_true")
-    status_parser.add_argument("--root", type=Path, default=None)
-    status_parser.set_defaults(func=render_status_and_print)  # from .status
-    # and in main():  return args.func(args)
-"""
+'``motoko status`` — one-shot summary tier (the internal design notes, tier 1).\n\nRenders one frozen :class:`InterfaceSnapshot` as a compact static table and\nexits: the cron/script/SSH glance whose zero-dependency claim is binding.\nRich is used for table layout *only when importable*; every path degrades\nto a plain ASCII table rendered by stdlib code, so the tier stays usable in\na bare python3. Output is deliberately uncolored plain text (grep-able,\nlog-friendly); ASCII placeholders ("-" for unknown, a fixed-width ``·`` flag\ncell in the C/K/L/M/S/W order) keep it pipe-safe.\n\nP5 redaction: this tier renders *counts and shapes* only. All content\narrives pre-redacted upstream (collectors -> render.redact) and event\nsummaries are contract-safe, so they render as-is; the only free text that\nis NOT contract-clean — the heartbeat message (a raw engine-written file)\nand the collector error string — passes through\n:func:`interface.render.redact.redact_text` as belt-and-braces. No\nfilesystem, no network, no subprocess is touched.'
 
 from __future__ import annotations
 
@@ -119,8 +91,7 @@ def render_status_and_print(
     ``args`` needs ``demo`` (bool) and ``root`` (Path | None) attributes only
     (both read defensively via getattr). ``provider`` overrides the default
     ``build_interface_snapshot(root, demo)`` for tests. Never raises on
-    collector problems: failures arrive inside the snapshot (design section
-    2, crash isolation).
+    collector problems: failures arrive inside the snapshot (the internal design notes, crash isolation).
     """
     if provider is None:
         root = getattr(args, "root", None)
@@ -203,12 +174,12 @@ def _gates_cell(gates: GatesSummary | None) -> str:
 
 
 def _flags_cell(eng: EngagementSnapshot) -> str:
-    """Letter flags derivable from the contract (mirrors panels.derive_flags).
+    """Letter flags derivable from the contract.
 
     ``C`` cooldown active, ``W`` WAF-aware (reason=detected), ``S`` stuck
     testing (``stuck_testing_s`` above ``STUCK_AFTER_S``), ``K`` a canary
     event observed in the engagement's tail. ``L`` (lane saturation) has no
-    observable data source yet and never appears (P6, see derive_flags).
+    observable data source yet and never appears (P6).
     """
     from interface.snapshot import STUCK_AFTER_S
 
@@ -226,7 +197,7 @@ def _flags_cell(eng: EngagementSnapshot) -> str:
 
 
 def _fmt_age(seconds: float | None) -> str:
-    """Humanize an age exactly like panels.fmt_duration (stdlib twin)."""
+    """Humanize an age; stdlib-local, format fixed by the status contract."""
     if seconds is None or seconds < 0:
         return "?"
     total = int(seconds)
@@ -240,8 +211,8 @@ def _fmt_age(seconds: float | None) -> str:
 def _followed_notes(snapshot: InterfaceSnapshot, *, limit: int = 4) -> list[str]:
     """Active cooldowns and newest feed lines of the followed engagement.
 
-    Follows the first live engagement, else the first one (same rule as
-    panels.pick_engagement, kept stdlib-local for the plain path). Cooldown
+    Follows the first live engagement, else the first one; kept stdlib-local
+    for the plain path. Cooldown
     origins are already masked labels (``origin-<hash8>``) and event
     summaries are contract-redacted upstream, so both render as-is; the
     heartbeat message is a raw engine-written string and passes through

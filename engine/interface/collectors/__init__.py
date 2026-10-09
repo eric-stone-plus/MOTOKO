@@ -1,4 +1,4 @@
-'Snapshot assembly: three collectors -> one frozen InterfaceSnapshot.\n\n``build_interface_snapshot`` is the single entry point the UI (and the\ndemo path) consumes. It wires FileCollector (filesystem facts),\nGraphCollector (ro-SQLite facts) and the same installation\'s\nAdapterClient (doctor/rules gates + REPORTS screen texts) into\nper-engagement EngagementSnapshot frames. Every failure degrades: a locked\ndatabase yields empty graph facts, a missing adapter yields ``gates=None``\nand an empty ``reports`` mapping, a doctor op that fails while rules data is\nvalid yields a rules-only ``GatesSummary`` with ``doctor_available=False``\n(never a pass verdict), a missing runtime root yields an empty engagement\nlist with a ``collector_error`` — nothing raises into the UI\n(design/DESIGN.md section 2, crash isolation).\n\nAdapter request budget (verified against engine/core/adapter.py): one\nprocess serves at most 32 requests. Per 15s window this collector spends\nexactly 3 — doctor (1), rules (1) and one digest (1) for the live-or-first\nengagement — plus a single capabilities handshake at spawn. That is ~10\nwindows (~150s) per adapter process, after which AdapterClient transparently\nrespawns. The doctor/rules responses are fetched ONCE and shared between the\nGatesSummary projection and the report texts, so adding the reports cost\nexactly one extra request per window (the digest); no interval was lowered.\n\nThe engine\'s motoko/1 protocol carries STRUCTURED JSON only — there is no\ntext op. Observed shapes (core/adapter.py ``_read``): doctor ->\n``{"checks": [{"category", "counts": {OK, WARN, FAIL}}], "failures"}`` (the\nper-check diagnostic MESSAGES are projected away engine-side and never ride\nthe wire), rules -> ``{"rules_total", "fireable", "counts", "by_code"}``,\ndigest -> ``{"counts": {kind: {state: n}}, "last_event", "latest_wave"}`` and\n``{"error": "engagement_not_found"}`` (exit 2) for unknown engagements. The\n"full report text" stored in ``InterfaceSnapshot.reports`` is therefore a\nlocal text projection of those payloads — deterministic, redacted, capped —\nnot the engine CLI\'s printed output. A missing/failed op simply leaves its\nkey out (fail-closed).\n'
+'Snapshot assembly: three collectors -> one frozen InterfaceSnapshot.\n\n``build_interface_snapshot`` is the single entry point the UI (and the\ndemo path) consumes. It wires FileCollector (filesystem facts),\nGraphCollector (ro-SQLite facts) and the same installation\'s\nAdapterClient (doctor/rules gates + report texts) into\nper-engagement EngagementSnapshot frames. Every failure degrades: a locked\ndatabase yields empty graph facts, a missing adapter yields ``gates=None``\nand an empty ``reports`` mapping, a doctor op that fails while rules data is\nvalid yields a rules-only ``GatesSummary`` with ``doctor_available=False``\n(never a pass verdict), a missing runtime root yields an empty engagement\nlist with a ``collector_error`` — nothing raises into the UI\n(the internal design notes section 2, crash isolation).\n\nAdapter request budget (verified against engine/core/adapter.py): one\nprocess serves at most 32 requests. Per 15s window this collector spends\nexactly 3 — doctor (1), rules (1) and one digest (1) for the live-or-first\nengagement — plus a single capabilities handshake at spawn. That is ~10\nwindows (~150s) per adapter process, after which AdapterClient transparently\nrespawns. The doctor/rules responses are fetched ONCE and shared between the\nGatesSummary projection and the report texts, so adding the reports cost\nexactly one extra request per window (the digest); no interval was lowered.\n\nThe engine\'s motoko/1 protocol carries STRUCTURED JSON only — there is no\ntext op. Observed shapes (core/adapter.py ``_read``): doctor ->\n``{"checks": [{"category", "counts": {OK, WARN, FAIL}}], "failures"}`` (the\nper-check diagnostic MESSAGES are projected away engine-side and never ride\nthe wire), rules -> ``{"rules_total", "fireable", "counts", "by_code"}``,\ndigest -> ``{"counts": {kind: {state: n}}, "last_event", "latest_wave"}`` and\n``{"error": "engagement_not_found"}`` (exit 2) for unknown engagements. The\n"full report text" stored in ``InterfaceSnapshot.reports`` is therefore a\nlocal text projection of those payloads — deterministic, redacted, capped —\nnot the engine CLI\'s printed output. A missing/failed op simply leaves its\nkey out (fail-closed).\n'
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ GATES_TTL_S = 15.0
 REPORT_TEXT_CAP_CHARS = 20_000
 """Hard cap for one report text carried in the snapshot.
 
-Strix-style byte-budgeted projection (research/05, section 13.8): a report
+Strix-style byte-budgeted projection (the internal research notes, section 13.8): a report
 that would blow up the UI is truncated LOUDLY, never silently clipped.
 """
 
@@ -52,7 +52,7 @@ class _CollectorSession:
         """Return cached gates, re-querying the adapter at most per TTL.
 
         On a TTL boundary the doctor/rules/digest ops run together and also
-        fill ``self.reports`` (the REPORTS screen texts, see module
+        fill ``self.reports`` (the report texts, see module
         docstring for the budget math). A failed probe degrades to
         ``None``/empty reports ("adapter unavailable") instead of holding a
         stale verdict — P6, honest staleness beats fake data.
@@ -287,12 +287,13 @@ def _assemble(files: EngagementFiles, graph: GraphFacts,
 def _served_by(gates: GatesSummary | None) -> dict[str, str]:
     """Provenance stamp for one assembled frame (snapshot.served_by).
 
-    Records which collector actually served each panel slice. The fs and
-    ro-sqlite collectors run on every tick of a valid runtime root, so their
-    panels always carry a stamp; the adapter pair (gates summary + REPORTS
-    texts) is stamped only when the adapter really produced data — when it
-    degrades to ``gates=None`` the keys are absent and the panels render
-    "adapter unavailable", which is the honest answer to "who served this".
+    Records which collector actually served each slice of a frame. The fs
+    and ro-sqlite collectors run on every tick of a valid runtime root, so
+    their slices always carry a stamp; the adapter pair (gates summary +
+    report texts) is stamped only when the adapter really produced data —
+    when it degrades to ``gates=None`` the keys are absent and consumers
+    render "adapter unavailable", which is the honest answer to "who
+    served this".
     """
     served: dict[str, str] = {
         "engagements": "fs",

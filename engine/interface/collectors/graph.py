@@ -1,6 +1,6 @@
 """GraphCollector — read-only SQLite projection of graph.db.
 
-Open rules (design/DESIGN.md sections 8 and 9 — binding):
+Open rules (the internal design notes sections 8 and 9 — binding):
 
 - connections are ALWAYS ``file:…?mode=ro`` via the URI interface; a
   read-write handle is never opened, not even incidentally;
@@ -10,7 +10,7 @@ Open rules (design/DESIGN.md sections 8 and 9 — binding):
   collector returns empty facts. Failure NEVER escalates to a write attempt
   and NEVER raises into the UI (section 9, rule 5);
 - a read-only connection can leave a cosmetic 0-byte ``-wal`` sidecar next to
-  a sealed database (research/04); STALE logic must not treat that as dirt.
+  a sealed database (the internal research notes); STALE logic must not treat that as dirt.
 
 Queries are bounded and cursor-incremental: hypothesis/finding state counts
 via GROUP BY, the activity feed via a per-engagement ``seq`` cursor (ascending,
@@ -46,12 +46,12 @@ QUEUE_PREVIEW_LIMIT = 12
 """Maximum queued work rows in one snapshot (QUEUE panel preview)."""
 
 STUCK_TTL_S = 2.0
-"""Stuck-testing age is consumed by x2 panels; computing it per x1 frame
-doubles an unindexed correlated query for nothing (review-2 #2) — cache it
-per engagement for this long on the long-lived collector."""
+"""Stuck-testing age is consumed more than once per frame; computing it per
+consumer doubles an unindexed correlated query for nothing — cache it per
+engagement for this long on the long-lived collector."""
 
 INFLIGHT_STATUSES = ("pending", "queued", "running")
-"""tool_run.status values that count as in-flight (research/04)."""
+"""tool_run.status values that count as in-flight (the internal research notes)."""
 
 CANARY_EVENT_KIND = "opsec_canary_skip"
 """Event kind the engine writes on every canary trip (core/orchestrator.py
@@ -69,7 +69,7 @@ _SAFE_PAYLOAD_KEYS: dict[str, tuple[str, ...]] = {
     "entity.transition": ("from", "to"),
     "entity.upsert": ("state",),
     "edge.added": ("rel",),
-    "edge.add": ("rel",),  # engine/adapter spelling drift (research/04)
+    "edge.add": ("rel",),  # engine/adapter spelling drift (the internal research notes)
     "finding.duplicate_seen": ("duplicate_count",),
     "scan.wave.completed": ("wave", "cycles", "pending", "stop_reason"),
     # The rotation hook's own event. hours is the reliably rendered half:

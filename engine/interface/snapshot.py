@@ -1,7 +1,7 @@
 """Snapshot contract for the MOTOKO interface.
 
 The UI layer only ever reads frozen snapshots produced by the collector
-thread (see design/DESIGN.md section 8 for the rationale). Every field here
+thread (see the internal design notes section 8 for the rationale). Every field here
 is part of the interface between the data layer and the render layer; both
 sides code against this file, which is owned by the design (not by either
 agent).
@@ -78,7 +78,15 @@ class WaveProgress:
 
 @dataclass(frozen=True)
 class GatesSummary:
-    'Doctor + rules static report (GATES panel / :doctor screen).'
+    """Doctor + rules static report (GATES panel / :doctor screen).
+
+    ``doctor_available=False`` marks the degraded rules-only projection:
+    the doctor payload carried no checks list, so ``sections_*`` are 0 and
+    ``ok`` is forced False — a summary that cannot vouch for doctor must
+    never claim all gates passed. The status renderer shows "doctor n/a"
+    instead of the section badge. Defaulted, so existing constructors are
+    unaffected (the internal design notes section 8.2).
+    """
 
     sections_ok: int
     sections_total: int  # doctor
@@ -102,10 +110,10 @@ STUCK_AFTER_S = 7200.0
 """Testing age above which the ``S`` flag lights.
 
 A strix deep-dive legitimately holds a hypothesis in ``testing`` for up to
-7200s (research/04-motoko-data-sources.md; DESIGN section 11.3), so ``S`` is
+7200s (the internal research notes; the internal design notes), so ``S`` is
 a marker, not an alarm: everything at or under this budget is normal deep
-work. Lives on the contract so every tier (panels, status, watch) shares one
-threshold definition.
+work. Lives on the contract so the status tier (its only remaining
+consumer) shares one threshold definition.
 """
 
 HYP_STATES = ("proposed", "testing", "done", "rejected", "error", "timeout", "failed")
@@ -157,21 +165,22 @@ class EngagementSnapshot:
     #: Non-None when the ro-SQLite collector could not read this
     #: engagement's graph (missing/corrupt db, open failure). ``hyps``,
     #: ``findings``, ``inflight`` and ``queue_preview`` are then EMPTY
-    #: BECAUSE UNREADABLE, not zero — panels render "—"/"unknown", never a
+    #: BECAUSE UNREADABLE, not zero — consumers render "—"/"unknown", never a
     #: fabricated 0 or "empty" (P6).
     graph_error: str | None = None
 
 
 @dataclass(frozen=True)
 class InterfaceSnapshot:
-    """One frame of the whole interface; posted to the UI via call_from_thread."""
+    """One frame of the whole interface."""
 
     taken_at: float
     engagements: tuple[EngagementSnapshot, ...]
     collector_error: str | None = None
-    # Full adapter report texts for the REPORTS screen (:doctor/:rules/:digest),
-    # keyed "doctor" | "rules" | "digest:<engagement-id>". Empty when no adapter
-    # is available (fail-closed: panels fall back to the summary rendering).
+    # Full adapter report texts (doctor/rules/digest), keyed
+    # "doctor" | "rules" | "digest:<engagement-id>". Empty when no adapter
+    # is available (fail-closed). No in-tree renderer consumes these texts
+    # today — the status tier shows only the gates summary.
     # Every value is redacted and size-capped upstream (collectors/__init__.py).
     reports: Mapping[str, str] = field(default_factory=dict)
     # Age of the report texts at snapshot time (None = never fetched). One
@@ -185,6 +194,6 @@ class InterfaceSnapshot:
     # (adapter unavailable) simply has no entry, and the demo mode labels its
     # synthetic values "demo" so it can never pass for a real source. Empty
     # mapping = provenance unknown (older/test constructors) and renders as
-    # nothing, never as a fake source. Additive per DESIGN section 8.1:
+    # nothing, never as a fake source. Additive per the internal design notes:
     # defaulted, existing constructors are unaffected.
     served_by: Mapping[str, str] = field(default_factory=dict)

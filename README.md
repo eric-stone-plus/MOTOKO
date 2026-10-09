@@ -174,7 +174,7 @@ parallel fan-out, and host-resource budgeting live in the operator shell.
 | `engine/core/rules/` | Rule packs (JSON): chain / context / scan / tech / vuln |
 | `engine/core/parsers/` | Tool-output parsers (nuclei, httpx, katana, sqlmap, strix, …) |
 | `engine/core/verification/` | Deterministic validators (replay / dom / oob), plus the interactsh canary manager that supplies the OOB leg's IO |
-| `engine/interface/` | Read-only terminal interface (Textual; the `interface` optional extra) |
+| `engine/interface/` | Read-only interface snapshot (`motoko status`) and host collectors (stdlib) |
 | `engine/pyproject.toml` | Packaging manifest; provides the `motoko` console script |
 | `HOSTS.md` | Host boundaries, remote protocol and installation contract |
 | `LICENSE` / `NOTICE` | AGPL-3.0-or-later for original files; instrument attribution |
@@ -190,10 +190,8 @@ parallel fan-out, and host-resource budgeting live in the operator shell.
 pip install "git+https://github.com/eric-stone-plus/MOTOKO.git#subdirectory=engine"
 
 motoko --help               # the distribution installs as `core-engine` (`pip show core-engine`)
-
-# optional: the read-only terminal interface
-pip install "core-engine[interface] @ git+https://github.com/eric-stone-plus/MOTOKO.git#subdirectory=engine"
-motoko                      # opens it; `motoko status` / `motoko watch` stay stdlib
+motoko status               # one-shot read-only snapshot (stdlib only)
+motoko watch --once         # host-consumable findings/strix deltas since a cursor
 
 # without installing, from the source tree:
 git clone https://github.com/eric-stone-plus/MOTOKO.git && cd MOTOKO/engine && python3 -m core --help
@@ -209,7 +207,7 @@ motoko seal <engagement-id> --verify # reconcile a sealed engagement against its
 
 Command surface: `init · run · digest · query · events · loop ·
 ingest-strix · health · seal · recover · doctor · rules · kali · strix ·
-adapter · deploy · status · watch · interface`.
+adapter · deploy · status · watch --once`.
 
 State lives in per-engagement SQLite graphs under `MOTOKO_HOME`.
 Configuration arrives through environment variables and, for loop

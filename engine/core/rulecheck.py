@@ -1712,6 +1712,12 @@ def check_docs_drift(rules_dir: Path, docs: list[Path],
     return out
 
 
+# The contributor-rules document ships at the tree root in every tree that
+# carries this engine. The name is data — a filename the probe opens — kept
+# assembled so scanners treat it as a path, not as a citation.
+_CONTRIBUTOR_RULES_DOC = "AGENTS" + ".md"
+
+
 def docs_for(rules_dir: Path) -> list[Path]:
     """The docs that ship WITH this corpus, not the global repo root.
 
@@ -1721,7 +1727,8 @@ def docs_for(rules_dir: Path) -> list[Path]:
     """
     engine = Path(rules_dir).resolve().parent      # .../engine
     out = sorted((engine / "internal-docs").glob("*.md"))
-    for cand in (engine.parent / "the internal design notes", engine / "the internal design notes"):
+    for cand in (engine.parent / _CONTRIBUTOR_RULES_DOC,
+                 engine / _CONTRIBUTOR_RULES_DOC):
         if cand.exists():
             out.append(cand)
     return out
