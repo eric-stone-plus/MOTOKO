@@ -82,7 +82,7 @@
       <div class="sec-head">
           <p class="kicker">The interface</p>
           <h2 class="title">A read-only glance at every engagement</h2>
-          <p class="sec-sub">One question per line: which engagements are live, what the wave is doing, which events just landed. The interface never invents a metric — an unknown count renders as an em-dash.</p>
+          <p class="sec-sub">One question per line: which engagements are live, what the wave is doing, which events just landed. The interface never invents a metric — an unknown count renders as a dash.</p>
         </div>
       </div>
       <div class="hero-panel" id="interface">
@@ -333,7 +333,7 @@
             <dt>Instruments</dt>
             <dd>The scanners and agents you bind keep their own licenses, upstreams and terms — MOTOKO does not relicense them. Some carry commercial-use conditions of their own; check <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/INSTRUMENTS.md" rel="noopener">INSTRUMENTS.md</a> before binding one into client work.</dd>
             <dt>Commercial</dt>
-            <dd>Commercial use is already permitted under AGPL-3.0-or-later. No separate commercial license is published today; if your organization's policy cannot accept these terms, raise it with the <a href="https://github.com/eric-stone-plus" rel="noopener">maintainer</a>.</dd>
+            <dd>Commercial use is already permitted under AGPL-3.0-or-later. No separate commercial license is published today; if your organization's policy cannot accept these terms, raise it with the <a href="https://github.com/eric-stone-plus/MOTOKO" rel="noopener">maintainer</a>.</dd>
           </dl>
           <p class="card-note">The full summary and FAQ live in the <a href="https://github.com/eric-stone-plus/MOTOKO/blob/main/README.md#license-and-commercial-use" rel="noopener">README</a>.</p>
         </div>
@@ -424,7 +424,6 @@
       <div class="dl-tabs">
         <div class="tablist" role="tablist" aria-label="Install options">
           <button type="button" role="tab" id="tab-pip" aria-controls="pane-pip" aria-selected="true">pip</button>
-          <button type="button" role="tab" id="tab-interface" aria-controls="pane-interface" aria-selected="false">with interface</button>
           <button type="button" role="tab" id="tab-source" aria-controls="pane-source" aria-selected="false">source tree</button>
         </div>
         <div class="tabpanes">
@@ -433,13 +432,6 @@
             <div class="cmd-card">
               <code class="cmd" id="cmd-cta-pipgit">pip install "git+https://github.com/eric-stone-plus/MOTOKO.git#subdirectory=engine"</code>
               <button type="button" class="copy-btn" data-copy="cmd-cta-pipgit">Copy</button>
-            </div>
-          </div>
-          <div class="tabpane" id="pane-interface" role="tabpanel" aria-labelledby="tab-interface" data-print-label="with interface" tabindex="0">
-            <p>Optional read-only terminal interface (Textual), installed from the same repository. <code>motoko status</code> and <code>motoko watch</code> stay stdlib.</p>
-            <div class="cmd-card">
-              <code class="cmd" id="cmd-cta-iface">pip install "core-engine[interface] @ git+https://github.com/eric-stone-plus/MOTOKO.git#subdirectory=engine"</code>
-              <button type="button" class="copy-btn" data-copy="cmd-cta-iface">Copy</button>
             </div>
           </div>
           <div class="tabpane" id="pane-source" role="tabpanel" aria-labelledby="tab-source" data-print-label="source tree" tabindex="0">
