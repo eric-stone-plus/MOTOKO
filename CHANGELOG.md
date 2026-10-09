@@ -16,7 +16,12 @@ exported.
   refused), and the `interface` packaging extra is gone — the status path
   stays stdlib-only.
 - The CI language-policy guard also scans `engine/` and tracked file
-  names, and refuses to pass when a scan cannot complete.
+  names, and refuses to pass when a scan cannot complete; it runs with a
+  read-only token, per-job timeouts, and cancels superseded runs.
+- The `motoko/1` status frame keeps unknown counts unknown: an engagement
+  whose graph could not be read reports `null` queue and in-flight totals
+  instead of a fabricated zero, so a host renders "unknown" rather than
+  "nothing queued".
 
 ## [0.7.0] - 2026-10-08
 
