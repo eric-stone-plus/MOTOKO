@@ -22,6 +22,8 @@ exported.
   whose graph could not be read reports `null` queue and in-flight totals
   instead of a fabricated zero, so a host renders "unknown" rather than
   "nothing queued".
+- The NOTICE asserts the Required Notice explicitly as an AGPLv3 §7(b)
+  additional term; no other section-7 additional terms are asserted.
 
 ## [0.7.0] - 2026-10-08
 

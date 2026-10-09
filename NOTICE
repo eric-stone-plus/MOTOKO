@@ -8,6 +8,11 @@ Licensed under the GNU Affero General Public License v3.0 (AGPL-3.0-or-later).
 You may obtain a copy of the License in the LICENSE file or at
 https://www.gnu.org/licenses/agpl-3.0.txt
 
+Additional terms under section 7 of the AGPLv3: the Required Notice above is
+asserted as a 7(b) term. Any copy or modified version you convey must preserve
+that copyright notice and its repository URL in the Appropriate Legal Notices
+of the conveyed work. No other additional terms are asserted under section 7.
+
 This NOTICE covers original MOTOKO files in this repository (ontology,
 graph contract, citation map). It does not relicense cited instruments.
 
