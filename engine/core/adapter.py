@@ -403,7 +403,9 @@ def _status_engagement(snap):
          "state": _clip(run.state, 24), "duration_s": _number_or_none(run.duration_s)}
         for run in inflight
     ]
-    row["inflight_total"] = len(snap.inflight)
+    # A graph that could not be read yields EMPTY collections, not zero —
+    # the totals stay unknown (None), never a fabricated count.
+    row["inflight_total"] = None if snap.graph_error else len(snap.inflight)
     queue = list(snap.queue_preview)[:STATUS_QUEUE_CAP]
     row["queue_preview"] = [
         {"origin": _clip(item.origin, 64), "rule": _clip(item.rule, 48),
@@ -411,8 +413,10 @@ def _status_engagement(snap):
         for item in queue
     ]
     # The preview is capped (QUEUE_PREVIEW_LIMIT); the true queue depth is
-    # the proposed-hypothesis histogram the preview is drawn from.
-    row["queue_total"] = row["hyps"].get("proposed", 0)
+    # the proposed-hypothesis histogram the preview is drawn from — and it
+    # is unknown, not 0, when the graph could not be read.
+    row["queue_total"] = (None if snap.graph_error
+                          else row["hyps"].get("proposed", 0))
     cooldowns = list(snap.cooldowns)[:STATUS_COOLDOWN_CAP]
     row["cooldowns"] = [
         {"origin": _clip(cd.origin, 64), "remaining_s": max(0, int(cd.remaining_s))

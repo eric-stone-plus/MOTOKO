@@ -186,6 +186,7 @@ for name, markers in checks:
 # would make that hard-off fail open silently. Fail closed instead.
 knobs = ["STRIX_TELEMETRY", "STRIX_NO_UPDATE_CHECK"]
 found = {k: [] for k in knobs}
+knob_fail = False
 for dirpath, _dirs, files in os.walk(site):
     for fn in files:
         if not fn.endswith(".py"):
@@ -193,7 +194,9 @@ for dirpath, _dirs, files in os.walk(site):
         p = os.path.join(dirpath, fn)
         try:
             src = open(p, encoding="utf-8", errors="replace").read()
-        except OSError:
+        except OSError as exc:
+            # An unreadable file must not read as an absent knob.
+            print(f"[warn] {p}: {exc}", file=sys.stderr)
             continue
         for knob in knobs:
             if knob in src:
@@ -204,13 +207,14 @@ for knob in knobs:
     else:
         print(f"[FAIL] {knob} not read anywhere under {site}: "
               "telemetry hard-off fails open")
-        fail = True
-sys.exit(1 if fail else 0)
+        knob_fail = True
+# Exit 3 is knob-only: the caller must not read it as a wiped patch.
+sys.exit(1 if fail else (3 if knob_fail else 0))
 EOF
 }
 
 strix_upgrade() {
-  local site ver_before ver_after bk pd helpout
+  local site ver_before ver_after bk pd helpout rc
   site="${STRIX_SITE:-$(strix_site_default)}" || {
     echo "[FAIL] strix deploy site not found" >&2; exit 1; }
   bk="/var/tmp/tmp-persisted/strix-patch-backup-$(date +%Y%m%d-%H%M%S)"
@@ -228,12 +232,22 @@ strix_upgrade() {
   if STRIX_SITE="$site" strix_verify; then
     echo "[ok  ] patches intact after upgrade — nothing to replay"
   else
+    rc=$?
+    if [ "$rc" -eq 3 ]; then
+      echo "[FAIL] telemetry knob missing after the upgrade (see the [FAIL] line above); the patch files are intact — fix the knob read before launching strix" >&2
+      exit 1
+    fi
     pd="$STRIX_PATCH_DIR/${ver_after##* }"
     if [ -d "$pd" ]; then
       echo "[repl] replaying anchored patches from $pd"
       cp "$pd"/caido_upstream.py "$pd"/caido_bootstrap.py "$pd"/docker_client.py \
          "$site"/runtime/
       STRIX_SITE="$site" strix_verify || {
+        rc=$?
+        if [ "$rc" -eq 3 ]; then
+          echo "[FAIL] markers restored, but the telemetry knob is still missing — see the [FAIL] line above; do not launch strix until strix-verify passes" >&2
+          exit 1
+        fi
         echo "[FAIL] replay did not restore markers — port manually from $bk" >&2
         exit 1; }
       echo "[ok  ] replay complete"
