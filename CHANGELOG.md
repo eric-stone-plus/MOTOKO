@@ -24,6 +24,8 @@ exported.
   "nothing queued".
 - The NOTICE asserts the Required Notice explicitly as an AGPLv3 §7(b)
   additional term; no other section-7 additional terms are asserted.
+- The engine wheel declares AGPL-3.0-or-later as a PEP 639 license
+  expression, with project URLs and classifiers in its metadata.
 
 ## [0.7.0] - 2026-10-08
 

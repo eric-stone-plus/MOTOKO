@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,10 +7,47 @@ name = "core-engine"
 # Seal manifests and export receipts record the source revision separately.
 version = "0.7.0"
 description = "MOTOKO attack-graph orchestration engine"
+# License metadata follows PEP 639: the expression only. LICENSE and NOTICE
+# travel with the repository; the wheel carries no license files today (add
+# license-files when a package-index publication is actually prepared).
+license = "AGPL-3.0-or-later"
+readme = { content-type = "text/markdown", text = """MOTOKO attack-graph
+orchestration engine.
+
+Scanners and agents run under one governed graph: a scope gate before every
+call and an append-only evidence chain behind every finding, with sealed
+engagements as the unit of delivery.
+
+This wheel ships the engine core, the rule packs, the capability skill and
+packaging only. The concept documents, the design notes and the test suite
+live in the repository:
+
+- Repository: https://github.com/eric-stone-plus/MOTOKO
+- License: AGPL-3.0-or-later (LICENSE and NOTICE in the repository)
+""" }
+authors = [{ name = "the MOTOKO contributors" }]
 requires-python = ">=3.11"
 # Reproducibility claim: the engine is stdlib-only. Runtime behavior
 # depends on the Python version and the pinned tools, never on pip deps.
 dependencies = []
+classifiers = [
+  "Environment :: Console",
+  "Intended Audience :: Information Technology",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Security",
+]
+
+[project.urls]
+# The Pages site is deliberately not carried here: the export red-line lint
+# admits only the repo's own github.com path under the handle, so root
+# documents link the repository instead.
+Homepage = "https://github.com/eric-stone-plus/MOTOKO"
+Repository = "https://github.com/eric-stone-plus/MOTOKO"
+Issues = "https://github.com/eric-stone-plus/MOTOKO/issues"
+Changelog = "https://github.com/eric-stone-plus/MOTOKO/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pyflakes>=3"]
