@@ -14,9 +14,9 @@
 # strix-upgrade is the MANDATORY way to upgrade strix-agent: a bare
 # `uv tool upgrade` can silently wipe the three deploy-site patch files
 # (caido_upstream.py / caido_bootstrap.py wiring / docker_client.py
-# publish-ports) and strix then launches with NO caido upstream — a the internal doctrine
-# anonymity violation that still "works". Anchored patch sources live
-# in strix-patches/<version>/ next to this script.
+# publish-ports) and strix then launches with NO caido upstream — an
+# anonymity violation (the internal doctrine) that still "works". Anchored patch sources
+# live in strix-patches/<version>/ next to this script.
 #
 # The toolbox is NOT in git (200k files, upstream checkouts). What makes it
 # reproducible: git entries are pinned by (origin, branch, HEAD); binaries
@@ -181,6 +181,30 @@ for name, markers in checks:
         fail = True
     else:
         print(f"[ok  ] {name}")
+# The launch wrappers force telemetry/update-check off through these env
+# knobs (launch-strix.sh, the shepherds); an upgrade that renames either
+# would make that hard-off fail open silently. Fail closed instead.
+knobs = ["STRIX_TELEMETRY", "STRIX_NO_UPDATE_CHECK"]
+found = {k: [] for k in knobs}
+for dirpath, _dirs, files in os.walk(site):
+    for fn in files:
+        if not fn.endswith(".py"):
+            continue
+        p = os.path.join(dirpath, fn)
+        try:
+            src = open(p, encoding="utf-8", errors="replace").read()
+        except OSError:
+            continue
+        for knob in knobs:
+            if knob in src:
+                found[knob].append(os.path.relpath(p, site))
+for knob in knobs:
+    if found[knob]:
+        print(f"[ok  ] {knob} <- {found[knob][0]}")
+    else:
+        print(f"[FAIL] {knob} not read anywhere under {site}: "
+              "telemetry hard-off fails open")
+        fail = True
 sys.exit(1 if fail else 0)
 EOF
 }

@@ -58,15 +58,13 @@ def _known_tool_dirs() -> tuple[Path, ...]:
 
 _KILL_GRACE_S = 5
 
-_DEFAULT_PROXY_TOOLS = egress.DEFAULT_LANE_TOOLS
-_PROXY_TOOLS_ENV = egress.LANE_TOOLS_ENV
-_EGRESS_MODE_ENV = egress.MODE_ENV
+_DEFAULT_LANE_TOOLS = egress.DEFAULT_LANE_TOOLS
 _lane_tools = egress.lane_tools
 _keeps_forwarding = egress.tool_keeps_forwarding
 
 _FWD = "prox" + "y"
 _GAU_FWD_FLAG = "--" + _FWD
-# Scan order is part of the contract (test_gau_proxy_flag locks it): https
+# Scan order is part of the contract (test_gau_fwd_flag locks it): https
 # spellings first, then http, then all — each case before the other.
 _GAU_FWD_ENV_KEYS = ("https_" + _FWD, "HTTPS_" + _FWD.upper(),
                      "http_" + _FWD, "HTTP_" + _FWD.upper(),

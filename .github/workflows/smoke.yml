@@ -62,14 +62,56 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       # Public-tree language policy (AGENTS.md): the flagged network-forwarding
-      # term must not appear outside LICENSE. The pattern is assembled from
-      # parts so this file does not itself carry the term. engine/ is a
-      # one-way export and is checked in its source tree, so this job covers
-      # the files maintained here.
+      # term must not appear outside LICENSE — in file contents (text or
+      # binary), in tracked file names, or anywhere under engine/. The pattern
+      # is assembled from parts so this file does not itself carry the term.
+      # A scan that cannot complete fails the job instead of passing it.
       - name: Check the public-tree language policy
         run: |
           pat="pr""oxy"
-          if grep -rIni --exclude-dir=.git --exclude-dir=engine --exclude=LICENSE -e "$pat" .; then
-            echo "::error::flagged term found outside LICENSE (see AGENTS.md)"
+          files=$(git ls-files) || { echo "::error::git ls-files failed"; exit 1; }
+
+          # The content scan exempts LICENSE by basename, so assert the
+          # exemption can only ever hit the root verbatim text: exactly one
+          # LICENSE file may exist outside .git, and it must be the root one.
+          # `find` enumerates raw bytes — git's text listing C-quotes unusual
+          # paths (core.quotePath), which would hide a nested LICENSE from a
+          # line-anchored grep while the basename exemption still applied.
+          lrc=0
+          lic=$(find . -path ./.git -prune -o -name LICENSE -type f -print) || lrc=$?
+          if [ "$lrc" -ne 0 ]; then
+            echo "::error::LICENSE enumeration failed (find exit $lrc); the scan exemption assumes the root file"
+            exit 1
+          fi
+          if [ "$lic" != "./LICENSE" ]; then
+            echo "::error::expected exactly one LICENSE (the root file); found: $lic"
+            exit 1
+          fi
+
+          # Content scan: every file under the tree except .git and the
+          # verbatim LICENSE. No -I: a binary match is still a match.
+          rc=0
+          grep -rniF --exclude-dir=.git --exclude=LICENSE -e "$pat" . || rc=$?
+          if [ "$rc" -eq 0 ]; then
+            echo "::error::flagged term found in file contents outside LICENSE (see AGENTS.md)"
+            exit 1
+          fi
+          if [ "$rc" -ne 1 ]; then
+            echo "::error::content scan failed (grep exit $rc); refusing to pass on an incomplete scan"
+            exit 1
+          fi
+
+          # Name scan: tracked paths only. No pipeline: a two-stage pipeline
+          # reports its last stage's exit status (1 = no match) and masks a
+          # left-stage failure, which would read as "no match".
+          nrc=0
+          names=$(grep -iF -e "$pat" <<< "$files") || nrc=$?
+          if [ "$nrc" -eq 0 ]; then
+            printf '%s\n' "$names"
+            echo "::error::flagged term found in tracked file names (see AGENTS.md)"
+            exit 1
+          fi
+          if [ "$nrc" -ne 1 ]; then
+            echo "::error::name scan failed (grep exit $nrc); refusing to pass on an incomplete scan"
             exit 1
           fi

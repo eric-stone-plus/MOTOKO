@@ -46,9 +46,8 @@ HOST_FWD_VARS = frozenset({"http_" + _FWD, "https_" + _FWD,
 # `--env`, and a persistent container inherits its startup env, so every
 # spelling has to be named and blanked. Both the prefix and the suffix take
 # each casing together: pairing an upper-case prefix with the lower-case
-# suffix ("HTTP_" + _FWD) names HTTP_proxy, which is not a spelling any
-# shell exports, so the real HTTP_PROXY would stay set — the leak this list
-# exists to close.
+# suffix ("HTTP_" + _FWD) names a spelling no shell exports, so the real
+# all-upper name would stay set — the leak this list exists to close.
 CONTAINER_FWD_VARS = tuple(
     "".join(parts)
     for parts in (("http_", _FWD), ("https_", _FWD), ("all_", _FWD),
