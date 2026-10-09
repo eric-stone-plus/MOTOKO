@@ -288,8 +288,9 @@ defaults land beside the interpreter rather than in a source tree. Set
 - [CONTRIBUTING.md](CONTRIBUTING.md) — contributor contract
 - [CHANGELOG.md](CHANGELOG.md) — release notes
 
-The `engine/` tree ships code, rule packs, and packaging only; its design
-docs and test suite are maintained outside this export by policy.
+The `engine/` tree ships code, rule packs, engine capability skills, and
+packaging only; its design docs and test suite are maintained outside this
+export by policy.
 
 ## CI
 

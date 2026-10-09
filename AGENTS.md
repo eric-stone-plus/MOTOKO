@@ -43,11 +43,13 @@ code enforces, not the engagement that motivated it.
 - Do not vendor instrument source trees into this repository.
 - Do not relicense cited instruments. License changes, if any, apply only to
   original files in this repository.
-- Do not add an operational shell profile (SOUL.md, skills, live config) here.
-  That is a separate shell, not this ontology. Do not cite operator
-  profile paths or engagement evidence, and do not carry over an internal
-  review attribution (who or which model found something) - state the
-  invariant the code enforces instead.
+- Do not add an operational shell profile (SOUL.md, live config, operator
+  skills) here. That is a separate shell, not this ontology. Engine
+  capability skills are different: they live under `engine/skills/<name>/`
+  and travel with the engine, because its installer consumes them. Do not
+  cite operator profile paths or engagement evidence, and do not carry over
+  an internal review attribution (who or which model found something) -
+  state the invariant the code enforces instead.
 - Cite upstream repositories only. Do not cite operator forks.
 - One contributor identity. Every commit carries the repository owner's
   GitHub-linked Git identity as both author and committer. Do not commit under
