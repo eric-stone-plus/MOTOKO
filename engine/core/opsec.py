@@ -118,6 +118,54 @@ def status_flip(prev, new) -> str | None:
     return None
 
 
+_SECRET_SHAPES: tuple[tuple[re.Pattern[str], str], ...] = (
+    # scheme-prefixed credentials FIRST: the labelled patterns below would
+    # otherwise consume the scheme as the value and leave the token bare
+    # (`Authorization: Bearer <token>` -> `Authorization: *** <token>`).
+    (re.compile(r"(?i)\b(bearer|basic|digest)\s+([A-Za-z0-9._~+/=\-]{8,})"),
+     r"\1 ***"),
+    # labelled credentials: keep the label, drop the value. The value is
+    # `(?!\*\*\*)` so a second pass over an already-scrubbed summary is a
+    # no-op (idempotent), and count==0 there is honest rather than a
+    # re-masked placeholder.
+    (re.compile(r"(?i)\b(authorization|x-api-key|api[_-]?key)\b"
+                r"(\s*[:=]\s*)(?!\*\*\*)(\S+)"), r"\1\2***"),
+    (re.compile(r"(?i)\b(password|passwd|pwd|secret)\b"
+                r"(\s*[:=]\s*)(?!\*\*\*)(\S+)"), r"\1\2***"),
+    # cookie values: the NAME is evidence, the value is not
+    (re.compile(r"(?i)\b((?:set-)?cookie)\b(\s*:\s*)(?!\*\*\*)([^\r\n]{6,})"),
+     r"\1\2***"),
+    # vendor token prefixes
+    (re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{12,}"
+                r"|sk_live_[A-Za-z0-9]{10,}|xox[baprs]-[A-Za-z0-9-]{10,}"
+                r"|AIza[0-9A-Za-z\-_]{20,})\b"), "***"),
+    # PEM blocks, whole
+    (re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?"
+                r"-----END [A-Z ]*PRIVATE KEY-----"), "***"),
+    # JWT shape: three base64url segments, the first a header
+    (re.compile(r"\beyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}"
+                r"\.[A-Za-z0-9_\-]{8,}\b"), "***"),
+)
+
+
+def scrub_summary(text: str) -> tuple[str, int]:
+    """Mask secret-shaped runs in an observation summary.
+
+    Returns ``(scrubbed, hits)`` — hits is the number of substitutions, so a
+    caller can record that a reduction happened. Pure, never raises on odd
+    input (a non-string degrades to an empty summary, matching the column's
+    TEXT NOT NULL contract at the write site).
+    """
+    if not isinstance(text, str) or not text:
+        return "" if text is None else str(text), 0
+    hits = 0
+    out = text
+    for pattern, replacement in _SECRET_SHAPES:
+        out, n = pattern.subn(replacement, out)
+        hits += n
+    return out, hits
+
+
 def normalize_canary_path(raw: str) -> str:
     'Normalize a path for canary segment/prefix comparison.'
     text = unquote(str(raw or "")).replace("\\", "/")

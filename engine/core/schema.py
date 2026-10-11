@@ -84,6 +84,10 @@ EVENT_ENTITY_DOMAINS: dict[str, str | None] = {
     "service.upsert": "service",
     "observation.recorded": "observation",
     "observation.processed": "observation",
+    # The choke-point summary scrub fired (opsec.scrub_summary): the payload
+    # carries the COUNT of masked runs, never the text — the reduction is
+    # visible instead of silent.
+    "observation.redacted": "observation",
     "tool_run.transition": "tool_run",
     # -- engagement-wide markers ------------------------------------------
     "scope.set": "engagement",

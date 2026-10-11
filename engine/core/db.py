@@ -23,7 +23,7 @@ import re
 import sqlite3
 from pathlib import Path
 
-from . import events, schema, state_machine, util
+from . import events, opsec, schema, state_machine, util
 
 
 def default_root() -> Path:
@@ -658,6 +658,7 @@ class Database:
                            duration_s: float | None = None, action_id: str | None = None,
                            url: str | None = None, host: str | None = None) -> str:
         ''
+        parsed_summary, redactions = opsec.scrub_summary(parsed_summary)
         oid = util.new_id("observation")
         with self.conn:
             self.conn.execute(
@@ -673,6 +674,9 @@ class Database:
                 "tool": tool, "engagement_id": engagement_id,
                 "snapshot": self._table_snapshot("observations", oid),
             })
+            if redactions:
+                self._insert_event("observation.redacted", oid,
+                                   {"count": redactions})
         return oid
 
     def unprocessed_observations(self, engagement_id: str) -> list[dict]:
@@ -707,7 +711,8 @@ class Database:
         return cur.rowcount == 1
 
     def update_observation_summary(self, obs_id: str, summary: str) -> None:
-        ''
+        '        Same choke-point scrub as ``record_observation`` (see there).'
+        summary, redactions = opsec.scrub_summary(summary)
         with self.conn:
             self.conn.execute(
                 "UPDATE observations SET parsed_summary = ? WHERE id = ?",
@@ -716,6 +721,9 @@ class Database:
                 "parsed_summary": summary[:2000],
                 "snapshot": self._table_snapshot("observations", obs_id),
             })
+            if redactions:
+                self._insert_event("observation.redacted", obs_id,
+                                   {"count": redactions})
 
     def update_observation_evidence(self, obs_id: str,
                                     new_asset_ids: list[str],
