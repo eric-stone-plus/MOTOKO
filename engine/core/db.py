@@ -114,6 +114,39 @@ def init_engagement(
     return edir
 
 
+def _lock_holder(fd: int) -> str:
+    """Who holds this lock, from the holder's own stamp (best effort).
+
+    Returns the raw stamp or "" — an old holder (from before the stamp
+existed) or an unreadable file must degrade to the historical message
+    rather than mask the real cause.
+    """
+    try:
+        os.lseek(fd, 0, os.SEEK_SET)
+        return os.read(fd, 512).decode("utf-8", "replace").strip()
+    except OSError:
+        return ""
+
+
+def _stamp_lock_holder(fd: int) -> None:
+    """Record pid + acquisition time in the lock file. Best effort.
+
+    The contention error used to say only "another writer owns <db>" — with
+    several engagements and several seats, the operator's next question is
+    always WHO. The lock file is 0600 and local, so naming the holder costs
+    nothing and makes that answer one read away. Never raises: a lock that
+    could not be stamped is still a held lock, and failing the constructor
+    over decoration would invert the guarantee.
+    """
+    try:
+        payload = f"pid={os.getpid()} since={util.now_iso()}"
+        os.lseek(fd, 0, os.SEEK_SET)
+        os.ftruncate(fd, 0)
+        os.write(fd, payload.encode("utf-8"))
+    except OSError:
+        pass
+
+
 class Database:
     """Single-writer handle over one ``graph.db``."""
 
@@ -144,9 +177,14 @@ class Database:
             try:
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError:
+                holder = _lock_holder(fd)
                 os.close(fd)
-                raise RuntimeError(f"another writer owns {self.path}; use read-only inspection") from None
+                raise RuntimeError(
+                    f"another writer owns {self.path}"
+                    + (f" ({holder})" if holder else "")
+                    + "; use read-only inspection") from None
             self._lock_fd = fd
+            _stamp_lock_holder(fd)
         try:
             self.conn = _connect(self.path, read_only=read_only)
         except BaseException:
