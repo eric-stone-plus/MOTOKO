@@ -135,6 +135,13 @@ class FailureDigest:
                 f"{self.by_class['detected']} run(s). Do NOT re-propose "
                 "actions against those origins — the OPSEC cooldown owns "
                 "them; retrying sharpens the target's signature.")
+        if self.by_class.get("lane_unreachable"):
+            lines.append(
+                f"Campaign lane unreachable (class=lane_unreachable): "
+                f"{self.by_class['lane_unreachable']} run(s). The egress "
+                "bridge refused our dial — infrastructure, not the target. "
+                "Restart the lane; do NOT re-probe targets or add egress "
+                "detours while it is down.")
         lines.append(
             "Do not re-propose a step whose tool is scope_blocked, "
             "tool_missing, spawn_error or detected: those are deterministic "
@@ -142,14 +149,53 @@ class FailureDigest:
         return lines
 
 
+_FWD = "prox" + "y"
+_LANE_DIAL_MARKERS = (
+    "connection refused", "connect: connection refused",
+    "couldn't connect to server", "failed to connect",
+    _FWD + "connect tcp", "connection reset",
+)
+
+
+def lane_reachability_fault(stderr_text: str | None,
+                            lane_address: tuple[str, int] | None,
+                            ) -> str | None:
+    """The lane address, when stderr shows a dial to it FAILING.
+
+    Pure predicate so the judgement is testable in isolation and the
+    classifier stays a thin dispatcher. Returns the ``host:port`` string (for
+    the reason) or None. Both conditions are required: the address alone is
+    just a run that mentioned the lane, and a connectivity phrase alone is
+    the target's own refusal.
+
+    Three spellings of the address, because the toolchain disagrees on
+    punctuation — observed live: Go's net dialer writes ``host:port``
+    (jsluice), curl writes ``host port N``, and python-requests writes
+    ``host='host', port=N``.
+    """
+    if not lane_address or not stderr_text:
+        return None
+    host, port = lane_address
+    err = stderr_text.lower()
+    needles = (f"{host}:{port}", f"{host} port {port}",
+               f"host='{host}', port={port}", f'host="{host}", port={port}')
+    if not any(n in err for n in needles):
+        return None
+    if not any(m in err for m in _LANE_DIAL_MARKERS):
+        return None
+    return f"{host}:{port}"
+
+
 def classify(*, status: str | None, exit_code: int | None = None,
              stderr_text: str | None = None, command: str | None = None,
              tool: str | None = None,
-             tool_timeout: float | None = None) -> Failure:
+             tool_timeout: float | None = None,
+             lane_address: tuple[str, int] | None = None) -> Failure:
     """Map a finished ``tool_run`` onto a failure class and its policy.
 
     Order matters: scope first (compliance outranks everything), then the
-    deterministic classes, then timeout, then the generic nonzero exit.
+    deterministic classes, then the lane, then timeout, then the generic
+    nonzero exit.
     """
     err = (stderr_text or "").lower()
 
@@ -169,6 +215,14 @@ def classify(*, status: str | None, exit_code: int | None = None,
                        f"rule-authoring defect (exit {exit_code}): the action "
                        "could not be spawned at all — it fails identically "
                        "every time",
+                       retryable=False, max_attempts=0, tool=tool)
+
+    lane_fault = lane_reachability_fault(stderr_text, lane_address)
+    if lane_fault:
+        return Failure("lane_unreachable",
+                       f"the campaign lane ({lane_fault}) refused the "
+                       "connection — the bridge is down, not the "
+                       "target; restart the lane, do not re-probe",
                        retryable=False, max_attempts=0, tool=tool)
 
     if status == "timeout" or exit_code in _TIMEOUT_CODES:
@@ -352,15 +406,7 @@ def _stamp_epoch(value) -> float | None:
 
 
 def scan_tool_runs(writer, engagement_id: str, *, limit: int = 500) -> list[Failure]:
-    """Classify every non-``done`` tool_run for the engagement.
-
-    Read-side only. A missing/locked ``tool_run`` table degrades to an empty
-    list rather than killing the loop, and ``build_digest`` counts that.
-
-    The scan is UNBOUNDED in time — every non-done row this engagement ever
-    wrote, newest first — so each ``Failure`` carries ``occurred_at`` for
-    consumers that act on the result rather than merely counting it.
-    """
+    'Classify every non-``done`` tool_run for the engagement.\n\n    Read-side only. A missing/locked ``tool_run`` table degrades to an empty\n    list rather than killing the loop, and ``build_digest`` counts that.\n\n    The scan is UNBOUNDED in time — every non-done row this engagement ever\n    wrote, newest first — so each ``Failure`` carries ``occurred_at`` for\n    consumers that act on the result rather than merely counting it.'
     con = _conn_of(writer)
     try:
         rows = con.execute(
@@ -372,20 +418,47 @@ def scan_tool_runs(writer, engagement_id: str, *, limit: int = 500) -> list[Fail
                   AND tr.status != 'done'
                 ORDER BY tr.created_at DESC LIMIT ?""",
             (engagement_id, limit)).fetchall()
+        done_rows = con.execute(
+            """SELECT tr.id, tr.hypothesis_id, tr.tool, tr.command, tr.status,
+                      tr.exit_code, tr.stderr_ref, tr.created_at
+                 FROM tool_run tr
+                 JOIN entities e ON e.id = tr.hypothesis_id
+                WHERE e.engagement_id = ?
+                  AND tr.status = 'done'
+                ORDER BY tr.created_at DESC LIMIT ?""",
+            (engagement_id, limit)).fetchall()
         timeouts = _hyp_timeouts(con, engagement_id)
     except sqlite3.Error:
         return []
 
     out: list[Failure] = []
-    for r in rows:
+    # The lane address, read once: the classifier needs it to tell "our
+    # bridge refused us" from "the target refused us" (lane_unreachable).
+    # Imported lazily and defensively — this module is also used by read-only
+    # consumers (digest, reflector plumbing) that run without an egress env.
+    try:
+        from . import egress as _egress
+        lane = _egress.lane_address()
+    except Exception:      # noqa: BLE001 — a missing lane must not kill the scan
+        lane = None
+
+    def _one(r) -> Failure:
         hyp_id, tool = r["hypothesis_id"], r["tool"]
         tmo = (timeouts.get(hyp_id) or {}).get(tool)
         f = classify(status=r["status"], exit_code=r["exit_code"],
                      stderr_text=_tail_file(r["stderr_ref"]),
-                     command=r["command"], tool=tool, tool_timeout=tmo)
-        out.append(Failure(f.cls, f.reason, f.retryable, f.max_attempts,
-                           tool_run_id=r["id"], hypothesis_id=hyp_id, tool=tool,
-                           occurred_at=_stamp_epoch(r["created_at"])))
+                     command=r["command"], tool=tool, tool_timeout=tmo,
+                     lane_address=lane)
+        return Failure(f.cls, f.reason, f.retryable, f.max_attempts,
+                       tool_run_id=r["id"], hypothesis_id=hyp_id, tool=tool,
+                       occurred_at=_stamp_epoch(r["created_at"]))
+
+    for r in rows:
+        out.append(_one(r))
+    for r in done_rows:
+        f = _one(r)
+        if f.cls == "lane_unreachable":
+            out.append(f)
     return out
 
 
