@@ -35,6 +35,10 @@ _MAX_EMPTY_EXPANSIONS = 3
 
 _RESET_RATE_MIN = 5
 
+_CRAWL_PACED_TOOLS = frozenset({"katana", "ffuf", "feroxbuster", "gobuster",
+                                "arjun"})
+_CRAWL_DELAY_CAP_S = 60.0
+
 _EXPAND_BUDGET = 30
 
 _ACT_K = 4
@@ -345,6 +349,11 @@ class Orchestrator:
         # Origins already cooled + reported by the reset-flood sweep (one
         # row per origin per process; the deadline itself may restack).
         self._reset_noted: set[str] = set()
+        # Per-origin last-dispatch stamp for declared Crawl-delay pacing
+        # (origin -> monotonic seconds); the clock is injectable so tests
+        # drive the gap without sleeping.
+        self._paced_dispatch: dict[str, float] = {}
+        self._pacing_clock = time.monotonic
         # The (hours, last-probed-basis) of the rotation deadline crossing
         # already emitted, so two consecutive cycles at the SAME expired
         # deadline emit one marker, not one per wave. Instance state only —
@@ -712,6 +721,30 @@ class Orchestrator:
         self.writer.append_event("status_flip", asset_id, {
             "value": value, "from": prev, "to": new,
             "host": origin, "action": "origin_cooled" if origin else "noted"})
+
+    def _crawl_delay_of(self, origin: str) -> float:
+        """The declared Crawl-delay for this origin, capped; 0.0 = none.
+
+        Reads the ``crawl_delay`` fact R-CTX-ROBOTS-001 stamps on the base
+        asset (the same row ``canary_paths`` rides). Any unreadable value
+        is "no declaration" — pacing is a courtesy, not a gate, and a
+        hostile robots file must not be able to stall the wave through a
+        malformed number.
+        """
+        try:
+            for e in self.writer.query_entities(kind="asset",
+                                                engagement_id=self.engagement_id):
+                if e.get("robots_host") != origin:
+                    continue
+                try:
+                    val = float(e.get("crawl_delay"))
+                except (TypeError, ValueError):
+                    continue
+                if val > 0:
+                    return min(val, _CRAWL_DELAY_CAP_S)
+        except Exception:      # noqa: BLE001 - pacing must never break ACT
+            return 0.0
+        return 0.0
 
     def _note_waf(self, asset_id: str, vendor: str, *, source: str) -> None:
         'React to a BLOCK-evidence WAF fact landing on an asset.'
@@ -1419,6 +1452,25 @@ class Orchestrator:
                          "remaining_s": round(
                              self._cooldowns.remaining(origin), 1)})
                     continue
+                tool_name = str(action.get("tool") or "")
+                if kind == "url" and tool_name in _CRAWL_PACED_TOOLS:
+                    delay = self._crawl_delay_of(origin)
+                    if delay > 0:
+                        if getattr(self, "_paced_dispatch", None) is None:
+                            self._paced_dispatch = {}
+                        clock = getattr(self, "_pacing_clock", time.monotonic)
+                        now = clock()
+                        last = self._paced_dispatch.get(origin)
+                        if last is not None and now - last < delay:
+                            opsec_skipped += 1
+                            self.writer.append_event(
+                                "opsec_crawl_paced", hyp["id"], {
+                                    "tool": tool_name, "origin": origin,
+                                    "declared_s": delay,
+                                    "remaining_s": round(
+                                        delay - (now - last), 1)})
+                            continue
+                        self._paced_dispatch[origin] = now
                 decision = self._guard_target(kind, value)
                 if not decision.allowed:
                     self.writer.append_event("scope_blocked", hyp["id"],

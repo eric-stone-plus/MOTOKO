@@ -940,9 +940,11 @@ class CurlParser(Parser):
                 summary=("curl robots.txt: HTML body (404/block page) — "
                          "robots state UNKNOWN, burst gate stays closed"),
                 assets=[])
+        canary_set = set(canary_shaped)
+        ordered = canary_shaped + [p for p in paths if p not in canary_set]
         asset = self._asset(type_="url", value=base, extra={
             "robots_host": host,
-            "canary_paths": paths[:_CANARY_PATH_CAP],
+            "canary_paths": ordered[:_CANARY_PATH_CAP],
             "crawl_delay": delay,
         })
         summary = (f"curl robots.txt: {len(paths)} disallow, "

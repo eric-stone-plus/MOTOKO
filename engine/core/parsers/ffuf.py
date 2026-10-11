@@ -25,7 +25,7 @@ _TEXT_LINE = re.compile(
 
 
 def _is_hit(status: int) -> bool:
-    return status in (200, 201, 204, 301, 302, 307, 401, 403)
+    return status in (200, 201, 204, 301, 302, 307, 401, 403, 405)
 
 
 def _is_sensitive(path: str) -> bool:

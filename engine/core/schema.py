@@ -117,6 +117,9 @@ EVENT_ENTITY_DOMAINS: dict[str, str | None] = {
     "mint.tool_broken_skip": "entity",
     "opsec_canary_skip": "entity",
     "opsec_cooldown_skip": "entity",
+    # Crawl-delay pacing held a dispatch back (declared gap still open);
+    # the subject is the hypothesis whose action was held.
+    "opsec_crawl_paced": "entity",
     "rule_hit_class": "entity",
     "rule_hit_class_skipped": "entity",
     "status_flip": "entity",

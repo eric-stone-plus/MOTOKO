@@ -53,6 +53,7 @@ _WAF_HEADER_NAMES = ("x-waf", "x-yundun", "x-safedog", "yunsuo_session",
 
 _CANARY_TOKENS = frozenset({
     "honeypot", "honey", "tarpit", "canary", "bait", "蜜罐",
+    "trap",
 })
 
 _SEGMENT_SPLIT = re.compile(r"[/_\-.?]")
