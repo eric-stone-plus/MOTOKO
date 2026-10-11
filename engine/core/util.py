@@ -122,6 +122,8 @@ def tool_search_dirs(tools_root: Path | None = None) -> tuple[Path, ...]:
         home / ".local" / "bin",
         Path(tools_root) / "bin",
         Path(tools_root) / "nuclei",
+        motoko_root() / "tools" / "bin",
+        motoko_root() / "tools" / "nuclei",
         home / ".local" / "share" / "go" / "bin",
         home / ".local" / "go" / "bin",
         home / "go" / "bin",
