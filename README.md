@@ -214,6 +214,17 @@ Configuration arrives through environment variables and, for loop
 endpoints, a config file in which credentials are referenced by variable
 *name* and never stored.
 
+### Toolbox provisioning
+
+Scanner binaries are deploy-host data, not part of the distribution. The
+provisioning helper ships inside the wheel
+(`core/tools_anchor/provision.sh` + `make_manifest.py`); the manifest it
+restores FROM is deliberately not shipped — it anchors an operator's own
+toolbox, private origins included. **Generate the manifest on a
+provisioned host first** (`python3 <tools_anchor>/make_manifest.py`), or
+point `MANIFEST` at one you keep elsewhere; `provision.sh restore`
+refuses with that instruction when the file is missing.
+
 | Variable | Purpose | Default |
 |---|---|---|
 | `MOTOKO_HOME` | Engagement data root (SQLite graphs, artifacts) | `<motoko_root>/tasks` |
