@@ -394,16 +394,22 @@ def _oob_rules(rules_dir: Path) -> list[str]:
 
 
 def _browser_backend() -> str | None:
-    """A headless-browser backend this host could offer an injected validator."""
+    """A headless-browser binary the engine's DOM backend can actually drive.
+
+        The engine drives chrome-family binaries DIRECTLY over CDP
+        (`verification.browser` — stdlib, no Python binding), so this asks
+        the engine's own resolver. A host with playwright installed but no
+        chrome-family binary on PATH now reads 'none': nothing in the
+        runtime could borrow playwright's browser cache, and a line that
+        said otherwise would send the operator to install something the
+        engine will never call — the optimistic-lie failure this file's
+        own tests record.
+        """
     try:
-        if importlib.util.find_spec("playwright"):
-            return "playwright"
-    except (ImportError, ValueError, OSError):
-        pass
-    for name in ("chromium", "chromium-browser", "google-chrome", "chrome"):
-        if shutil.which(name):
-            return name
-    return None
+        from .verification.browser import default_binary
+        return default_binary()
+    except Exception:      # noqa: BLE001 - a doctor line must never raise
+        return None
 
 
 def _run_wires_backends() -> tuple[bool, bool]:
@@ -426,10 +432,12 @@ def _check_backends() -> list[tuple[str, str]]:
     browser = _browser_backend()
     out.append((OK if browser else WARN,
                 f"dom backend: {browser or 'none found'} — "
-                + ("available to an injected validator" if browser else
+                + ("the engine drives it over CDP (stdlib, no Python "
+                   "binding needed)" if browser else
                    "client-side (dom) findings park as `missing_backend` "
-                   "instead of being verified; the documented wiring is "
-                   "playwright + chromium (graph_health._BLOCK_SUGGESTIONS)")))
+                   "instead of being verified; the engine drives a "
+                   "chrome-family binary it finds on PATH (no Python "
+                   "binding involved)")))
     canary = executor.resolve_tool("interactsh-client")
     out.append((OK if canary else WARN,
                 f"oob canary tool: {canary or 'interactsh-client not found'} — "

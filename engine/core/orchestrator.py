@@ -2321,10 +2321,25 @@ def default_canary(engagement_id: str):
     return mgr if mgr.resolve_binary() else None
 
 
+def default_browser():
+    """The DOM validator's backend for this host, or None.
+
+    Mirrors ``default_canary``: a deployment backend resolved from PATH.
+    The engine drives chrome-family binaries itself over CDP
+    (``verification.browser``; stdlib-only, no Python binding), so no
+    browser is importable state — the BINARY is the whole dependency.
+    None when none resolves: DOM findings park as ``missing_backend``
+    instead of the run refusing to start, and ``motoko doctor`` keeps
+    reporting the real gap.
+    """
+    from .verification.browser import default_browser as _default
+    return _default()
+
+
 def run_engagement(engagement_id: str, *, max_cycles: int = 20,
                    wave_cycles: int = 5, max_waves: int | None = None,
                    timeout: float = 300, rules_dir=None, reflector=None,
-                   canary=None) -> dict:
+                   canary=None, browser=None) -> dict:
     """Shared operator/adapter entry; one scheduler, executor and writer lease."""
     from .executor import SubprocessExecutor
 
@@ -2334,7 +2349,7 @@ def run_engagement(engagement_id: str, *, max_cycles: int = 20,
     # adopts its own durable record or probes fresh.
     egress_probe.reset()
     orch = Orchestrator(engagement_id, rules_dir=rules_dir, reflector=reflector,
-                        canary=canary)
+                        canary=canary, browser=browser)
     try:
         orch.executor = SubprocessExecutor(orch.writer, orch.engagement_id,
                                           orch.artifacts, tool_timeout=timeout)

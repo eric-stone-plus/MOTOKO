@@ -481,17 +481,19 @@ def _status_result(options):
 def dispatch(request: AdapterRequest) -> dict:
     options = validate(request)
     if request.operation == "run":
-        from .orchestrator import default_canary, run_engagement
+        from .orchestrator import default_browser, default_canary, run_engagement
         graph = db.engagement_dir(db.default_root(), request.engagement_id) / "graph.db"
         if not graph.is_file():
             code, result = 2, {"error": "engagement_not_found"}
         else:
-            # Same canary wiring as cli.cmd_run: both entry points reach the
-            # same orchestrator, so a backend wired into only one of them would
-            # make OOB findings park differently for the same engine.
+            # Same canary + browser wiring as cli.cmd_run: both entry points
+            # reach the same orchestrator, so a backend wired into only one
+            # of them would make DOM/OOB findings park differently for the
+            # same engine.
             summary = run_engagement(request.engagement_id,
                 **{key: options[key] for key in ("max_cycles", "wave_cycles", "max_waves", "timeout")},
-                canary=default_canary(request.engagement_id))
+                canary=default_canary(request.engagement_id),
+                browser=default_browser())
             code, result = 0, {"summary": project_summary(summary)}
     else:
         code, data = _read(request, options)

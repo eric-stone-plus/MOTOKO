@@ -146,6 +146,13 @@ def cmd_run(args) -> int:
                   "continuing without a reflector",
                   file=_sys.stderr)
     canary = orchestrator.default_canary(args.engagement_id)
+    # DOM backend, wired the same way and for the same reason (the two
+    # entry points must not disagree about what the engine can verify):
+    # the engine drives a chrome-family binary over CDP, so the binary on
+    # PATH is the whole dependency. None keeps DOM findings parking as
+    # `missing_backend`, and `motoko doctor` reads this line's source to
+    # report the truth either way.
+    browser = orchestrator.default_browser()
     try:
         summary = orchestrator.run_engagement(
             args.engagement_id, rules_dir=args.rules_dir or None,
@@ -153,7 +160,7 @@ def cmd_run(args) -> int:
             max_cycles=args.max_cycles,
             wave_cycles=getattr(args, "wave_cycles", 5),
             max_waves=getattr(args, "max_waves", None),
-            canary=canary)
+            canary=canary, browser=browser)
     except RuntimeError as exc:
         print(exc, file=_sys.stderr)
         return 2
