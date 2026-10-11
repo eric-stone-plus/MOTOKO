@@ -320,7 +320,7 @@ class SubprocessExecutor:
     def __call__(self, hyp: dict, action: dict) -> None:
         """Run one rendered action and record its raw output (never raises)."""
         tool = action.get("tool", "")
-        run_id = f"{util_stamp()}"
+        run_id = f"{_artifact_stem()}"
         out_path = self.artifacts / f"{run_id}.out"
         err_path = self.artifacts / f"{run_id}.err"
         url = action.get("url") or hyp.get("url")
@@ -852,7 +852,7 @@ class SubprocessExecutor:
             pass
 
 
-def util_stamp() -> str:
-    import time as _t
+def _artifact_stem() -> str:
+    "    Honest scope, recorded rather than implied: this removes the timestamp\n    from the NAME only. The file's mtime still records the write, and\n    ``tool_run.created_at`` still orders the run — a filesystem-level mtime\n    scrub is a heavier, separate pass this change does not claim to be.\n\n    Nothing depended on the old shape: ordering lived in the database, the\n    ``.err`` sibling resolves by ``with_suffix``, and no reader parses the\n    stem.\n    "
     import uuid as _u
-    return f"{int(_t.time() * 1000)}_{_u.uuid4().hex[:8]}"
+    return _u.uuid4().hex[:12]
