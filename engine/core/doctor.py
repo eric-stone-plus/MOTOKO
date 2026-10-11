@@ -40,6 +40,13 @@ OK, WARN, FAIL = "OK", "WARN", "FAIL"
 _DISK_FREE_MIN = 0.10
 _TMP_LITTER_MAX = 1000
 
+_AT_REST_WARN_GIB = 20.0
+#: The walk stops here and reports a marked subtotal: on a tree this size
+#: (16.7k files, ~270 ms) doctor stays interactive, and a runaway tree must
+#: not turn a census into a stall. The marker is honest — `>=` — so a
+#: truncated walk can never read as a complete one.
+_AT_REST_MAX_FILES = 200_000
+
 
 def _check_python() -> tuple[str, str]:
     v = sys.version_info
@@ -79,6 +86,57 @@ def _check_disk() -> list[tuple[str, str]]:
         else:
             out.append((OK, msg))
     return out
+
+
+def _check_at_rest_volume() -> tuple[str, str]:
+    """How much the engine is KEEPING: bytes under the data root, per unit.
+
+    The free-space check answers "how much room is left"; this one answers
+    "how much is held" — raw tool output under ``obs/`` is the bulk, and the
+    number a storage decision needs. A single unit dominating the total is
+    named, because that is the unit a prune/seal decision is about.
+
+    Bounded: the walk stops at ``_AT_REST_MAX_FILES`` and the message then
+    carries ``>=``, so a truncated census cannot read as a complete one.
+    Unreadable entries are skipped silently — a census is advisory, and a
+    permission quirk must not fail a scan host.
+    """
+    root = db.default_root()
+    if not root.is_dir():
+        return OK, f"at-rest volume: no data root yet ({root})"
+    per: list[tuple[str, int]] = []
+    files = 0
+    truncated = False
+    for unit in sorted(root.iterdir()):
+        if not unit.is_dir():
+            continue
+        size = 0
+        for dirpath, _dirs, names in os.walk(unit):
+            for name in names:
+                files += 1
+                if files > _AT_REST_MAX_FILES:
+                    truncated = True
+                    break
+                try:
+                    size += os.path.getsize(os.path.join(dirpath, name))
+                except OSError:
+                    continue
+            if truncated:
+                break
+        per.append((unit.name, size))
+        if truncated:
+            break
+    total = sum(s for _n, s in per)
+    gib = total / 2**30
+    largest = max(per, key=lambda kv: kv[1], default=("", 0))
+    mark = ">=" if truncated else ""
+    msg = (f"at-rest volume: {mark}{gib:.2f} GiB in {len(per)} unit(s), "
+           f"largest {largest[0]} {largest[1] / 2**30:.2f} GiB")
+    if gib >= _AT_REST_WARN_GIB:
+        return WARN, (msg + f" — over {_AT_REST_WARN_GIB:.0f} GiB at rest: "
+                            "plan a prune/seal pass (storage expansion is "
+                            "deferred by operator decision)")
+    return OK, msg
 
 
 def _check_tmp_litter() -> tuple[str, str]:
@@ -1317,7 +1375,7 @@ def check_environment(scope: str = "full") -> list[tuple[str, list[tuple[str, st
     if scope not in {"full", "scan"}:
         raise ValueError("doctor scope must be full or scan")
     checks = [
-        ("python", [_check_python()]), ("storage", [_check_root(), *_check_disk()]),
+        ("python", [_check_python()]), ("storage", [_check_root(), *_check_disk(), _check_at_rest_volume()]),
         ("temporary_storage", [_check_tmp_litter()]), ("tools", _check_tools()),
         ("isolation", _check_isolation()),
         ("verification_backends", _check_backends()),
