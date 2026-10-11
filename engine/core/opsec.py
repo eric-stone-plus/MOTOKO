@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 import time
 from urllib.parse import unquote, urlparse
@@ -188,6 +189,22 @@ def scrub_summary(text: str) -> tuple[str, int]:
         out, n = pattern.subn(replacement, out)
         hits += n
     return out, hits
+
+
+def scrub_dead_letter(entries, raw_path: str | None) -> dict:
+    'A dead-letter EVENT payload with no raw output in it.\n\n    Pure; never raises on odd input (a non-list degrades to one row).\n    '
+    if not isinstance(entries, (list, tuple)):
+        entries = [entries] if entries else []
+    texts = [str(e) for e in entries]
+    joined = "\n".join(texts)
+    return {
+        "dead_letter_rows": len(texts),
+        "dead_letter_bytes": len(joined),
+        "dead_letter_sha8": (
+            hashlib.sha256(joined.encode("utf-8", "replace")).hexdigest()[:8]
+            if joined else ""),
+        "raw_path": raw_path,
+    }
 
 
 def normalize_canary_path(raw: str) -> str:

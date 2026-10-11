@@ -513,7 +513,9 @@ class Orchestrator:
             raw = Path(raw_path).read_text(errors="replace")
         except OSError as e:
             # Nothing to parse — record why and let the observation be marked
-            # processed instead of retrying it forever.
+            # processed instead of retrying it forever. This payload carries
+            # the OS error string only, never output (the scrub shape of the
+            # sibling writer below applies where a parser hands back slices).
             self.writer.append_event("observation_dead_letter", obs_id,
                                      {"tool": tool, "raw_path": raw_path,
                                       "error": str(e)})
@@ -535,10 +537,13 @@ class Orchestrator:
             return {}
         self.writer.update_observation_summary(obs_id, parsed.summary)
         if parsed.dead_letter:
+            # The sealed log gets the SCRUBBED shape — rows/bytes/sha8 +
+            # raw_path (opsec.scrub_dead_letter) — never the raw slices the
+            # parser keeps in memory for its own diagnostics.
             self.writer.append_event(
                 "observation_dead_letter", obs_id,
-                {"tool": tool, "raw_path": raw_path,
-                 "dead_letter": parsed.dead_letter[:50]})
+                {"tool": tool,
+                 **opsec.scrub_dead_letter(parsed.dead_letter, raw_path)})
         asset_ids: list[str] = []
         for a in parsed.assets:
             a.setdefault("engagement_id", self.engagement_id)
