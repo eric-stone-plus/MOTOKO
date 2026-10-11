@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import importlib.util
 import inspect
+import ipaddress
 import json
 import math
 import os
@@ -808,14 +809,7 @@ def _check_engagements() -> list[tuple[str, str]]:
         return out
     dirs = [d for d in root.iterdir() if d.is_dir() and (d / "graph.db").exists()]
     sealed = sum(1 for d in dirs if (d / "engagement.manifest.json").exists())
-    archived = 0
-    arch_root = root.parent / "archive"
-    if arch_root.is_dir():
-        archived = sum(1 for d in arch_root.iterdir()
-                       if d.is_dir() and (d / "graph.db").exists())
-    suffix = f", {archived} archived" if archived else ""
-    out.append((OK, f"engagements: {len(dirs)} on disk, {sealed} sealed"
-                    f"{suffix}"))
+    out.append((OK, f"engagements: {len(dirs)} on disk, {sealed} sealed"))
     stale = []
     for d in dirs:
         # only WAL frames count as dirt. A 0-byte -wal next to a sealed db
@@ -1032,7 +1026,20 @@ def _check_egress_live(proc_root: Path | None = None) -> tuple[str, str]:
         elif mode.lower() not in egress.MODE_VALUES:
             state = f"unrecognized:{mode}"
         elif mode.lower() == egress.LANE:
-            state = "lane" if _proc_lane(blob) else "lane-no-address"
+            if not _proc_lane(blob):
+                state = "lane-no-address"
+            else:
+                want = (_proc_env(blob, egress.NETNS_INODE_ENV)
+                        or (egress.lane_netns_expected() or ""))
+                actual = None
+                try:
+                    actual = os.readlink(str(entry / "ns/net"))
+                except OSError:
+                    pass
+                if want and actual and actual != egress.as_netns_ref(want):
+                    state = "lane-outside-netns"
+                else:
+                    state = "lane"
         else:
             state = "direct"
         writers.append((pid, state))
@@ -1070,6 +1077,13 @@ def _check_egress_live(proc_root: Path | None = None) -> tuple[str, str]:
                       f"is running DIRECT over the bare uplink while the "
                       f"mode says otherwise (the internal doctrine). Stop and relaunch with a "
                       f"lane address exported")
+    if any(state == "lane-outside-netns" for _pid, state in writers):
+        return FAIL, (f"live engine writers declaring lane but NOT inside the "
+                      f"lane netns ({detail}) — the env says lane, the network "
+                      f"namespace does not: a container tool inherits the "
+                      f"engine's netns and would egress from the residential "
+                      f"IP (the internal doctrine). Relaunch inside the lane "
+                      f"(motoko-launch-wave.sh)")
     if any(state != "lane" for _pid, state in writers):
         return WARN, (f"live engine writers on direct egress ({detail}) — "
                       f"the bare uplink reaches targets unrouted (the internal doctrine)")
@@ -1106,7 +1120,9 @@ def _check_egress() -> list[tuple[str, str]]:
         first = (WARN, f"egress mode: unset (defaults to direct) — set "
                        f"{egress.MODE_ENV}=lane for anonymity-first launches "
                        f"(the internal doctrine)")
-    second = ((OK if state["replay_asserted"] else WARN), state["replay_note"])
+    second = ((OK if state.get("replay_egress_ready",
+                               state["replay_asserted"]) else WARN),
+              state["replay_note"])
     return [first, second, _check_egress_live(), _check_egress_fingerprint()]
 
 
@@ -1175,9 +1191,11 @@ def _check_dns() -> list[tuple[str, str]]:
                       "engagement's query list; set it to a resolver IP or a "
                       "DoH/DoT URL fronted by a local forwarder")]
     if "://" not in resolver:
-        return [(OK, f"dns resolver: {resolver} (appended to direct-path "
-                     "tools via their own resolver flags; the host resolver "
-                     "is never edited)")]
+        lines = [(OK, f"dns resolver: {resolver} (appended to direct-path "
+                      "tools via their own resolver flags; the host resolver "
+                      "is never edited)")]
+        lines.extend(_lane_dns_forward_lines(resolver))
+        return lines
     local = dns_channel.tool_resolver_addr() or ""
     host, port = _local_dns_endpoint(local)
     if _local_dns_listener_alive(host, port):
@@ -1190,6 +1208,33 @@ def _check_dns() -> list[tuple[str, str]]:
                    f"{dns_channel.local_addr_env}; start the forwarder "
                    "(dnslane/smartdns) or every injected run fails to "
                    "resolve")]
+
+
+def _ip_forward() -> int | None:
+    """`net.ipv4.ip_forward` as an int, or None when it cannot be read."""
+    try:
+        return int(Path("/proc/sys/net/ipv4/ip_forward").read_text().strip())
+    except (OSError, ValueError):
+        return None
+
+
+def _lane_dns_forward_lines(resolver: str) -> list[tuple[str, str]]:
+    'Lane-mode mechanism check for an off-host resolver.'
+    if egress.mode() != egress.LANE:
+        return []
+    try:
+        if ipaddress.ip_address(resolver).is_loopback:
+            return []
+    except ValueError:
+        return []
+    fwd = _ip_forward()
+    if fwd == 1:
+        return [(OK, "dns resolver: lane mode + off-host resolver, "
+                     "ip_forward=1 (the lane DNS forward is live)")]
+    return [(WARN, "dns resolver: lane mode + off-host resolver but "
+                   "net.ipv4.ip_forward=0 — the lane forwards no DNS, so every "
+                   "tool inside the namespace reports zero results "
+                   "(re-run motoko-lane-netns.sh install)")]
 
 
 def _check_deploy_config() -> list[tuple[str, str]]:

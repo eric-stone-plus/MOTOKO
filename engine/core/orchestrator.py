@@ -136,8 +136,14 @@ def _weighted_shuffle(hyps: list[dict], score_fn, rng) -> list[dict]:
 
 
 def replay_egress_blocked(fetcher) -> bool:
-    'True when the wired replay fetcher cannot send anything at all.'
-    return fetcher is default_fetcher and not egress.replay_asserted()
+    'True when the wired replay fetcher cannot send anything at all.\n\n    ``lane_fetcher`` answers the third declaration (``MOTOKO_EGRESS_REPLAY_\n    VIA=lane``): blocked unless the declaration is recognized AND a lane\n    gateway is dialable from this process. An injected fetcher is the\n    operator\'s own egress and is never "blocked" — that asymmetry is\n    deliberate and pinned by tests, so any third built-in fetcher MUST join\n    this predicate (identity gates fail open otherwise).\n    '
+    if fetcher is default_fetcher:
+        return not egress.replay_asserted()
+    if fetcher is lane_fetcher:
+        return not (egress.replay_via() == egress.LANE
+                    and egress.replay_via_recognized()
+                    and egress.lane_proxy_address() is not None)
+    return False
 
 
 _REPLAY_CONNECT_TIMEOUT_S = 15.0
@@ -183,6 +189,95 @@ def default_fetcher(url: str, bind_ip: str | None = None):
         return None
 
 
+def lane_fetcher(url: str, bind_ip: str | None = None):
+    """Replay IO through the campaign lane: the third declaration's fetcher.
+
+    Same contract as ``default_fetcher`` (returns ``replay.Response`` or None,
+    None = inconclusive, never falsification) and the same pinning doctrine,
+    with one extra hop: the tunnel is opened by asking the lane gateway for
+    ``CONNECT <bind_ip>:<port>``. The IP-form authority IS the pin — the
+    proxy must never re-resolve the hostname, or the DNS-rebinding window the
+    scope guard closed reopens at the gateway. TLS then runs END-TO-END
+    through the tunnel with the original hostname as SNI and the system CA
+    store verifying it: the lane is a CONNECT tunnel, not a MITM seam, so no
+    CA injection is needed and none is performed.
+
+    Fail-closed in layers: no bind_ip, no recognized declaration, or no
+    dialable lane gateway each return None without a byte on the wire. The
+    default (declaration unset) keeps ``default_fetcher``'s behaviour
+    byte-for-byte — this function is only reachable through
+    ``default_replay_fetcher()``'s explicit opt-in.
+    """
+    if not bind_ip:
+        return None
+    if egress.replay_via() != egress.LANE or not egress.replay_via_recognized():
+        return None
+    gateway = egress.lane_proxy_address()
+    if gateway is None:
+        return None
+    u = urlparse(url)
+    if u.scheme not in ("http", "https") or not u.hostname:
+        return None
+    try:
+        port = u.port or (443 if u.scheme == "https" else 80)
+    except ValueError:
+        return None
+    target = u.path or "/"
+    if u.query:
+        target += f"?{u.query}"
+    host_header = u.hostname if u.port is None else f"{u.hostname}:{port}"
+    # IPv6 literals need bracketed authority form in CONNECT.
+    connect_host = (f"[{bind_ip}]" if ":" in bind_ip
+                    and not bind_ip.startswith("[") else bind_ip)
+    try:
+        sock = socket.create_connection(gateway, timeout=_REPLAY_CONNECT_TIMEOUT_S)
+        try:
+            sock.sendall(
+                (f"CONNECT {connect_host}:{port} HTTP/1.1\r\n"
+                 f"Host: {connect_host}:{port}\r\n\r\n").encode("ascii", "replace"))
+            conn_resp = http.client.HTTPResponse(sock)
+            conn_resp.begin()
+            if not (200 <= conn_resp.status < 300):
+                return None
+            if u.scheme == "https":
+                sock = ssl.create_default_context().wrap_socket(
+                    sock, server_hostname=u.hostname)
+            sock.sendall(
+                (f"GET {target} HTTP/1.1\r\n"
+                 f"Host: {host_header}\r\n"
+                 f"User-Agent: {os.environ.get('MOTOKO_UA', opsec.DEFAULT_UA)}\r\n"
+                 f"Connection: close\r\n\r\n").encode("ascii", "replace"))
+            resp = http.client.HTTPResponse(sock)
+            resp.begin()
+            body = resp.read(65536).decode("utf-8", "replace")
+            return replay.Response(status=resp.status, body=body,
+                                   headers=dict(resp.headers or {}))
+        finally:
+            try:
+                sock.close()
+            except OSError:
+                pass
+    except (OSError, ValueError, http.client.HTTPException):
+        return None
+
+
+def default_replay_fetcher():
+    """The fetcher this deployment declared, resolved at wiring time.
+
+    Returns the IDENTICAL ``default_fetcher`` object unless the operator
+    explicitly opted into lane replay — the identity is load-bearing
+    (``replay_egress_blocked`` and the unpinned gate read it), so this must
+    never wrap or rebind the default. A typo'd declaration degrades to the
+    fail-closed default; ``launch_gate`` refuses the launch loudly so the
+    degradation cannot pass for a choice.
+    """
+    if (egress.replay_via() == egress.LANE
+            and egress.replay_via_recognized()
+            and egress.lane_proxy_address() is not None):
+        return lane_fetcher
+    return default_fetcher
+
+
 class Orchestrator:
     def __init__(self, engagement_id: str, *, root=None,
                  rules_dir=None, executor=None, reflector=None,
@@ -201,7 +296,7 @@ class Orchestrator:
         self.executor = executor or self._default_executor
         self.reflector = reflector          # LLM reflector (injected; optional)
 
-        self.fetcher = fetcher or default_fetcher
+        self.fetcher = fetcher or default_replay_fetcher()
         self.browser = browser
         self.canary = canary
         self._canary_takes_sender = _accepts_canary_sender(canary)
@@ -865,7 +960,8 @@ class Orchestrator:
             bind_ip = (decision.detail.get("bind_ip")
                        if isinstance(decision.detail, dict) else None)
             unpinned = ("bind_ip" not in decision.detail
-                        or (self.fetcher is default_fetcher and not bind_ip))
+                        or (self.fetcher in (default_fetcher, lane_fetcher)
+                            and not bind_ip))
             # Gate order matters and is deliberate: egress BEFORE unpinned.
             # `egress_policy` is deployment-shaped — it holds until the
             # operator asserts a lane, and `_block_still_applies` knows that.
@@ -881,7 +977,10 @@ class Orchestrator:
                         "inconclusive",
                         "the built-in replay fetcher fails closed: "
                         "MOTOKO_ALLOW_DIRECT_REPLAY is not asserted for this "
-                        "deployment, so no replay traffic may leave the box",
+                        "deployment, so no replay traffic may leave the box "
+                        "(route replays through the campaign lane with "
+                        "MOTOKO_EGRESS_REPLAY_VIA=lane instead, or inject a "
+                        "fetcher)",
                         reason=EGRESS_POLICY)
                 if unpinned:
                     return Verdict(
@@ -908,7 +1007,9 @@ class Orchestrator:
                         "the canary injection rides the replay fetcher, which "
                         "fails closed: MOTOKO_ALLOW_DIRECT_REPLAY is not "
                         "asserted for this deployment, so no OOB payload may "
-                        "leave the box",
+                        "leave the box (route through the campaign lane with "
+                        "MOTOKO_EGRESS_REPLAY_VIA=lane instead, or inject a "
+                        "fetcher)",
                         reason=EGRESS_POLICY)
                 if unpinned:
                     return Verdict(
@@ -921,10 +1022,13 @@ class Orchestrator:
                 # protocol that answered (dns vs http) is evidence about how
                 # strong the callback is, and getattr keeps a boolean-only
                 # manager — the test stubs — working unchanged.
+                # `poll_window` is passed explicitly so the window does not
+                # depend on the callback being a bound method.
                 return oob.oob_verdict(
                     finding, self.canary.issue,
                     self._canary_trigger(bind_ip), self.canary.poll,
-                    getattr(self.canary, "interactions", None))
+                    getattr(self.canary, "interactions", None),
+                    poll_window=getattr(self.canary, "poll_window_s", None))
         except Exception as e:
             return Verdict("inconclusive", f"validator {name!r} IO failure: {e}",
                            reason=IO_ERROR)
@@ -1783,8 +1887,12 @@ class Orchestrator:
                     lines.extend(waves.prompt_lines())
                 self.reflector(self.propose_view, self.engagement_id,
                                failure_lines=lines)
-                return
-            self.reflector(self.propose_view, self.engagement_id)
+            else:
+                self.reflector(self.propose_view, self.engagement_id)
+            usage = getattr(self.reflector, "last_usage", None)
+            if usage is not None:
+                self.writer.append_event("reflector.usage",
+                                         self.engagement_id, usage)
         except Exception as exc:
             self.writer.append_event("reflector.error", self.engagement_id,
                                      {"error_type": type(exc).__name__})

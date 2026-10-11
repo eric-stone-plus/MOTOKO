@@ -316,8 +316,10 @@ _BLOCK_SUGGESTIONS: dict[str, str] = {
     "egress_policy":
         "the built-in replay fetcher fails closed (the internal doctrine). Run the engine "
         "inside the verified anonymous lane and assert "
-        "MOTOKO_ALLOW_DIRECT_REPLAY=1 there, or inject a fetcher that egresses "
-        "through the campaign lane",
+        "MOTOKO_ALLOW_DIRECT_REPLAY=1 there, declare "
+        "MOTOKO_EGRESS_REPLAY_VIA=lane to route replays through the campaign "
+        "lane (CONNECT, pinned), or inject a fetcher that egresses through "
+        "the campaign lane",
     "missing_backend":
         "wire the backend the validator needs: a headless browser for dom "
         "(playwright + chromium), a canary manager for oob (interactsh / "

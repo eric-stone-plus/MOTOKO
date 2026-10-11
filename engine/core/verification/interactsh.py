@@ -225,8 +225,14 @@ class InteractshCanary:
             raise CanaryUnavailable(
                 "the finding carries no injectable query point, so the canary "
                 "cannot be delivered through it")
-        base, param = point
-        url = f"{base}?{param}=http://{canary}/"
+        # Rewrite the ONE injectable value IN PLACE, keeping sibling query
+        # parameters: the old `base?param=canary` rebuild dropped them, and a
+        # target that needs a sibling could never fire the callback.
+        url = util.ssrf_injected_url(str(finding.get("url") or ""),
+                                     f"http://{canary}/")
+        if not url:
+            raise CanaryUnavailable(
+                "the finding's injectable query point could not be rewritten")
         response = deliver(url)
         if response is None:
             # The fetcher returns None when it refuses to send (no asserted

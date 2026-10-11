@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "motoko/verdict/1",
+  "title": "MOTOKO loop verdict envelope",
+  "description": "The advisory verdict one loop round emits (verdict.json). Written by core/loop_evaluate.py::Verdict; convergence is decided by machine metrics, never by the model.",
+  "type": "object",
+  "required": ["round", "reward", "converged", "rollback", "action", "reason"],
+  "properties": {
+    "round": {"type": "integer", "minimum": 0},
+    "reward": {"type": "number"},
+    "converged": {"type": "boolean"},
+    "rollback": {"type": "boolean"},
+    "action": {"type": "string", "enum": ["CONTINUE", "ROLLBACK", "STOP"]},
+    "reason": {"type": "string"},
+    "best_checkpoint": {"type": ["string", "null"]},
+    "residual_risks": {"type": "array"},
+    "legs_ok": {"type": "integer", "minimum": 0},
+    "legs_total": {"type": "integer", "minimum": 0}
+  }
+}

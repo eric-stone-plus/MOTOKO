@@ -11,7 +11,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import parse_qsl, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, unquote_plus, urlsplit, urlunsplit
 
 
 _MISSING = object()
@@ -331,6 +331,33 @@ def ssrf_injection_point(url: str) -> tuple[str, str] | None:
                 and "." in v and _HOSTISH.match(v)):
             fallback = (base, name)
     return fallback
+
+
+def ssrf_injected_url(url: str, value: str) -> str | None:
+    '``url`` with its ONE injectable query value replaced by ``value``, its\n    SIBLING query parameters preserved BYTE-FOR-BYTE, or None.'
+    point = ssrf_injection_point(url)
+    if not point:
+        return None
+    _, param = point
+    try:
+        parts = urlsplit(str(url))
+    except ValueError:
+        return None
+    out_pairs: list[str] = []
+    replaced = False
+    for raw in (parts.query.split("&") if parts.query else []):
+        name = raw.split("=", 1)[0]
+        try:
+            decoded = unquote_plus(name)
+        except ValueError:
+            decoded = name
+        if decoded == param and not replaced:
+            out_pairs.append(f"{name}={value}")
+            replaced = True
+        else:
+            out_pairs.append(raw)
+    return urlunsplit((parts.scheme, parts.netloc, parts.path or "/",
+                       "&".join(out_pairs), parts.fragment))
 
 
 def utc_ms() -> int:

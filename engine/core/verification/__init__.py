@@ -22,6 +22,10 @@ SCOPE_BLOCKED = "scope_blocked"
 NO_VALIDATOR = "no_validator"          # class routed to an unimplemented validator
 IO_ERROR = "io_error"                  # transport failure on a real attempt
 IO_EXHAUSTED = "io_exhausted"          # IO_ERROR repeated past the retry budget
+METHOD_UNREPLAYABLE = "method_unreplayable"  # replay issues GET; the finding's
+                                       # method is state-changing (POST/PUT/…).
+                                       # A harness limitation: parking the
+                                       # verdict, never falsifying the finding.
 
 STRIKE_REASONS = frozenset({IO_ERROR})
 
@@ -29,6 +33,7 @@ STRIKE_REASONS = frozenset({IO_ERROR})
 # absence is why findings are unverified.
 BLOCKING_REASONS = frozenset({
     MISSING_BACKEND, EGRESS_POLICY, UNPINNED, NO_VALIDATOR, IO_EXHAUSTED,
+    METHOD_UNREPLAYABLE,
 })
 
 

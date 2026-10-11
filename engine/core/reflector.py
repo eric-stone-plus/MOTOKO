@@ -113,7 +113,8 @@ def _call_anthropic(prompt: str, *, model: str, base_url: str, api_key: str,
              and isinstance(c.get("text"), str)]
     if not parts:
         raise ReflectorTransportError("response")
-    return "".join(parts)
+    usage = data.get("usage")
+    return "".join(parts), (usage if isinstance(usage, dict) else None)
 
 
 def _call_openai(prompt: str, *, model: str, base_url: str, api_key: str,
@@ -158,7 +159,8 @@ def _call_openai(prompt: str, *, model: str, base_url: str, api_key: str,
     content = message.get("content")
     if not isinstance(content, str) or not content:
         raise ReflectorTransportError("response")
-    return content
+    usage = data.get("usage")
+    return content, (usage if isinstance(usage, dict) else None)
 
 
 # --- prompt (machine state only, <=2KB digest spirit) ------------------
@@ -209,8 +211,14 @@ def make_reflector(*, model: str, base_url: str, api_key: str,
     def _reflect(view, engagement_id: str,
                  failure_lines: list[str] | None = None) -> None:
         prompt = build_prompt(view, engagement_id, failure_lines=failure_lines)
-        text = _transport(prompt, model=model, base_url=base_url,
-                          api_key=api_key, timeout=timeout)
+        result = _transport(prompt, model=model, base_url=base_url,
+                            api_key=api_key, timeout=timeout)
+        if isinstance(result, tuple) and len(result) == 2:
+            text, usage = result
+        else:
+            text, usage = result, None
+        _reflect.last_usage = {"model": model, "protocol": protocol,
+                               "usage": usage}
         if not text:
             return
         for prop in parse_proposals(text):

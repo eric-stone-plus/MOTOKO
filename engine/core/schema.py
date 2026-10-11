@@ -92,6 +92,7 @@ EVENT_ENTITY_DOMAINS: dict[str, str | None] = {
     "graph_health": "engagement",
     "failure_recovery": "engagement",
     "reflector.error": "engagement",
+    "reflector.usage": "engagement",
     "reflector.proposal_refused": "engagement",
     "opsec_cooldown_restore_error": "engagement",
     "opsec_cooldown_persist_error": "engagement",

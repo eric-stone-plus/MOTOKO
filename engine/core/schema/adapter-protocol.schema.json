@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "motoko/adapter/1",
+  "title": "MOTOKO adapter protocol (motoko/1)",
+  "description": "The JSONL request/response contract core/adapter.py speaks: one request object per line in, one response object per line out. A third party can drive the engine over stdio against this contract without reading the Python.",
+  "type": "object",
+  "$defs": {
+    "request": {
+      "type": "object",
+      "required": ["protocol", "operation"],
+      "properties": {
+        "protocol": {"const": "motoko/1"},
+        "request_id": {"type": ["string", "integer", "null"]},
+        "operation": {
+          "enum": ["capabilities", "doctor", "rules", "status", "digest",
+                   "query", "events", "health", "run"]
+        },
+        "engagement_id": {"type": ["string", "null"]},
+        "options": {"type": ["object", "null"]}
+      }
+    },
+    "response": {
+      "type": "object",
+      "required": ["protocol", "ok", "exit_code"],
+      "properties": {
+        "protocol": {"const": "motoko/1"},
+        "request_id": {"type": ["string", "integer", "null"]},
+        "operation": {"type": "string"},
+        "ok": {"type": "boolean"},
+        "exit_code": {"type": "integer"},
+        "error": {"type": "string"},
+        "result": {"type": ["object", "array", "string", "number", "boolean", "null"]},
+        "summary": {"type": ["object", "null"]}
+      }
+    }
+  }
+}

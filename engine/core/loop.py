@@ -710,6 +710,78 @@ def _call_cli(ep: LLMEndpoint, prompt: str) -> dict:
             "stop_reason": None}
 
 
+def _usage_tokens(usage: dict | None) -> tuple[int | None, int | None]:
+    """(input, output) token counts from a leg's ``usage`` record, or (None, None).
+
+    The two wire dialects name the fields differently — anthropic uses
+    ``input_tokens``/``output_tokens``, openai ``prompt_tokens``/
+    ``completion_tokens`` — so both spellings are read. A missing/blank count is
+    None ("not reported"), never 0: a summed ledger must not read an unreported
+    leg as a free one.
+    """
+    if not isinstance(usage, dict):
+        return None, None
+
+    def _pick(*names):
+        for n in names:
+            v = usage.get(n)
+            if isinstance(v, bool):
+                continue
+            if isinstance(v, int):
+                return v
+        return None
+
+    return _pick("input_tokens", "prompt_tokens"), \
+        _pick("output_tokens", "completion_tokens")
+
+
+def _sum_opt(values):
+    """Sum the non-None ints; return (total_or_None, count_missing)."""
+    values = list(values)
+    present = [v for v in values if v is not None]
+    return (sum(present) if present else None), (len(values) - len(present))
+
+
+def _round_cost(leg_meta: list[dict] | None,
+                adj_meta: dict | None) -> dict:
+    "Aggregate a round's per-call telemetry into one cost record."
+    calls: list[dict] = []
+    for m in (leg_meta or []):
+        i, o = _usage_tokens(m.get("usage"))
+        calls.append({"role": "auditor", "name": m.get("name"),
+                      "model": m.get("model"), "protocol": m.get("protocol"),
+                      "duration_ms": m.get("duration_ms"),
+                      "stop_reason": m.get("stop_reason"),
+                      "input_tokens": i, "output_tokens": o})
+    if adj_meta is not None:
+        i, o = _usage_tokens(adj_meta.get("usage"))
+        calls.append({"role": "adjudicator", "name": adj_meta.get("name"),
+                      "model": adj_meta.get("model"),
+                      "protocol": adj_meta.get("protocol"),
+                      "duration_ms": adj_meta.get("duration_ms"),
+                      "stop_reason": adj_meta.get("stop_reason"),
+                      "input_tokens": i, "output_tokens": o})
+    in_total, in_missing = _sum_opt(c["input_tokens"] for c in calls)
+    out_total, out_missing = _sum_opt(c["output_tokens"] for c in calls)
+    dur_total, dur_missing = _sum_opt(c["duration_ms"] for c in calls)
+    incomplete = [c["name"] for c in calls
+                  if c["input_tokens"] is None and c["output_tokens"] is None]
+    return {
+        "calls": calls,
+        "totals": {
+            "calls": len(calls),
+            "input_tokens": in_total,
+            "output_tokens": out_total,
+            "duration_ms": dur_total,
+        },
+        # honesty markers: a summed total that silently omits a leg reads as
+        # complete when it is not
+        "usage_missing_calls": max(in_missing, out_missing),
+        "duration_missing_calls": dur_missing,
+        "incomplete": incomplete,
+    }
+
+
 def _leg_health(metas: list[dict] | None) -> dict:
     """Machine leg-health for the evaluator's convergence quorum.
 
@@ -975,6 +1047,7 @@ class LoopRunner:
         fixes: list[dict] = []
         deferred: list[dict] = []
         verdict = "no_go"
+        adj_meta: dict | None = None
         if self.adjudicator is not None:
             body = _load_prompt("adjudicate.md")
             for meta in leg_meta:
@@ -983,7 +1056,7 @@ class LoopRunner:
                 body += (f"\n\n# Audit leg {meta['index']}"
                          f" ({meta['name']}, lens {meta['lens']})"
                          f"\n\n{meta['text']}")
-            adj_meta: dict = {"name": self.adjudicator.name,
+            adj_meta = {"name": self.adjudicator.name,
                               "protocol": self.adjudicator.protocol,
                               "model": self.adjudicator.model,
                               "exit_code": 0, "stderr": "",
@@ -1014,6 +1087,9 @@ class LoopRunner:
             verdict, fixes = _parse_verdict(adjudication)
             deferred = _parse_deferred(adjudication)
         self._last_fixes = list(fixes)
+        cost = _round_cost(leg_meta, adj_meta)
+        (out_dir / "cost.json").write_text(json.dumps(
+            cost, ensure_ascii=False, indent=2))
 
         from . import verify_beat
         vreport = verify_beat.verify(fixes, deferred=deferred,
@@ -1067,7 +1143,7 @@ class LoopRunner:
                 1 if metrics.get("new_red_tests", 0) > 0 else 0)
             history.setdefault("rounds", []).append(
                 {"round": round_num, "checkpoint": landing,
-                 "reward": ev.reward, "metrics": metrics,
+                 "reward": ev.reward, "metrics": metrics, "cost": cost,
                  "_regression_strikes": strikes})
             history["round"] = round_num
             (out_dir.parent / "loop-history.json").write_text(

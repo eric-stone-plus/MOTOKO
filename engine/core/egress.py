@@ -12,6 +12,7 @@ MODE_ENV = "MOTOKO_EGRESS_MODE"
 LANE_TOOLS_ENV = "MOTOKO_EGRESS_LANE_TOOLS"
 _FWD = "prox" + "y"  # forwarding env-var suffix, assembled from parts
 DIRECT_REPLAY_ENV = "MOTOKO_ALLOW_DIRECT_REPLAY"
+REPLAY_VIA_ENV = "MOTOKO_EGRESS_REPLAY_VIA"
 # Exit fingerprint: the operator names the IP-echo endpoint; the engine
 # never defaults one, because a code default would be silent traffic to a
 # host the operator never chose.
@@ -22,6 +23,15 @@ ECHO_URL_ENV = "MOTOKO_EGRESS_ECHO_URL"
 # state or out of the URL text, and hands the caller an exit IP nobody
 # measured — a fail-open in the one subsystem whose job is to fail closed.
 ECHO_URL_SCHEMES = frozenset({"http", "https"})
+# The lane netns inode the launcher installed, exported so the engine can
+# PROVE at tool time that it is still inside that namespace (see
+# `lane_netns_defect`). Not operator-configurable: the launcher computes it
+# from /var/run/netns/<ns>, the same inode it checks at launch.
+NETNS_INODE_ENV = "MOTOKO_LANE_NETNS_INODE"
+# The netns the launcher installs; its file under /run/netns names the same
+# inode the env declares, so a reader of OTHER processes (doctor) can still
+# resolve the expected lane identity when the env is not in hand.
+LANE_NS_DEFAULT = "motoko-lane"
 ROTATE_HOURS_ENV = "MOTOKO_EGRESS_ROTATE_HOURS"
 DEFAULT_ROTATE_HOURS = 48.0
 # Ceiling on how old a measurement may be and still decide a LAUNCH
@@ -34,6 +44,10 @@ EXPECT_IP_ENV = "MOTOKO_EGRESS_EXPECT_IP"
 
 LANE, DIRECT = "lane", "direct"
 MODE_VALUES = frozenset({LANE, DIRECT})
+# The replay-via vocabulary: one legal value, naming the campaign lane. The
+# MODE doctrine carries over whole: a non-blank value outside the set is a
+# configuration error, never a silent read of the fail-closed default.
+REPLAY_VIA_VALUES = frozenset({LANE})
 
 TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 
@@ -93,6 +107,47 @@ def mode_recognized() -> bool:
     return not value or value in MODE_VALUES
 
 
+def replay_via() -> str:
+    """The raw declared `MOTOKO_EGRESS_REPLAY_VIA` value, lowercased ("" unset).
+
+    Blank is the sanctioned feature-off default and keeps the historical
+    fail-closed replay behaviour. A caller that must tell "never configured"
+    from "typo" asks `replay_via_recognized()`.
+    """
+    return os.environ.get(REPLAY_VIA_ENV, "").strip().lower()
+
+
+def replay_via_recognized() -> bool:
+    """Whether the declared value is blank or one of the legal replay-via values.
+
+    Same doctrine as `mode_recognized()`: blank counts as recognized (feature
+    off), a NON-BLANK value outside `REPLAY_VIA_VALUES` is a configuration
+    error — `replay_via()` reads it as feature-off, so without this test a
+    typo silently parks every replay instead of refusing the launch.
+    """
+    value = replay_via()
+    return not value or value in REPLAY_VIA_VALUES
+
+
+def lane_proxy_address() -> tuple[str, int] | None:
+    "The campaign-lane CONNECT gateway as (host, port), or None.\n\n    Reads the same `HOST_FWD_VARS` family `lane_configured()` does: the\n    engine never SETS a lane, so the address a replay tunnel must dial is\n    exactly the lane the tools inherit. Explicit priority\n    (https_proxy > http_proxy > all_proxy) keeps the pick deterministic, and\n    the first non-empty spelling decides — a malformed one fails closed\n    rather than falling through to another var, because a typo'd lane must\n    not be laundered by a second spelling."
+    env = {str(k).lower(): str(v) for k, v in os.environ.items()}
+    for name in ("https_" + _FWD, "http_" + _FWD, "all_" + _FWD):
+        raw = env.get(name, "").strip()
+        if not raw:
+            continue
+        try:
+            parts = urlsplit(raw)
+            host, port = parts.hostname, parts.port
+        except ValueError:
+            return None
+        if (parts.scheme != "http" or not host or port is None
+                or parts.username or parts.password):
+            return None
+        return (host, int(port))
+    return None
+
+
 def lane_configured() -> bool:
     """Whether the process env carries a lane address tools can inherit.
 
@@ -106,6 +161,62 @@ def lane_configured() -> bool:
         if str(key).lower() in HOST_FWD_VARS and str(value).strip():
             return True
     return False
+
+
+def as_netns_ref(value: str) -> str:
+    """``os.readlink('/proc/<pid>/ns/net')`` spells the identity ``net:[<inode>]``;
+    accept a bare inode too, so `MOTOKO_LANE_NETNS_INODE=4026532829` and
+    ``net:[4026532829]`` compare equal."""
+    value = value.strip()
+    return value if value.startswith("net:[") else f"net:[{value}]"
+
+
+def netns_identity(pid: int) -> str | None:
+    """The network-namespace identity of ``pid`` as ``net:[<inode>]``, or None."""
+    try:
+        return os.readlink(f"/proc/{pid}/ns/net")
+    except OSError:
+        return None
+
+
+def lane_netns_expected(*, require_declaration: bool = False) -> str | None:
+    """The lane netns identity a lane-mode process must be inside, or None.
+
+    ``MOTOKO_LANE_NETNS_INODE`` (the inode the launcher installed) is the
+    source when present. Failing that, the installed netns file
+    ``/run/netns/<LANE_NS_DEFAULT>`` names the same inode, so a reader that
+    does not hold the writer's environ — doctor scanning OTHER processes — can
+    still resolve it. ``require_declaration=True`` (the executor's fail-closed
+    posture, checking ITS OWN env) refuses that fallback: a lane mode with no
+    declaration in its own env is a configuration defect, not something to
+    guess at.
+    """
+    want = os.environ.get(NETNS_INODE_ENV, "").strip()
+    if want:
+        return as_netns_ref(want)
+    if require_declaration:
+        return None
+    try:
+        return f"net:[{os.stat(f'/run/netns/{LANE_NS_DEFAULT}').st_ino}]"
+    except OSError:
+        return None
+
+
+def lane_netns_defect() -> str | None:
+    'Why this process is not provably inside the declared lane netns, or None.\n\n    Only lane mode asserts. The launcher (``motoko-launch-wave.sh``) exports the\n    inode it installed; a lane mode whose declaration is missing is a\n    configuration defect, not a licence to run — refused like any other, never\n    launched on the strength of the flag alone.\n    '
+    if mode() != LANE:
+        return None
+    ref = lane_netns_expected(require_declaration=True)
+    if ref is None:
+        return (f"{NETNS_INODE_ENV} unset: cannot prove this process is inside "
+                "the lane netns (launch via motoko-launch-wave.sh)")
+    here = netns_identity(os.getpid())
+    if here is None:
+        return "cannot read /proc/self/ns/net"
+    if here != ref:
+        return (f"process netns {here} != declared lane netns {ref}: a "
+                "container tool would inherit the home-line namespace")
+    return None
 
 
 def lane_tools() -> frozenset:
@@ -199,6 +310,39 @@ def launch_gate() -> str | None:
                 f"forbidden direct fallback, so the engine cannot tell a "
                 f"lane-routed lane from a typo. Set {MODE_ENV} to one of the two "
                 f"legal values in the engine process's own environment")
+    # The third declaration rides the same doctrine and answers a DIFFERENT
+    # axis, so its legs run before every mode escape: a typo is refused
+    # outright (it would read as the fail-closed default downstream and
+    # silently park every replay), and two replay claims at once is the
+    # 6523 split-brain shape — refuse rather than pick a winner. The
+    # accept_direct escape below accepts a direct LAUNCH, not an unparseable
+    # replay-via, and must not launder these.
+    via_raw = os.environ.get(REPLAY_VIA_ENV, "").strip()
+    via = replay_via()
+    if via and via not in REPLAY_VIA_VALUES:
+        return (f"launch refused: {REPLAY_VIA_ENV}={via_raw!r} is not one of "
+                f"{sorted(REPLAY_VIA_VALUES)} — an unrecognized replay-via "
+                f"reads as the fail-closed default downstream, so every "
+                f"replay would silently park instead of egressing. Set "
+                f"{REPLAY_VIA_ENV} to a legal value in the engine process's "
+                f"own environment")
+    if via == LANE:
+        if replay_asserted():
+            return (f"launch refused: both {REPLAY_VIA_ENV}={LANE} and "
+                    f"{DIRECT_REPLAY_ENV}=1 are declared — replay cannot be "
+                    f"both host-route-verified and lane-routed (the 6523 "
+                    f"split-brain shape). Assert exactly one: "
+                    f"{DIRECT_REPLAY_ENV}=1 for a deployment whose host route "
+                    f"IS the anonymous lane, or {REPLAY_VIA_ENV}={LANE} to "
+                    f"route replays through the campaign lane")
+        if lane_proxy_address() is None:
+            lanes = "/".join(sorted(HOST_FWD_VARS))
+            return (f"launch refused: {REPLAY_VIA_ENV}={LANE} but no usable "
+                    f"lane address is set in the engine process's own "
+                    f"environment ({lanes}, http://host:port form) — the "
+                    f"engine never sets a lane, so replays would fail closed "
+                    f"and park while the launch claims otherwise. Export a "
+                    f"lane address, or drop the {REPLAY_VIA_ENV} claim")
     if not declared:
         if accept_direct():
             return None
@@ -388,7 +532,15 @@ def summary() -> dict:
     """Both axes, for reports. Doctor prints this; graph_health's park reason
     for `egress_policy` points at the same var names."""
     asserted = replay_asserted()
-    if asserted:
+    via = replay_via()
+    via_ready = (via == LANE and replay_via_recognized()
+                 and lane_proxy_address() is not None)
+    if via_ready:
+        note = (f"replay egress via the campaign lane ({REPLAY_VIA_ENV}={LANE}) "
+                "— the built-in lane fetcher re-issues requests through the "
+                "declared CONNECT gateway, pinned to the scope guard's "
+                "cleared address with the original hostname in TLS SNI")
+    elif asserted:
         note = (f"replay egress asserted via {DIRECT_REPLAY_ENV} — the built-in "
                 "fetcher will re-issue requests over this host's route")
     elif mode() == LANE:
@@ -396,8 +548,9 @@ def summary() -> dict:
                 f"{MODE_ENV}=lane does not imply it — tools ride the egress "
                 "while the built-in replay fetcher still fails closed, so "
                 "replay verdicts park as `egress_policy` instead of burning "
-                "strikes. Assert it inside the verified anonymous lane, or "
-                "inject a fetcher that egresses through the campaign lane")
+                "strikes. Assert it inside the verified anonymous lane, set "
+                f"{REPLAY_VIA_ENV}={LANE} to route replays through the "
+                "campaign lane, or inject a fetcher that egresses through it")
     else:
         note = (f"replay egress NOT asserted ({DIRECT_REPLAY_ENV} unset) — the "
                 "built-in fetcher fails closed, so replay verdicts park as "
@@ -416,6 +569,15 @@ def summary() -> dict:
         "lane": lane_configured(),
         "lane_tools": sorted(lane_tools()),
         "replay_asserted": asserted,
+        # The third declaration, raw and validated shape-wise, so a report
+        # can tell feature-off from a typo the launch gate just refused.
+        "replay_via": via,
+        "replay_via_recognized": replay_via_recognized(),
+        # Derived readiness for the replay axis as a whole: EITHER claim,
+        # fully armed. Consumers grade on this one key — grading on
+        # `replay_asserted` alone would WARN a healthy lane-routed
+        # deployment beside a note saying it is armed.
+        "replay_egress_ready": asserted or via_ready,
         "replay_note": note,
         # The launch-gate axis: whether direct egress was explicitly accepted
         # and whether an expected exit IP is configured (values stay env-side;

@@ -10,8 +10,9 @@ checkpointed graph.db + engagement.manifest.json. Contract:
   reports busy if a non-flock writer holds the DB — either way seal
   aborts without writing a manifest. Sealing must never race the
   single-writer orchestrator.
-* Structural integrity is a hard gate (integrity_check, foreign_key_check,
-  WAL removal). Operational findings (stranded hypotheses, unprocessed
+* Structural integrity is a hard gate (integrity_check, the real
+  referential-integrity check over the schema's IMPLICIT references, WAL
+  removal). Operational findings (stranded hypotheses, unprocessed
   observations) are recorded in the manifest census but never block a
   seal — a campaign cut short is still a legal artifact.
 * The seal event is appended to the event log BEFORE the hash is taken,
@@ -62,6 +63,29 @@ def _sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
+def _dir_digest(d: Path) -> dict | None:
+    'A content-addressed digest of a directory tree, or None if absent.'
+    if not d.is_dir():
+        return None
+    rows: list[str] = []
+    total = 0
+    for p in sorted(d.rglob("*")):
+        if not p.is_file():
+            continue
+        try:
+            size = p.stat().st_size
+            digest = _sha256_file(p)
+        except OSError:
+            continue
+        rows.append(f"{p.relative_to(d).as_posix()}\0{size}\0{digest}")
+        total += size
+    h = hashlib.sha256()
+    for row in rows:
+        h.update(row.encode("utf-8", "replace"))
+        h.update(b"\n")
+    return {"files": len(rows), "bytes": total, "sha256": h.hexdigest()}
+
+
 def _census(conn: sqlite3.Connection, engagement_id: str) -> dict:
     """Read-only census of the sealed state. Operational anomalies land
     here as counts — they inform the operator, they do not block."""
@@ -101,6 +125,42 @@ def _census(conn: sqlite3.Connection, engagement_id: str) -> dict:
     census["tool_runs"] = dict(cur.execute(
         "SELECT status, COUNT(*) FROM tool_run GROUP BY status").fetchall())
     return census
+
+
+def _referential_integrity_violations(conn: sqlite3.Connection) -> list[str]:
+    """Orphans the graph's IMPLICIT references forbid, or [].
+
+    The schema declares no SQL FOREIGN KEY constraints, so
+    ``PRAGMA foreign_key_check`` can only ever answer "clean" — a vacuous
+    verdict (the reason this check exists alongside it). These are the
+    references the graph actually relies on, checked by hand: a tool_run's
+    hypothesis, an observation's tool_run, a service's and a cache entry's
+    asset. An orphan is a broken edge the sealed artifact would carry, and a
+    manifest that seals it is a false claim of integrity.
+    """
+    checks = (
+        ("tool_run.hypothesis_id -> entities.id",
+         "SELECT COUNT(*) FROM tool_run WHERE hypothesis_id IS NOT NULL "
+         "AND hypothesis_id NOT IN (SELECT id FROM entities)"),
+        ("observations.action_id -> tool_run.id",
+         "SELECT COUNT(*) FROM observations WHERE action_id IS NOT NULL "
+         "AND action_id NOT IN (SELECT id FROM tool_run)"),
+        ("services.asset_id -> entities.id",
+         "SELECT COUNT(*) FROM services WHERE asset_id IS NOT NULL "
+         "AND asset_id NOT IN (SELECT id FROM entities)"),
+        ("scan_cache.asset_id -> entities.id",
+         "SELECT COUNT(*) FROM scan_cache WHERE asset_id IS NOT NULL "
+         "AND asset_id NOT IN (SELECT id FROM entities)"),
+    )
+    out: list[str] = []
+    for label, sql in checks:
+        try:
+            n = conn.execute(sql).fetchone()[0]
+        except sqlite3.OperationalError:
+            continue          # table absent in an older schema: nothing to check
+        if n:
+            out.append(f"{label}: {n} orphaned row(s)")
+    return out
 
 
 def seal_engagement(engagement_id: str, root: Path | None = None) -> dict:
@@ -175,10 +235,17 @@ def seal_engagement(engagement_id: str, root: Path | None = None) -> dict:
             if bad:
                 raise SealError(f"{engagement_id}: integrity_check failed: "
                                 f"{bad[:3]}")
+            # The schema declares no SQL FOREIGN KEY constraints, so
+            # PRAGMA foreign_key_check is vacuously clean (there is nothing to
+            # check) — quoting it as an integrity verdict is false comfort.
+            # Run it (harmless, and correct the day constraints are declared)
+            # AND the real check over the references the graph relies on.
             fk = conn.execute("PRAGMA foreign_key_check").fetchall()
-            if fk:
-                raise SealError(f"{engagement_id}: foreign_key_check reported "
-                                f"{len(fk)} violations")
+            orphans = _referential_integrity_violations(conn)
+            if fk or orphans:
+                detail = ([f"foreign_key_check:{len(fk)}"] if fk else []) + orphans
+                raise SealError(f"{engagement_id}: referential integrity "
+                                f"failed: {'; '.join(detail)}")
 
             replay = events.verify(conn, graph=str(graph),
                                    engagement_id=engagement_id)
@@ -228,8 +295,20 @@ def seal_engagement(engagement_id: str, root: Path | None = None) -> dict:
             "engine_commit": _engine_commit(engine_root),
             "schema_version": schema_version,
             "graph_db": {"sha256": _sha256_file(graph), "bytes": graph.stat().st_size},
-            "integrity": {"integrity_check": "ok", "foreign_key_check": "ok",
-                          "wal_removed": True},
+            # The raw evidence beside the db: obs/ (tool transcripts) and
+            # evidence/ are content-addressed so a file added, removed or
+            # changed after sealing is detectable, not silently unlisted.
+            "evidence_files": {
+                "obs": _dir_digest(edir / "obs"),
+                "evidence": _dir_digest(edir / "evidence"),
+            },
+            # integrity_check is SQLite's own page/structural check; the
+            # referential-integrity line is the graph's real reference check.
+            # foreign_key_check is deliberately NOT claimed: the schema declares
+            # no SQL FOREIGN KEY, so the pragma is vacuous and quoting it would
+            # be a verdict that means nothing.
+            "integrity": {"integrity_check": "ok",
+                          "referential_integrity": "ok", "wal_removed": True},
             # The replay gate's own verdict, carried by the artifact. A
             # consumer reading a manifest can now tell "the log was checked
             # and replayed" from "nothing looked" — the sha proves the bytes,
@@ -284,6 +363,17 @@ def verify_seal(engagement_id: str, root: Path | None = None) -> tuple[bool, str
     size = graph.stat().st_size
     if size != m.get("graph_db", {}).get("bytes"):
         return False, "byte size mismatch vs manifest"
+    # The raw evidence beside the db: a file added, removed or changed in obs/
+    # or evidence/ after sealing drifts the artifact (older seals carry no
+    # ledger and are skipped).
+    for name in ("obs", "evidence"):
+        want = (m.get("evidence_files") or {}).get(name)
+        if want is None:
+            continue
+        got = _dir_digest(edir / name)
+        if got != want:
+            return False, (f"{name}/ changed after sealing (evidence content "
+                           "mismatch) — re-seal to re-sign")
     wal = Path(str(graph) + "-wal")
     if wal.exists() and wal.stat().st_size > 0:
         return False, ("WAL FRAMES present next to the sealed graph.db — the "

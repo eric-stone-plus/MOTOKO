@@ -38,15 +38,21 @@ local_addr_env = "MOTOKO_DNS_LOCAL_ADDR"
 # already chose a URL resolver.
 DEFAULT_LOCAL_ADDR = "127.0.0.1"
 
-# The only tools whose resolver flag semantics are actually known (v1).
-# subfinder/amass take `-r <resolvers>`, nmap takes `--dns-servers
-# <servers>`. A tool outside the map is never guessed at: a wrong flag is a
-# tool error charged to the (rule, asset) pair, exactly the miss a
-# hardcoded "every tool gets -r" map would produce.
 RESOLVER_FLAGS = {
     "subfinder": "-r",
     "amass": "-r",
+    "dnsx": "-r",
+    "httpx": "-r",
     "nmap": "--dns-servers",
+}
+
+# Tools whose resolver flag takes a FILE, not an address. nuclei's `-r` is
+# "file containing resolver list" (measured: `nuclei -r 1.1.1.1` dies with
+# "Could not open resolvers file"), and nuclei — like dnsx/httpx — defaults to
+# built-in public resolvers the lane drops. The executor writes the configured
+# resolver to a file and passes its path; inject_args stays IO-free.
+RESOLVER_FILE_FLAGS = {
+    "nuclei": "-r",
 }
 
 # The only flag whose grammar takes BARE servers, no host:port. nmap
@@ -164,7 +170,8 @@ def tool_resolver_addr() -> str | None:
     return spec
 
 
-def inject_args(tool: str, argv: list[str]) -> list[str]:
+def inject_args(tool: str, argv: list[str], *,
+                resolver_file: str | None = None) -> list[str]:
     """A NEW argv with ``tool``'s resolver flag appended, or a copy of argv.
 
     ``[flag, addr]`` is appended only when ALL hold: ``tool`` is in the flag
@@ -177,17 +184,28 @@ def inject_args(tool: str, argv: list[str]) -> list[str]:
     hosts only — and an address that grammar cannot take is dropped rather
     than forwarded, since the failure it causes is invisible to the
     exit-code contract.
+
+    ``resolver_file`` supplies the PATH for a tool in ``RESOLVER_FILE_FLAGS``
+    (nuclei), whose flag takes a file rather than an address: ``[flag, path]``
+    is appended when a path is given. The caller (the executor) writes that
+    file, keeping this function IO-free.
     Pure: the input is never mutated and the result is always a fresh list.
     The lane and container gates stay with the caller (the executor): a
-    lane-inheriting tool resolves at the egress, and the container route
-    takes no resolver flags at all.
+    lane-inheriting tool resolves at the egress, so it is not injected; the
+    container route IS injected in lane mode, where the image's 127.0.0.53
+    stub has no listener inside the netns and a failed lookup spins nmap.
     """
     out = list(argv)
-    flag = RESOLVER_FLAGS.get(tool)
-    addr = tool_resolver_addr()
-    if not flag or addr is None or not out:
+    if not out:
         return out
-    if _resolver_flag_rendered(flag, out):
+    flag = RESOLVER_FLAGS.get(tool)
+    if flag is None:
+        fflag = RESOLVER_FILE_FLAGS.get(tool)
+        if fflag and resolver_file and not _resolver_flag_rendered(fflag, out):
+            return [*out, fflag, str(resolver_file)]
+        return out
+    addr = tool_resolver_addr()
+    if addr is None or _resolver_flag_rendered(flag, out):
         return out
     if flag in _BARE_SERVER_FLAGS:
         addr = _bare_server(addr)

@@ -6,6 +6,14 @@ import time
 
 from . import IO_ERROR, Verdict
 
+# Seconds to wait for a callback when nothing else says. A canary manager
+# carries its own window (``poll_window_s``); this is the fallback for a
+# caller that passes a bare callable — a lambda or ``functools.partial`` has no
+# ``__self__``, so reading the window off the callback silently degraded such a
+# caller to ONE immediate poll (a real negative reported before the canary
+# could answer). The window is now explicit; this constant only fills the gap.
+DEFAULT_POLL_WINDOW_S = 6.0
+
 
 def _inconclusive(detail: str, reason: str = IO_ERROR) -> Verdict:
     return Verdict("inconclusive", detail, reason=reason)
@@ -35,9 +43,27 @@ def _protocols(interactions, canary: str) -> list[str]:
     return protos or ["unknown"]
 
 
-def _poll(poll_callback, canary: str) -> bool:
+def _poll_window(poll_callback, poll_window: float | None) -> float:
+    """Seconds to wait for a callback. Explicit wins; then the MANAGER's own
+    window (a bound method's ``__self__.poll_window_s``); then the module
+    default — so a lambda/partial no longer degrades to a single immediate
+    poll while a manager that carries its own window keeps it."""
+    if poll_window is not None:
+        try:
+            return max(0.0, float(poll_window))
+        except (TypeError, ValueError):
+            return DEFAULT_POLL_WINDOW_S
     owner = getattr(poll_callback, "__self__", None)
-    window = float(getattr(owner, "poll_window_s", 0.0) or 0.0)
+    own = getattr(owner, "poll_window_s", None)
+    if own is not None:
+        try:
+            return max(0.0, float(own))
+        except (TypeError, ValueError):
+            return DEFAULT_POLL_WINDOW_S
+    return DEFAULT_POLL_WINDOW_S
+
+
+def _poll(poll_callback, canary: str, window: float) -> bool:
     deadline = time.monotonic() + max(0.0, window)
     while True:
         if poll_callback(canary):
@@ -48,7 +74,8 @@ def _poll(poll_callback, canary: str) -> bool:
 
 
 def oob_verdict(finding: dict, issue_canary, trigger, poll_callback,
-                interactions=None) -> Verdict:
+                interactions=None, poll_window: float | None = None) -> Verdict:
+    window = _poll_window(poll_callback, poll_window)
     # first canary
     try:
         c1 = issue_canary()
@@ -59,7 +86,7 @@ def oob_verdict(finding: dict, issue_canary, trigger, poll_callback,
     except Exception as e:
         return _inconclusive(f"trigger failed: {e}")
     try:
-        got_callback = _poll(poll_callback, c1)
+        got_callback = _poll(poll_callback, c1, window)
     except Exception as e:
         return _inconclusive(f"canary poll failed: {e}")
     if got_callback:
@@ -84,7 +111,7 @@ def oob_verdict(finding: dict, issue_canary, trigger, poll_callback,
     except Exception as e:
         return _inconclusive(f"trigger failed: {e}")
     try:
-        got_callback = _poll(poll_callback, c2)
+        got_callback = _poll(poll_callback, c2, window)
     except Exception as e:
         return _inconclusive(f"canary poll failed: {e}")
     if got_callback:

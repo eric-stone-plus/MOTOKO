@@ -15,8 +15,8 @@ import time
 from collections.abc import Mapping
 from pathlib import Path
 
-from . import (dns_channel, egress, egress_probe, secret_transport, toolchain,
-               util)
+from . import (dns_channel, egress, egress_probe, secret_transport, stallwatch,
+               toolchain, util)
 from .cmd import ENV_PREFIX
 from .parsers import Parser, get_parser
 
@@ -99,6 +99,64 @@ def _gau_forward_args(tool: str, argv: list[str], env: Mapping) -> list[str]:
     if not url:
         return out
     return [*out, _GAU_FWD_FLAG, url]
+
+
+_EXPLICIT_PROXY_FLAGS: dict[str, str] = {
+    "nmap": "--proxies",     # nmap ... --proxies <url>
+    "sqlmap": "--proxy",     # sqlmap ... --proxy=<url>
+}
+
+
+def _explicit_proxy_args(tool: str, argv: list[str], lane: str) -> list[str]:
+    """New argv with the tool's proxy flag appended, or a copy of argv.
+
+    No-op unless the tool is in the map and a lane URL is known. Idempotent:
+    an argv that already carries the flag is returned unchanged.
+    """
+    out = list(argv)
+    flag = _EXPLICIT_PROXY_FLAGS.get(tool)
+    if not flag or not lane:
+        return out
+    if any(t == flag or t.startswith(flag + "=") for t in out):
+        return out
+    if flag == "--proxy":
+        return [*out, f"--proxy={lane}"]
+    return [*out, flag, lane]
+
+
+def _proc_starttime(pid: int) -> int | None:
+    """The start time (field 22) of ``pid`` from /proc/<pid>/stat, or None.
+
+    The kernel reuses pids; the start time is the cheap identity that tells
+    "the same process" from "a different one that inherited this pid". comm
+    may contain spaces and parens, so fields are counted from the LAST ')';
+    after it, index 0 is field 3 (state) and starttime (field 22) is index 19.
+    """
+    try:
+        with open(f"/proc/{pid}/stat", "rb") as fh:
+            data = fh.read().decode("ascii", "replace")
+    except OSError:
+        return None
+    try:
+        rest = data[data.rindex(")") + 2:].split()
+        return int(rest[19])
+    except (ValueError, IndexError):
+        return None
+
+
+def _container_pids(podman: str, container: str) -> list[int]:
+    """Host pids of the container's processes, or [] if they cannot be read.
+
+    A `podman exec`'d tool is not a descendant of the exec client — it runs
+    under conmon — so the stall watchdog cannot find it by walking the client's
+    children; `podman top` names the container's processes directly.
+    """
+    try:
+        out = subprocess.run([podman, "top", container, "-o", "pid"],
+                             capture_output=True, text=True, timeout=10)
+    except Exception:      # noqa: BLE001 - a probe must never break exec
+        return []
+    return [int(tok) for tok in (out.stdout or "").split() if tok.isdigit()]
 
 
 def resolve_tool(tool: str, extra_dirs: tuple[Path, ...] = ()) -> str | None:
@@ -229,11 +287,35 @@ class SubprocessExecutor:
         self.tool_dirs = tool_dirs
         self.max_output_bytes = 16 * 1024 * 1024
         self._live: dict[int, str] = {}
+        # pid -> the process's start time (a /proc/<pid>/stat field), so reap
+        # does not signal a REUSED pid: the kernel can hand an unrelated
+        # process the pid of a scan that already exited, and a bare
+        # killpg(pid) would then hit the wrong group.
+        self._live_start: dict[int, int | None] = {}
         # Tools this host cannot run at all (resolved but unexec'able, or not
         # found). The orchestrator's mint door reads this set so the rest of
         # the engagement stops proposing them: one wasted ACT slot per tool per
         # process instead of three strikes per (rule, asset) pair.
         self.broken_tools: set[str] = set()
+
+    def _resolver_file_for(self, tool: str) -> str | None:
+        """A resolver-file path for a tool whose flag takes a FILE (nuclei),
+        or None. The engine writes the configured resolver to a file under its
+        own artifacts dir and hands the tool the path — it never edits a system
+        resolver (dns_channel's doctrine), and the file is the only shape
+        nuclei's `-r` accepts.
+        """
+        if tool not in dns_channel.RESOLVER_FILE_FLAGS:
+            return None
+        addr = dns_channel.tool_resolver_addr()
+        if addr is None:
+            return None
+        path = self.artifacts / "resolvers.txt"
+        try:
+            path.write_text(addr + "\n", encoding="utf-8")
+        except OSError:
+            return None
+        return str(path)
 
     def __call__(self, hyp: dict, action: dict) -> None:
         """Run one rendered action and record its raw output (never raises)."""
@@ -308,10 +390,12 @@ class SubprocessExecutor:
                 self._finish_tool_run(action, status="error", exit_code=127)
                 return
             try:
-                exists = subprocess.run(
-                    [podman, "container", "exists", container],
+                state = subprocess.run(
+                    [podman, "inspect", "--format", "{{.State.Running}}",
+                     container],
                     capture_output=True, text=True, timeout=30)
-                missing = exists.returncode != 0
+                missing = (state.returncode != 0
+                           or state.stdout.strip().lower() != "true")
             except Exception:      # noqa: BLE001 - probe must not break exec
                 missing = False
             if missing:
@@ -322,6 +406,32 @@ class SubprocessExecutor:
                     exit_code=127, action_id=action.get("_tool_run_id"),
                     url=url, host=host)
                 self._finish_tool_run(action, status="error", exit_code=127)
+                return
+            defect = egress.lane_netns_defect()
+            if defect is not None:
+                self._record_observation(
+                    tool=tool, engagement_id=self.engagement_id, raw_path=None,
+                    parsed_summary=f"refusing container tool {tool!r}: {defect}",
+                    exit_code=126, action_id=action.get("_tool_run_id"),
+                    url=url, host=host)
+                self._finish_tool_run(action, status="error", exit_code=126)
+                return
+            # A container tool still needs an explicit proxy flag to REACH a
+            # target: inside the lane netns only DNS and the lane bridge are
+            # routed, so a tool that never speaks the HTTP CONNECT proxy
+            # (enum4linux — SMB has no such transport) connects nowhere.
+            # Refused rather than spent as a dead 600s no-op.
+            if egress.mode() == egress.LANE \
+                    and tool not in _EXPLICIT_PROXY_FLAGS:
+                self._record_observation(
+                    tool=tool, engagement_id=self.engagement_id, raw_path=None,
+                    parsed_summary=(
+                        f"refusing container tool {tool!r} in lane mode: no "
+                        "proxy flag — the lane netns routes only DNS and the "
+                        "proxy, so it could not reach any target"),
+                    exit_code=126, action_id=action.get("_tool_run_id"),
+                    url=url, host=host)
+                self._finish_tool_run(action, status="error", exit_code=126)
                 return
             env_clears = egress.container_env_clears(tool)
             argv = [podman, "exec", *env_clears, container,
@@ -339,14 +449,9 @@ class SubprocessExecutor:
             return
         else:
             argv = [exe, *argv[1:]] if argv else [exe]
-            # A direct-path tool must not leak the engagement's
-            # target-domain query list to the ISP resolver — the engine
-            # only appends the tool's own resolver flag, it never edits the
-            # host resolver. Lane-inheriting tools are excluded: their DNS
-            # resolves at the egress, and pointing them at a local resolver
-            # would bypass the very lane they ride.
-            if not _keeps_forwarding(tool):
-                argv = dns_channel.inject_args(tool, argv)
+            if egress.mode() == egress.LANE or not _keeps_forwarding(tool):
+                argv = dns_channel.inject_args(
+                    tool, argv, resolver_file=self._resolver_file_for(tool))
 
         env_action = action.get("env")
         if env_action is not None and not isinstance(env_action, Mapping):
@@ -381,6 +486,14 @@ class SubprocessExecutor:
         # container cannot see, so the container route gets no flag.
         if runtime != "container":
             argv = _gau_forward_args(tool, argv, env)
+
+        if egress.mode() == egress.LANE:
+            _lane = egress.lane_proxy_address()
+            if _lane is not None:
+                argv = _explicit_proxy_args(
+                    tool, argv, f"http://{_lane[0]}:{_lane[1]}")
+            if runtime == "container":
+                argv = dns_channel.inject_args(tool, argv)
 
         # Credentials need renderer-owned bindings and a tool-specific
         # transport. Never expand legacy markers directly into OS argv.
@@ -422,9 +535,22 @@ class SubprocessExecutor:
                 )
                 self._register(str(action.get("_tool_run_id") or run_id),
                                proc.pid)
-                reason = self._capture(proc, out_f, err_f, effective_timeout)
+                # Stall watchdog: kill a run that burns a core while holding
+                # no socket for stall_after seconds (the container-nmap spin).
+                # Only worth arming when it can fire before the deadline.
+                watch = None
+                if effective_timeout > stallwatch.stall_after_s():
+                    if runtime == "container":
+                        watch = stallwatch.StallWatch(
+                            lambda: _container_pids(podman, container))
+                    else:
+                        watch = stallwatch.StallWatch(
+                            lambda: stallwatch.descendant_pids(proc.pid))
+                reason = self._capture(proc, out_f, err_f, effective_timeout,
+                                       watch=watch)
             exit_code = proc.returncode
-            status = "timeout" if reason == "timeout" or exit_code == 124 else \
+            status = "timeout" if reason in ("timeout", "stalled") \
+                or exit_code == 124 else \
                 ("done" if self._run_succeeded(tool, exit_code, action,
                                                out_path, err_path) else "error")
             if reason == "output_limit":
@@ -546,7 +672,7 @@ class SubprocessExecutor:
             pass
         proc.wait()
 
-    def _capture(self, proc, out_f, err_f, timeout: float) -> str | None:
+    def _capture(self, proc, out_f, err_f, timeout: float, watch=None) -> str | None:
         """Drain bounded pipes without holding arbitrary tool output in RAM."""
         deadline = time.monotonic() + timeout
         limit = getattr(self, "max_output_bytes", 16 * 1024 * 1024)
@@ -566,6 +692,10 @@ class SubprocessExecutor:
                     remaining = deadline - time.monotonic()
                     if remaining <= 0:
                         return "timeout"
+                    if watch is not None and watch.poll():
+                        # Spinning with no network fd: hung, not slow. Kill it
+                        # now; the finally block reaps the group.
+                        return "stalled"
                     if proc.poll() is not None:
                         # A descendant can hold pipes open after leader exit.
                         self._stop_group(proc)
@@ -616,6 +746,9 @@ class SubprocessExecutor:
         if getattr(self, "_live", None) is None:
             self._live = {}
         self._live[pid] = run_id
+        if getattr(self, "_live_start", None) is None:
+            self._live_start = {}
+        self._live_start[pid] = _proc_starttime(pid)
         try:
             set_pid = getattr(self.writer, "set_tool_run_pid", None)
             if callable(set_pid):
@@ -634,21 +767,44 @@ class SubprocessExecutor:
     def _unregister(self, pid: int) -> None:
         if getattr(self, "_live", None) is not None:
             self._live.pop(pid, None)
+        if getattr(self, "_live_start", None) is not None:
+            self._live_start.pop(pid, None)
+
+    def _still_our_process(self, pid: int) -> bool:
+        """True when ``pid`` is still the process we registered (not reused).
+
+        A recorded start time that no longer matches means the kernel handed
+        this pid to someone else; signaling it would hit an unrelated
+        process. An unreadable/unknown start time (the process is gone, or a
+        synthetic test pid) with no recorded value is treated as "not ours"
+        only when we HAD a value and it changed — a None recording proceeds,
+        matching the pre-guard behaviour for mocked pids.
+        """
+        recorded = (getattr(self, "_live_start", {}) or {}).get(pid)
+        if recorded is None:
+            return True
+        return _proc_starttime(pid) == recorded
 
     def reap(self, *, grace: float = 2.0) -> list[int]:
         'Kill every in-flight run this executor spawned. Never raises.\n\n        The registry is snapshotted FIRST: a child that dies during the\n        grace window lets its own executor thread unregister it, which\n        would otherwise make reap return nothing while scans still ran.\n        Returns the reaped pids.\n        '
         targets: dict[int, str] = dict(getattr(self, "_live", {}) or {})
         for pid in targets:
+            if not self._still_our_process(pid):
+                continue
             try:
                 os.killpg(pid, signal.SIGTERM)
             except (ProcessLookupError, PermissionError):
                 pass
         deadline = time.monotonic() + max(0.0, grace)
         while time.monotonic() < deadline and any(
-                Path(f"/proc/{pid}").exists() for pid in targets):
+                Path(f"/proc/{pid}").exists() and self._still_our_process(pid)
+                for pid in targets):
             time.sleep(0.1)
         reaped: list[int] = []
         for pid in targets:
+            if not self._still_our_process(pid):
+                self._unregister(pid)          # pid was reused: nothing to kill
+                continue
             try:
                 os.killpg(pid, signal.SIGKILL)
             except (ProcessLookupError, PermissionError):

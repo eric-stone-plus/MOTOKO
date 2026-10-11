@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "motoko/engagement-seal/1",
+  "title": "MOTOKO engagement seal manifest",
+  "description": "The signed artifact an engagement seal emits (engagement.manifest.json). Written by core/seal.py::seal_engagement; re-derived and checked by verify_seal. The graph_db.sha256 covers the seal event itself (the event is appended before the hash is taken).",
+  "type": "object",
+  "required": ["motoko", "engagement_id", "sealed_at", "graph_db",
+               "integrity", "events_verified", "census"],
+  "properties": {
+    "motoko": {"const": "engagement-seal/1"},
+    "engagement_id": {"type": "string", "minLength": 1},
+    "sealed_at": {"type": "string"},
+    "previously_sealed_at": {"type": ["string", "null"]},
+    "engine_commit": {"type": ["string", "null"]},
+    "schema_version": {"type": ["integer", "string", "null"]},
+    "graph_db": {
+      "type": "object",
+      "required": ["sha256", "bytes"],
+      "properties": {
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "bytes": {"type": "integer", "minimum": 0}
+      }
+    },
+    "evidence_files": {
+      "type": "object",
+      "description": "Content-addressed obs/ and evidence/ trees (added 2026-10-11).",
+      "properties": {
+        "obs": {"$ref": "#/$defs/dir_digest"},
+        "evidence": {"$ref": "#/$defs/dir_digest"}
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "required": ["integrity_check", "referential_integrity", "wal_removed"],
+      "properties": {
+        "integrity_check": {"const": "ok"},
+        "referential_integrity": {"const": "ok"},
+        "wal_removed": {"const": true}
+      }
+    },
+    "events_verified": {
+      "type": "object",
+      "required": ["ok"],
+      "properties": {
+        "ok": {"type": "boolean"},
+        "events": {"type": "integer", "minimum": 0},
+        "warnings": {"type": "integer", "minimum": 0}
+      }
+    },
+    "census": {"type": "object"}
+  },
+  "$defs": {
+    "dir_digest": {
+      "type": "object",
+      "required": ["files", "bytes", "sha256"],
+      "properties": {
+        "files": {"type": "integer", "minimum": 0},
+        "bytes": {"type": "integer", "minimum": 0},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

@@ -64,6 +64,10 @@ include = ["core*", "interface", "interface.collectors", "interface.render"]
 # Rule packs travel inside the wheel and are found beside the installed package.
 [tool.setuptools.package-data]
 "core.rules" = ["*.json", "*/*.json"]
+# The JSON Schema contracts (motoko/verdict/1, motoko/engagement-seal/1,
+# motoko/adapter/1) ride inside the core package so a pip install can
+# validate against them; without this they exist only in the source tree.
+"core.schema" = ["*.json"]
 "core.defaults" = ["*.json"]
 "core.tools_anchor" = [
   "provision.sh",
