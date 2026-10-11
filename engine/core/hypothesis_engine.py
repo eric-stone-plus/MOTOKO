@@ -17,6 +17,17 @@ from pathlib import Path
 from . import util
 
 
+# `then.detection_risk` (off|low|high) is the rule author's cadence verdict:
+# how much pre-spawn delay THIS rule's action pattern needs. The producer
+# renders it onto each action as the `jitter` override the executor reads
+# (`executor._jitter_seconds`: off = no delay, low = the light 0.5-8s
+# profile, high = the heavy 2-30s profile). An action that names its own
+# `jitter` wins; an absent or unrecognized field leaves the tool-class table
+# in charge, and rulecheck reports the unrecognized spelling
+# (invalid_detection_risk) rather than letting the intent vanish silently.
+DETECTION_RISK_VALUES = frozenset({"off", "low", "high"})
+
+
 class HypothesisEngine:
     def __init__(self, rules_dir: Path | str, *, validate: bool = True):
         self.rules_dir = Path(rules_dir)
@@ -156,6 +167,34 @@ class HypothesisEngine:
         raise ValueError(f"rule condition uses unsupported op {op!r} (fact={fact!r})")
 
     # -- hypothesis construction --------------------------------------
+    @staticmethod
+    def _render_actions(then: dict) -> list:
+        """The rule's actions with ``detection_risk`` rendered as ``jitter``.
+
+        Every hypothesis gets COPIES: one loaded rule object serves every
+        hypothesis of every engagement, so an in-place stamp would leak one
+        mint's cadence into the next. An action that names its own `jitter`
+        wins; a corrupt non-list `actions` value rides through unchanged
+        (rulecheck owns that type defect). Unknown or non-string risk values
+        stamp nothing — the tool-class table stays in charge.
+        """
+        actions = then.get("actions", [])
+        if not isinstance(actions, list):
+            return actions
+        risk = then.get("detection_risk")
+        if not isinstance(risk, str) or risk not in DETECTION_RISK_VALUES:
+            risk = None
+        rendered = []
+        for action in actions:
+            if not isinstance(action, dict):
+                rendered.append(action)
+                continue
+            action = dict(action)
+            if risk is not None and "jitter" not in action:
+                action["jitter"] = risk
+            rendered.append(action)
+        return rendered
+
     def _hypothesis(self, rule: dict) -> dict:
         then = rule.get("then", {})
         return {
@@ -165,7 +204,7 @@ class HypothesisEngine:
             "rule_id": rule["id"],
             "category": rule.get("category", "tech"),
             "statement": then.get("hypothesis", rule.get("name", rule["id"])),
-            "actions": then.get("actions", []),
+            "actions": self._render_actions(then),
             "chain_hint": then.get("chain_hint", []),
             "on_hit_class": then.get("on_hit_class"),
             "priority": self._score(then),

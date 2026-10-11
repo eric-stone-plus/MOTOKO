@@ -876,6 +876,7 @@ def check_corpus(rules_dir: Path, *, core_dir: Path | None = None,
         _check_identity(r, seen_ids, report)
         _check_when(r, model, report, declared_by)
         _check_actions(r, model, report, resolve_tools)
+        _check_detection_risk(r, report)
         sig = _signature(r)
         if sig:
             signatures.setdefault(sig, []).append(r.id)
@@ -1318,6 +1319,42 @@ def _check_actions(r: Rule, model: CorpusModel, report: RuleReport,
                    evidence=f"{_rel(r)}; rendered by "
                             f"{', '.join(sorted(set(fields)))}",
                    fix=fix)
+
+
+def _check_detection_risk(r: Rule, report: RuleReport) -> None:
+    """`then.detection_risk` and `actions[].jitter` share one vocabulary.
+
+    The producer (``hypothesis_engine._render_actions``) renders the
+    rule-level field onto each action as the executor's pre-spawn jitter
+    override (``executor._jitter_seconds``: off = no delay, low = the light
+    0.5-8s profile, high = the heavy 2-30s profile). A spelling outside the
+    set is not a scan defect but silently dropped authoring intent — the run
+    pays the tool-class table while the rule asked for a different cadence —
+    so each one is reported, MEDIUM. Matching is exact (the executor's own
+    comparison), so "HIGH" is as invalid as a typo. Not in LOAD_FATAL_CODES:
+    a mis-spelled cadence still scans.
+    """
+    from .hypothesis_engine import DETECTION_RISK_VALUES
+
+    risk = r.then.get("detection_risk")
+    if risk is not None and not (isinstance(risk, str)
+                                 and risk in DETECTION_RISK_VALUES):
+        report.add("MEDIUM", "invalid_detection_risk", r.id,
+                   f"then.detection_risk is {risk!r} — the producer stamps "
+                   "no override for it, so every action keeps the tool-class "
+                   "default and the declared cadence is silently dropped",
+                   evidence=_rel(r),
+                   fix='use one of "off", "low", "high", or drop the field')
+    for i, a in enumerate(r.actions):
+        jitter = a.get("jitter")
+        if jitter is not None and not (isinstance(jitter, str)
+                                       and jitter in DETECTION_RISK_VALUES):
+            report.add("MEDIUM", "invalid_action_jitter", r.id,
+                       f"actions[{i}].jitter is {jitter!r} — the executor "
+                       "falls back to the tool-class table instead of the "
+                       "declared profile",
+                       evidence=_rel(r),
+                       fix='use one of "off", "low", "high", or drop the key')
 
 
 def _collect_placeholders(model: CorpusModel, template: str, field_name: str,
