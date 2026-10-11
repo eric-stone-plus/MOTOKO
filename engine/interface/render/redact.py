@@ -113,6 +113,20 @@ def origin_label(origin: str) -> str:
     return f"origin-{digest}"
 
 
+def engagement_label(engagement_id: str) -> str:
+    """Stable, non-reversible label for a campaign id: ``eng-<hash8>``.
+
+    The companion of ``origin_label`` for the one identifier redact_text
+    used to miss: a campaign NAME rode into rendered free text whenever a
+    collector error joined ``f"{eng_id}: ..."``. Same-input-same-label keeps
+    screens diffable; the hash keeps the name out of them. The alias
+    feature (ledger) will carry this label beside the real name; this
+    function is the label's single source.
+    """
+    digest = hashlib.sha256(str(engagement_id).encode("utf-8")).hexdigest()[:8]
+    return f"eng-{digest}"
+
+
 def mask_secret(text: str) -> str:
     """Render a credential-shaped value as fingerprint-prefix + last 3."""
     stripped = text.strip()
@@ -122,8 +136,9 @@ def mask_secret(text: str) -> str:
     return f"{head}…{stripped[-3:]}"
 
 
-def redact_text(text: str) -> str:
-    """Replace every URL, host/domain and IP literal with masked placeholders.
+def redact_text(text: str, *,
+                engagement_ids: tuple[str, ...] = ()) -> str:
+    """Replace every URL, host/domain, IP literal and KNOWN campaign id.
 
     URLs keep their own ``<redacted-url>`` placeholder; bare hostnames and
     IPv4/IPv6 literals (port included) collapse to ``<redacted-host>``, and a
@@ -135,10 +150,20 @@ def redact_text(text: str) -> str:
     through, and dotted ENGINE vocabulary (event kinds such as
     ``scan.wave.completed``) never enters here — see
     ``collectors/graph.py`` ``event_summary``.
+
+    ``engagement_ids`` masks the CALLER's known campaign ids to their
+    ``eng-<hash8>`` label (exact match, never a guessed pattern — a
+    campaign id is an arbitrary chosen name, and a regex over free text
+    would either miss it or eat ordinary prose). Callers that know which
+    ids may appear pass them; the collector error path passes its own.
     """
     if not text:
         return text
-    masked = _URL_RE.sub("<redacted-url>", text)
+    masked = text
+    for eid in engagement_ids:
+        if eid and eid in masked:
+            masked = masked.replace(eid, engagement_label(eid))
+    masked = _URL_RE.sub("<redacted-url>", masked)
     masked = _drop_userinfo(masked)
     masked = _HOST_RE.sub("<redacted-host>", masked)
     masked = _IPV4_RE.sub("<redacted-host>", masked)

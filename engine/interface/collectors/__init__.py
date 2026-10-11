@@ -10,7 +10,7 @@ from interface.collectors.adapter import PROTOCOL, AdapterClient
 from interface.collectors.demo import DemoCollector
 from interface.collectors.files import EngagementFiles, FileCollector
 from interface.collectors.graph import GraphCollector, GraphFacts
-from interface.render.redact import redact_text
+from interface.render.redact import engagement_label, redact_text
 from interface.snapshot import (
     EngagementSnapshot,
     GatesSummary,
@@ -350,7 +350,8 @@ def build_interface_snapshot(root: Path | None, demo: bool, *,
         files = session.file_collector.collect(eng_id)
         graph = session.graph_collector.collect(eng_id, sealed=files.sealed)
         if graph.error:
-            errors.append(f"{eng_id}: {graph.error}")
+            errors.append(
+                f"{engagement_label(eng_id)}: {graph.error}")
         collected.append((files, graph))
     gates = session.gates_refresh(now, [files for files, _ in collected])
 

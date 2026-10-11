@@ -114,7 +114,10 @@ def _status_parts(
     rows = [_engagement_row(eng) for eng in snapshot.engagements]
     notes: list[str] = []
     if snapshot.collector_error:
-        notes.append(f"COLLECTOR ERROR: {redact_text(snapshot.collector_error)}")
+        notes.append("COLLECTOR ERROR: "
+                     + redact_text(snapshot.collector_error,
+                                  engagement_ids=tuple(
+                                      e.id for e in snapshot.engagements)))
     if not snapshot.engagements:
         notes.append("no engagements in snapshot")
     else:
