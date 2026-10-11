@@ -115,6 +115,8 @@ EVENT_ENTITY_DOMAINS: dict[str, str | None] = {
     "opsec_cooldown_skip": "entity",
     "rule_hit_class": "entity",
     "rule_hit_class_skipped": "entity",
+    "status_flip": "entity",
+    "reset_flood": "entity_or_none",
     "sync_runs_failed": "entity",
     "validation_error": "entity",
     "verification_unblocked": "entity",

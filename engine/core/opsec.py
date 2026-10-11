@@ -89,6 +89,35 @@ def detect_waf(*, title: str = "", webserver: str = "",
     return None
 
 
+#: Statuses that read as "the target started refusing us" when they appear
+#: where a 2xx used to be. 403 is the classic block wall; 405 joins it because
+#: a WAF fronting a POST-only endpoint answers the engine's GETs with 405.
+BLOCKING_STATUSES = frozenset({403, 405})
+
+
+def status_flip(prev, new) -> str | None:
+    """The transition label when a status flip reads as "we got noticed".
+
+    Pure predicate on two integers-ish values, so the orchestrator's merge
+    hook stays a thin reaction and the judgement is testable in isolation.
+    A 2xx -> {403, 405} transition returns the label (``"200->403"``);
+    anything else returns None, which includes the FIRST observation of a
+    403 (an asset that never answered 2xx is not a flip — it may simply be
+    protected, and cooling every protected host would stall the wave).
+
+    Non-integer or missing values are None: an unreadable status is not
+    evidence in either direction, matching the module's fail-quiet
+    posture.
+    """
+    try:
+        p, n = int(prev), int(new)
+    except (TypeError, ValueError):
+        return None
+    if 200 <= p < 300 and n in BLOCKING_STATUSES:
+        return f"{p}->{n}"
+    return None
+
+
 def normalize_canary_path(raw: str) -> str:
     'Normalize a path for canary segment/prefix comparison.'
     text = unquote(str(raw or "")).replace("\\", "/")

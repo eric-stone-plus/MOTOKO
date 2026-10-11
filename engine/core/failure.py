@@ -46,6 +46,10 @@ _DETECTED_MARKERS = (
     "blocked by", "request blocked", "403 forbidden",
 )
 
+_OUTPUT_BEHAVIOUR_MARKERS = (
+    "connection reset", "econnreset", "unresponsive permanently",
+)
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -262,6 +266,67 @@ def _hyp_timeouts(con: sqlite3.Connection, engagement_id: str) -> dict[str, dict
                 per[str(tool)] = max(per.get(str(tool), 0.0), float(t))
         if per:
             out[r["id"]] = per
+    return out
+
+
+@dataclass(frozen=True)
+class OutputSignal:
+    """One recorded output that carries a target-behaviour marker.
+
+    ``occurred_at`` is epoch seconds (None when the stamp is unreadable —
+    the age-fail direction belongs to the consumer, same contract as
+    ``Failure.occurred_at``). ``marker`` is the matched phrase, so a
+    consumer can tell a transport reset from nuclei's own retry verdict.
+    """
+
+    tool_run_id: str
+    hypothesis_id: str
+    marker: str
+    occurred_at: float | None
+    tool: str = ""
+
+
+def scan_output_signals(writer, engagement_id: str, *, window_s: float,
+                        now: float | None = None,
+                        limit: int = 300) -> list[OutputSignal]:
+    """Signals from tool_run OUTPUT (either stream), newest first.
+
+    Read-side only, and bounded twice: at most ``limit`` rows, and only
+    rows whose creation stamp is inside ``window_s`` of ``now`` when the
+    stamp is readable (an unreadable stamp is kept — staying quiet is the
+    cheaper error on this side, and the consumer's threshold still applies).
+    A missing/locked table degrades to an empty list, the same contract as
+    ``scan_tool_runs``.
+    """
+    con = _conn_of(writer)
+    try:
+        rows = con.execute(
+            """SELECT tr.id, tr.hypothesis_id, tr.tool, tr.stdout_ref,
+                      tr.stderr_ref, tr.created_at
+                 FROM tool_run tr
+                 JOIN entities e ON e.id = tr.hypothesis_id
+                WHERE e.engagement_id = ?
+                ORDER BY tr.created_at DESC LIMIT ?""",
+            (engagement_id, limit)).fetchall()
+    except sqlite3.Error:
+        return []
+    now = time.time() if now is None else now
+    out: list[OutputSignal] = []
+    for r in rows:
+        occurred = _stamp_epoch(r["created_at"])
+        if occurred is not None and now - occurred > window_s:
+            continue
+        text = _tail_file(r["stderr_ref"]) or ""
+        if not text:
+            text = _tail_file(r["stdout_ref"]) or ""
+        low = text.lower()
+        marker = next((m for m in _OUTPUT_BEHAVIOUR_MARKERS if m in low), "")
+        if not marker:
+            continue
+        out.append(OutputSignal(tool_run_id=r["id"],
+                                hypothesis_id=r["hypothesis_id"] or "",
+                                marker=marker, occurred_at=occurred,
+                                tool=r["tool"] or ""))
     return out
 
 

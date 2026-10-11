@@ -21,7 +21,7 @@ from . import (cmd, confidence, db, digest, egress, egress_probe, opsec,
 from . import asset_link
 from .dedup import compute_dedup_key
 from .hypothesis_engine import HypothesisEngine
-from .opsec import CooldownBoard
+from .opsec import CooldownBoard, status_flip
 from .parsers import dependency_context_keys, get_parser, parse_tool
 from .scope import ScopeDecision, ScopeGuard
 from .scan_waves import ScanWaves
@@ -32,6 +32,8 @@ from .verification import (
 )
 
 _MAX_EMPTY_EXPANSIONS = 3
+
+_RESET_RATE_MIN = 5
 
 _EXPAND_BUDGET = 30
 
@@ -335,6 +337,14 @@ class Orchestrator:
         # (stacking extends it), the failure_recovery payload lists each
         # origin once per process per tool.
         self._detected_noted: set[tuple[str, str]] = set()
+        # (asset_id, new_status) pairs whose 2xx -> 403/405 flip was already
+        # reported — mirrors _waf_noted: the merge path sees the same flip
+        # again only if a probe re-lands the blocking status, and the event
+        # is worth one row per asset, not one per re-observation.
+        self._flip_noted: set[tuple[str, str]] = set()
+        # Origins already cooled + reported by the reset-flood sweep (one
+        # row per origin per process; the deadline itself may restack).
+        self._reset_noted: set[str] = set()
         # The (hours, last-probed-basis) of the rotation deadline crossing
         # already emitted, so two consecutive cycles at the SAME expired
         # deadline emit one marker, not one per wave. Instance state only —
@@ -669,9 +679,33 @@ class Orchestrator:
                 merged.pop("deferred_rules", None)
             if changed or dirty:
                 self.writer.upsert_entity(merged)
+                # The flip reaction reads the OLD row and the INCOMING dict:
+                # after this merge the previous status exists only in the
+                # event log (entity.upsert snapshots), and a sweep over the
+                # log would re-fire on every restart. Only a real 2xx ->
+                # {403,405} transition reaches this call.
+                self._note_status_flip(str(e["id"]), str(a.get("value") or ""),
+                                       e.get("status_code"),
+                                       a.get("status_code"))
             return e["id"]
         self.writer.upsert_entity(a)
         return a["id"]
+
+    def _note_status_flip(self, asset_id: str, value: str, prev, new) -> None:
+        "React to an asset's status flipping from 2xx to 403/405.\n\n        Advisory-by-construction: a 405 on a URL whose method the probes do\n        not share (a POST-only endpoint answering a GET from another tool)\n        can flip without any blocking. That is why the reaction is a QUIET\n        period, not a ban, and why the event carries the exact transition\n        for the operator to read back.\n        "
+        reason = opsec.status_flip(prev, new)
+        if not reason:
+            return
+        origin = self._origin_of("url", value) or self._origin_of("host", value)
+        if origin:
+            self._cooldowns.trigger(origin, f"status_flip:{reason}")
+        key = (asset_id, str(new))
+        if key in self._flip_noted:
+            return
+        self._flip_noted.add(key)
+        self.writer.append_event("status_flip", asset_id, {
+            "value": value, "from": prev, "to": new,
+            "host": origin, "action": "origin_cooled" if origin else "noted"})
 
     def _note_waf(self, asset_id: str, vendor: str, *, source: str) -> None:
         """React to a WAF fact landing on an asset.
@@ -1311,6 +1345,8 @@ class Orchestrator:
             self._cooldowns = CooldownBoard()
             self._waf_noted = set()
             self._detected_noted = set()
+            self._flip_noted = set()
+            self._reset_noted = set()
         # G9: per-cycle dedup of identical commands. A cold-start graph
         # carries many hypotheses whose rules render the SAME command for
         # the SAME target (bootstrap + tech + context firing on one host);
@@ -1785,15 +1821,54 @@ class Orchestrator:
             self._failure_digest = failure.build_digest(
                 self.writer, self.engagement_id, recover=True)
             detected_cooled = self._cool_detected_origins(failure)
+            reset_cooled = self._cool_reset_floods(failure)
             if (self._failure_digest.recycled or self._failure_digest.abandoned
-                    or detected_cooled):
+                    or detected_cooled or reset_cooled):
                 payload = self._failure_digest.as_dict()
                 if detected_cooled:
                     payload["detected_cooled"] = sorted(detected_cooled)
+                if reset_cooled:
+                    payload["reset_cooled"] = sorted(reset_cooled)
                 self.writer.append_event(
                     "failure_recovery", self.engagement_id, payload)
         except Exception:
             self._failure_digest = None
+
+    def _cool_reset_floods(self, failure) -> set[str]:
+        'Cool origins flooding the loop with reset-shaped output.\n\n        Guards mirror ``_cool_detected_origins``: an origin already cooled\n        is never restacked, and the event payload lists each origin once\n        per process. Never raises: a recovery pass is an optimization.\n        '
+        cooled: set[str] = set()
+        try:
+            if getattr(self, "_cooldowns", None) is None:
+                self._cooldowns = CooldownBoard()
+            noted = getattr(self, "_reset_noted", None)
+            if noted is None:
+                noted = self._reset_noted = set()
+            window = float(getattr(self._cooldowns, "cooldown_s", 1800.0))
+            signals = failure.scan_output_signals(
+                self.writer, self.engagement_id, window_s=window)
+            counts: dict[str, int] = {}
+            for s in signals:
+                origin = self._detected_origin_of(s)
+                if not origin:
+                    continue
+                counts[origin] = counts.get(origin, 0) + 1
+            for origin, n in sorted(counts.items()):
+                if n < _RESET_RATE_MIN:
+                    continue
+                if self._cooldowns.blocked(origin):
+                    continue        # already quiet: never restack the deadline
+                self._cooldowns.trigger(origin, f"reset_rate:{n}")
+                cooled.add(origin)
+                if origin in noted:
+                    continue
+                noted.add(origin)
+                self.writer.append_event("reset_flood", origin, {
+                    "marks": n, "window_s": round(window, 1),
+                    "threshold": _RESET_RATE_MIN,
+                    "action": "origin_cooled"})
+        except Exception:
+            return set()
+        return cooled
 
     def _cool_detected_origins(self, failure) -> set[str]:
         'Cool every origin whose failed run classified ``detected``.\n\n        ``_detected_noted`` keeps the payload to one entry per (origin, tool)\n        per process, and only rows this pass actually cooled reach it. Never\n        raises: a recovery pass is an optimization.\n        '
