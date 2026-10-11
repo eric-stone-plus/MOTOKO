@@ -50,11 +50,18 @@ highest `<version>/` dir, so a new anchor is locked automatically).
   byte-copy of a host's site-packages.
 - NOTE: this anchor also closes the old "docker_client patch has no source
   backup" gap — the deploy site is no longer the only copy. The tools/strix
-  source-checkout mirror stays pending; 1.5.3 is not the executed code path.
-  The checkout's `docker_client.py` still LACKS the publish-ports patch
-  (it has the two caido files); re-apply or upstream before any upgrade
-  (`strix-upgrade` sanity-checks the deployed markers, but the checkout is
-  what a rebuild from source would produce).
+  source-checkout mirror is now IN SYNC for all three files: the checkout's
+  `docker_client.py` publish-ports gap was closed 2026-10-11 (nested-repo
+  commit `bbacaa7`; checkout sha256 == anchor sha256 == deployed sha256,
+  verified), so a rebuild from the checkout keeps the published-port
+  channel. The checkout's version DECLARATION (1.5.3) still trails the
+  deployed 1.6.2 — aligning that is an operator window (`strix-upgrade`
+  changes the deployed version), and `provision.sh strix-verify`
+  sanity-checks the deployed markers regardless.
+  The checkout's working-tree NET_POLICY revision (live since 2026-10-10
+  but never committed there) was also recorded same day (`535dea8`) — a
+  checkout clean would otherwise have reverted the sandbox's network
+  policy text.
 
 Upgrade procedure (mandatory): `./provision.sh strix-upgrade` — never a bare
 `uv tool upgrade`. After any version bump: anchor the new patched files here,
