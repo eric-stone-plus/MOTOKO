@@ -376,11 +376,35 @@ _WAVE_ROOT = "wave-runs"
 
 _STRIX_LAUNCHER_REL = "engine/launch-strix.sh"
 
+_STRIX_NET_POLICY = (
+    " SANDBOX NETWORK POLICY (kernel-enforced): "
+    "(1) Send ALL target HTTP(S) traffic through the sandbox's exported "
+    "proxy — use proxy-aware tools (curl, httpx, katana, ffuf, nuclei; "
+    "sqlmap/nikto with their proxy flags) and keep the proxy environment "
+    "set (never strip it). "
+    "(2) Port scanning is allowed ONLY as TCP connect: nmap -sT with -Pn -n "
+    "--open and an explicit port list or --top-ports, always as the "
+    "unprivileged user (never sudo, never a raw-packet nmap mode). Scan "
+    "through the proxy (nmap --proxies <the exported proxy> -sT); bare "
+    "direct connects are kernel-dropped by the egress lock and yield "
+    "UNVERIFIED, not closed. Any raw-packet or link-layer tool is forbidden: "
+    "no nmap -sS/-sA/-sN/-sF/-sX/-sW/-sM/--privileged, no masscan, arp-scan, "
+    "tcpdump, scapy — a raw AF_PACKET socket is detected and the session is "
+    "killed immediately; tampering with firewall, routes or interfaces also "
+    "ends the session. "
+    "(3) Do NOT test direct connectivity with curl --noproxy, nc, bash "
+    "/dev/tcp, openssl s_client, ping, traceroute — blocked probes only "
+    "waste budget. DNS and localhost tooling work normally; if the target "
+    "seems unreachable, diagnose via the proxy error page, note it, and "
+    "continue with other surfaces."
+)
+
 _STRIX_INSTRUCTION = (
     "Deep-dive authorized penetration test on {target}: enumerate the hidden "
     "API surface, auth flows, and client-side secrets. Report every URL, "
     "parameter and CVE found. Single-host discipline: {target} only — do not "
     "follow siblings, parent domains or third-party hosts out of scope."
+    + _STRIX_NET_POLICY
 )
 
 
