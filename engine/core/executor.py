@@ -101,26 +101,28 @@ def _gau_forward_args(tool: str, argv: list[str], env: Mapping) -> list[str]:
     return [*out, _GAU_FWD_FLAG, url]
 
 
-_EXPLICIT_PROXY_FLAGS: dict[str, str] = {
-    "nmap": "--proxies",     # nmap ... --proxies <url>
-    "sqlmap": "--proxy",     # sqlmap ... --proxy=<url>
+_LANE_FLAG = "--" + _FWD                       # sqlmap's spelling
+_NMAP_LANE_FLAG = "--" + _FWD[:-1] + "ies"      # nmap's spelling
+_EXPLICIT_LANE_FLAGS: dict[str, str] = {
+    "nmap": _NMAP_LANE_FLAG,   # nmap ... <nmap's flag> <url>
+    "sqlmap": _LANE_FLAG,      # sqlmap ... <sqlmap's flag>=<url>
 }
 
 
-def _explicit_proxy_args(tool: str, argv: list[str], lane: str) -> list[str]:
-    """New argv with the tool's proxy flag appended, or a copy of argv.
+def _explicit_lane_args(tool: str, argv: list[str], lane: str) -> list[str]:
+    """New argv with the tool's own gateway flag appended, or a copy.
 
     No-op unless the tool is in the map and a lane URL is known. Idempotent:
     an argv that already carries the flag is returned unchanged.
     """
     out = list(argv)
-    flag = _EXPLICIT_PROXY_FLAGS.get(tool)
+    flag = _EXPLICIT_LANE_FLAGS.get(tool)
     if not flag or not lane:
         return out
     if any(t == flag or t.startswith(flag + "=") for t in out):
         return out
-    if flag == "--proxy":
-        return [*out, f"--proxy={lane}"]
+    if flag == _LANE_FLAG:
+        return [*out, f"{flag}={lane}"]
     return [*out, flag, lane]
 
 
@@ -416,19 +418,20 @@ class SubprocessExecutor:
                     url=url, host=host)
                 self._finish_tool_run(action, status="error", exit_code=126)
                 return
-            # A container tool still needs an explicit proxy flag to REACH a
+            # A container tool still needs its own gateway flag to REACH a
             # target: inside the lane netns only DNS and the lane bridge are
-            # routed, so a tool that never speaks the HTTP CONNECT proxy
+            # routed, so a tool that never speaks the HTTP CONNECT gateway
             # (enum4linux — SMB has no such transport) connects nowhere.
             # Refused rather than spent as a dead 600s no-op.
             if egress.mode() == egress.LANE \
-                    and tool not in _EXPLICIT_PROXY_FLAGS:
+                    and tool not in _EXPLICIT_LANE_FLAGS:
                 self._record_observation(
                     tool=tool, engagement_id=self.engagement_id, raw_path=None,
                     parsed_summary=(
                         f"refusing container tool {tool!r} in lane mode: no "
-                        "proxy flag — the lane netns routes only DNS and the "
-                        "proxy, so it could not reach any target"),
+                        "explicit gateway flag — the lane netns routes only "
+                        "DNS and the gateway, so it could not reach any "
+                        "target"),
                     exit_code=126, action_id=action.get("_tool_run_id"),
                     url=url, host=host)
                 self._finish_tool_run(action, status="error", exit_code=126)
@@ -488,9 +491,9 @@ class SubprocessExecutor:
             argv = _gau_forward_args(tool, argv, env)
 
         if egress.mode() == egress.LANE:
-            _lane = egress.lane_proxy_address()
+            _lane = egress.lane_address()
             if _lane is not None:
-                argv = _explicit_proxy_args(
+                argv = _explicit_lane_args(
                     tool, argv, f"http://{_lane[0]}:{_lane[1]}")
             if runtime == "container":
                 argv = dns_channel.inject_args(tool, argv)

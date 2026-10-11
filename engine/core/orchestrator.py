@@ -21,7 +21,7 @@ from . import (cmd, confidence, db, digest, egress, egress_probe, opsec,
 from . import asset_link
 from .dedup import compute_dedup_key
 from .hypothesis_engine import HypothesisEngine
-from .opsec import CooldownBoard, status_flip
+from .opsec import CooldownBoard
 from .parsers import dependency_context_keys, get_parser, parse_tool
 from .scope import ScopeDecision, ScopeGuard
 from .scan_waves import ScanWaves
@@ -144,7 +144,7 @@ def replay_egress_blocked(fetcher) -> bool:
     if fetcher is lane_fetcher:
         return not (egress.replay_via() == egress.LANE
                     and egress.replay_via_recognized()
-                    and egress.lane_proxy_address() is not None)
+                    and egress.lane_address() is not None)
     return False
 
 
@@ -198,7 +198,7 @@ def lane_fetcher(url: str, bind_ip: str | None = None):
     None = inconclusive, never falsification) and the same pinning doctrine,
     with one extra hop: the tunnel is opened by asking the lane gateway for
     ``CONNECT <bind_ip>:<port>``. The IP-form authority IS the pin — the
-    proxy must never re-resolve the hostname, or the DNS-rebinding window the
+    lane gateway must never re-resolve the hostname, or the DNS-rebinding window the
     scope guard closed reopens at the gateway. TLS then runs END-TO-END
     through the tunnel with the original hostname as SNI and the system CA
     store verifying it: the lane is a CONNECT tunnel, not a MITM seam, so no
@@ -214,7 +214,7 @@ def lane_fetcher(url: str, bind_ip: str | None = None):
         return None
     if egress.replay_via() != egress.LANE or not egress.replay_via_recognized():
         return None
-    gateway = egress.lane_proxy_address()
+    gateway = egress.lane_address()
     if gateway is None:
         return None
     u = urlparse(url)
@@ -275,7 +275,7 @@ def default_replay_fetcher():
     """
     if (egress.replay_via() == egress.LANE
             and egress.replay_via_recognized()
-            and egress.lane_proxy_address() is not None):
+            and egress.lane_address() is not None):
         return lane_fetcher
     return default_fetcher
 

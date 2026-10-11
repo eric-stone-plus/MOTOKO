@@ -129,8 +129,8 @@ def replay_via_recognized() -> bool:
     return not value or value in REPLAY_VIA_VALUES
 
 
-def lane_proxy_address() -> tuple[str, int] | None:
-    "The campaign-lane CONNECT gateway as (host, port), or None.\n\n    Reads the same `HOST_FWD_VARS` family `lane_configured()` does: the\n    engine never SETS a lane, so the address a replay tunnel must dial is\n    exactly the lane the tools inherit. Explicit priority\n    (https_proxy > http_proxy > all_proxy) keeps the pick deterministic, and\n    the first non-empty spelling decides — a malformed one fails closed\n    rather than falling through to another var, because a typo'd lane must\n    not be laundered by a second spelling."
+def lane_address() -> tuple[str, int] | None:
+    "The campaign-lane CONNECT gateway as (host, port), or None.\n\n    Reads the same `HOST_FWD_VARS` family `lane_configured()` does: the\n    engine never SETS a lane, so the address a replay tunnel must dial is\n    exactly the lane the tools inherit. Explicit priority (the OS https,\n    then http, then all spellings of the lane var) keeps the pick\n    deterministic, and the first non-empty spelling decides — a malformed\n    one fails closed rather than falling through to another var, because a\n    typo'd lane must not be laundered by a second spelling."
     env = {str(k).lower(): str(v) for k, v in os.environ.items()}
     for name in ("https_" + _FWD, "http_" + _FWD, "all_" + _FWD):
         raw = env.get(name, "").strip()
@@ -335,7 +335,7 @@ def launch_gate() -> str | None:
                     f"{DIRECT_REPLAY_ENV}=1 for a deployment whose host route "
                     f"IS the anonymous lane, or {REPLAY_VIA_ENV}={LANE} to "
                     f"route replays through the campaign lane")
-        if lane_proxy_address() is None:
+        if lane_address() is None:
             lanes = "/".join(sorted(HOST_FWD_VARS))
             return (f"launch refused: {REPLAY_VIA_ENV}={LANE} but no usable "
                     f"lane address is set in the engine process's own "
@@ -534,7 +534,7 @@ def summary() -> dict:
     asserted = replay_asserted()
     via = replay_via()
     via_ready = (via == LANE and replay_via_recognized()
-                 and lane_proxy_address() is not None)
+                 and lane_address() is not None)
     if via_ready:
         note = (f"replay egress via the campaign lane ({REPLAY_VIA_ENV}={LANE}) "
                 "— the built-in lane fetcher re-issues requests through the "

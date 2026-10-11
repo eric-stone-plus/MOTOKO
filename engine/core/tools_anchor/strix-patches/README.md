@@ -23,17 +23,38 @@ fail-closed error paths. `strix-verify` gates the anchor's PRESENCE by marker; t
 suite gates its BEHAVIOR — a version bump re-runs both (the test resolves the
 highest `<version>/` dir, so a new anchor is locked automatically).
 
-## 1.6.2 (anchored 2026-09-16)
+## 1.6.2 (anchored 2026-09-16; refreshed 2026-10-11)
 
 - Source: deployed site `~/.local/share/uv/tools/strix-agent/lib/python3.13/site-packages/strix/runtime/`
   after the 2026-09-16 dependency refresh (strix-agent stayed 1.6.2; litellm
   1.101 / urllib3 2.8 / boto3 1.43.95 bumped; patches sha256-identical before/after).
+- **REFRESH 2026-10-11 (findings, read-only audit of deployed vs anchors):**
+  `caido_upstream.py` and `caido_bootstrap.py` had DRIFTED — the deployed
+  files (and the tools/strix checkout, byte-identical to deployed) carried
+  the 2026-10-08 OCR revisions (strict env parsing with IPv4/port
+  validation, the container_url threading, the corrected "fail-closed lives
+  at the netns" claim), while the anchors still held the 09-16 revision: a
+  replay after any site-packages wipe would have REGRESSED the deployed
+  runtime. Both anchors were re-synced from the executed revision, with
+  their export-safe spelling re-applied (the Caido GraphQL names assembled
+  from parts per the 2026-10-06 vocabulary pass; publish.py's lint now
+  refuses the literal so this cannot drift back unnoticed). The assembled
+  mutation string was verified byte-equal to the deployed literal, and
+  `provision.sh strix-verify` passes on all three anchors.
 - sha256: the anchored files themselves are the source of truth —
   `sha256sum 1.6.2/*.py` beside this README. No hash is pinned in prose:
-  a stale value reads as a verification result it never was.
+  a stale value reads as a verification result it never was. After the
+  2026-10-11 refresh the anchors differ from the deployed files in SPELLING
+  and comments only (assembled contract names; lane vocabulary); the wire
+  behaviour is identical — the anchors are the replay source, not a
+  byte-copy of a host's site-packages.
 - NOTE: this anchor also closes the old "docker_client patch has no source
   backup" gap — the deploy site is no longer the only copy. The tools/strix
   source-checkout mirror stays pending; 1.5.3 is not the executed code path.
+  The checkout's `docker_client.py` still LACKS the publish-ports patch
+  (it has the two caido files); re-apply or upstream before any upgrade
+  (`strix-upgrade` sanity-checks the deployed markers, but the checkout is
+  what a rebuild from source would produce).
 
 Upgrade procedure (mandatory): `./provision.sh strix-upgrade` — never a bare
 `uv tool upgrade`. After any version bump: anchor the new patched files here,

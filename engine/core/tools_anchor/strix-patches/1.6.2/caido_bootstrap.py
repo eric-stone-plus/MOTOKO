@@ -108,7 +108,7 @@ async def bootstrap_caido(
         from .caido_upstream import upstream_from_env, wire_upstream
 
         if upstream_from_env() is not None:
-            await wire_upstream(session, access_token)
+            await wire_upstream(session, access_token, container_url)
     except BaseException:
         # The client never reaches the session bundle if connect or project
         # setup fails, so close it here to avoid leaking the transport.
