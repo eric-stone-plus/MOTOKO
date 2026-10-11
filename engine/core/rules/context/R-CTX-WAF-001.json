@@ -13,6 +13,7 @@
   },
   "then": {
     "hypothesis": "WAF already blocks the origin (observed by httpx/nuclei): confirm response headers once, then stop; the origin is cooling down and must not be pressured",
+    "detection_risk": "low",
     "actions": [
       {
         "tool": "curl",
