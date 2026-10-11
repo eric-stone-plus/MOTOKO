@@ -110,13 +110,16 @@ class HttpxParser(Parser):
             "tech": tech,
             "webserver": d.get("webserver"),
         }
-        vendor = opsec.detect_waf(title=d.get("title") or "",
-                                  webserver=d.get("webserver") or "",
-                                  tech=tech,
-                                  headers=d.get("header") if isinstance(
-                                      d.get("header"), dict) else None)
-        if vendor:
+        sighting = opsec.classify_waf(title=d.get("title") or "",
+                                      webserver=d.get("webserver") or "",
+                                      tech=tech,
+                                      headers=d.get("header") if isinstance(
+                                          d.get("header"), dict) else None)
+        if sighting:
+            vendor, _evidence = sighting
             extra["waf"] = vendor
+            if _evidence == "block":
+                extra["waf_blocked"] = True
         if d.get("http2"):
             extra["http2"] = True
         if str(d.get("cdn_type") or "").lower() == "cloud":
@@ -166,8 +169,11 @@ class HttpxParser(Parser):
                 title = groups[0] or None
         extra = {"status_code": status, "title": title, "tech": tech,
                  "webserver": webserver}
-        vendor = opsec.detect_waf(title=title or "", webserver=webserver or "",
-                                  tech=tech)
-        if vendor:
+        sighting = opsec.classify_waf(title=title or "", webserver=webserver or "",
+                                      tech=tech)
+        if sighting:
+            vendor, _evidence = sighting
             extra["waf"] = vendor
+            if _evidence == "block":
+                extra["waf_blocked"] = True
         return self._asset(type_="url", value=url, extra=extra)

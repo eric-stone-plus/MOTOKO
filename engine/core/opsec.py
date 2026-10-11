@@ -12,38 +12,41 @@ from urllib.parse import unquote, urlparse
 DEFAULT_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
 
-# (substring, vendor) — matched case-insensitively against title, webserver,
-# tech strings and header names/values. First match wins.
-_WAF_SIGNATURES: tuple[tuple[str, str], ...] = (
-    ("阿里云", "aliyun-waf"),           # observed production block title
-    ("aliyun waf", "aliyun-waf"),
-    ("yundun", "aliyun-waf"),
-    ("雷池", "safeline"),
-    ("safeline", "safeline"),
-    ("安全狗", "safedog"),
-    ("safedog", "safedog"),
-    ("云锁", "yunsuo"),
-    ("yunsuo", "yunsuo"),
-    ("创宇盾", "zhidao-chuangyu"),
-    ("知道创宇", "zhidao-chuangyu"),
-    ("腾讯云waf", "tencent-waf"),
-    ("tencent waf", "tencent-waf"),
-    ("t-sec", "tencent-waf"),
-    ("火山引擎", "volcengine"),
-    ("volcengine", "volcengine"),
-    ("深信服", "sangfor"),
-    ("sangfor", "sangfor"),
-    ("网宿", "wangsu"),
-    ("wangsu", "wangsu"),
-    ("incapsula", "imperva"),
-    ("imperva", "imperva"),
-    ("cloudflare", "cloudflare"),
-    ("akamai", "akamai"),
-    ("sucuri", "sucuri"),
-    ("web application firewall", "generic-waf"),
+_WAF_SIGNATURES: tuple[tuple[str, str, str], ...] = (
+    # -- block evidence -------------------------------------------------
+    ("阿里云", "aliyun-waf", "block"),       # observed production block title
+    ("aliyun waf", "aliyun-waf", "block"),
+    ("yundun", "aliyun-waf", "block"),       # cloud shield = the WAF product
+    ("雷池", "safeline", "block"),
+    ("safeline", "safeline", "block"),
+    ("安全狗", "safedog", "block"),
+    ("safedog", "safedog", "block"),
+    ("云锁", "yunsuo", "block"),
+    ("yunsuo", "yunsuo", "block"),
+    ("创宇盾", "zhidao-chuangyu", "block"),
+    ("知道创宇", "zhidao-chuangyu", "block"),
+    ("腾讯云waf", "tencent-waf", "block"),
+    ("tencent waf", "tencent-waf", "block"),
+    ("t-sec", "tencent-waf", "block"),
+    ("应用防火墙", "generic-waf", "block"),
+    ("web application firewall", "generic-waf", "block"),
+    # -- presence only --------------------------------------------------
+    ("火山引擎", "volcengine", "presence"),
+    ("volcengine", "volcengine", "presence"),
+    ("深信服", "sangfor", "presence"),
+    ("sangfor", "sangfor", "presence"),
+    ("网宿", "wangsu", "presence"),
+    ("wangsu", "wangsu", "presence"),
+    ("incapsula", "imperva", "presence"),
+    ("imperva", "imperva", "presence"),
+    ("cloudflare", "cloudflare", "presence"),
+    ("akamai", "akamai", "presence"),
+    ("sucuri", "sucuri", "presence"),
 )
 
-# Header names whose bare presence means a WAF sits in front.
+# Header names whose bare presence means a WAF sits in front. These ARE block
+# evidence: every listed name is WAF-specific (x-waf-status, x-safedog …),
+# so a matching header reports an interception layer, not a CDN brand.
 _WAF_HEADER_NAMES = ("x-waf", "x-yundun", "x-safedog", "yunsuo_session",
                      "x-cdn-waf", "x-waf-status")
 
@@ -54,14 +57,17 @@ _CANARY_TOKENS = frozenset({
 _SEGMENT_SPLIT = re.compile(r"[/_\-.?]")
 
 
-def detect_waf(*, title: str = "", webserver: str = "",
-               tech: list[str] | tuple[str, ...] | None = None,
-               headers: dict | None = None) -> str | None:
-    """Return a vendor name when a WAF signature is present, else None.
+def classify_waf(*, title: str = "", webserver: str = "",
+                 tech: list[str] | tuple[str, ...] | None = None,
+                 headers: dict | None = None,
+                 ) -> tuple[str, str] | None:
+    """The WAF sighting as ``(vendor, evidence)``, or None.
 
-    ``title``/``webserver`` are the httpx JSON fields; ``tech`` is its tech
-    list (or a nuclei tag list); ``headers`` an optional response-header
-    mapping (names and values are both scanned).
+    ``evidence`` is ``"block"`` (the signature names a WAF/blocking product
+    or a block-page wording — this may cool the origin) or ``"presence"``
+    (a bare edge/CDN brand — a fact, but never block evidence). Callers
+    that stamp data use this; ``detect_waf`` remains the vendor-only view
+    for consumers that just need a name.
     """
     candidates: list[str] = []
     for text in (title, webserver):
@@ -79,14 +85,32 @@ def detect_waf(*, title: str = "", webserver: str = "",
     joined = "\n".join(candidates).lower()
     if not joined:
         return None
-    for needle, vendor in _WAF_SIGNATURES:
+    for needle, vendor, evidence in _WAF_SIGNATURES:
         if needle in joined:
-            return vendor
+            return vendor, evidence
     if headers:
         for name in headers:
             if str(name).lower() in _WAF_HEADER_NAMES:
-                return "generic-waf"
+                return "generic-waf", "block"
     return None
+
+
+def detect_waf(*, title: str = "", webserver: str = "",
+               tech: list[str] | tuple[str, ...] | None = None,
+               headers: dict | None = None) -> str | None:
+    """Return a vendor name when a WAF signature is present, else None.
+
+    ``title``/``webserver`` are the httpx JSON fields; ``tech`` is its tech
+    list (or a nuclei tag list); ``headers`` an optional response-header
+    mapping (names and values are both scanned).
+
+    Vendor-only view over ``classify_waf`` — a caller that must know
+    WHETHER the sighting is block evidence (the cooldown rule) uses the
+    tuple form instead of re-deriving it from the name.
+    """
+    sighting = classify_waf(title=title, webserver=webserver, tech=tech,
+                            headers=headers)
+    return sighting[0] if sighting else None
 
 
 #: Statuses that read as "the target started refusing us" when they appear

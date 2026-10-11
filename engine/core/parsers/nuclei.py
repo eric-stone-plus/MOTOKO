@@ -91,9 +91,14 @@ class NucleiParser(Parser):
                     if isinstance(value, str) and value.strip():
                         extra["token"] = value.strip()
                         break
-            vendor = opsec.detect_waf(tech=tags)
-            if vendor:
+            sighting = opsec.classify_waf(tech=tags)
+            if sighting:
+                vendor, _evidence = sighting
                 extra["waf"] = vendor
+                if _evidence == "block":
+                    # A nuclei template TAGGED as a WAF/block detector is
+                    # block evidence; a bare CDN brand tag is presence.
+                    extra["waf_blocked"] = True
             if cls.startswith("ssrf"):
                 point = util.ssrf_injection_point(matched)
                 if point:

@@ -545,8 +545,8 @@ class Orchestrator:
             aid = self._merge_asset(a)
             if aid not in asset_ids:
                 asset_ids.append(aid)
-            if a.get("waf"):
-                self._note_waf(aid, str(a["waf"]),
+            if a.get("waf_blocked"):
+                self._note_waf(aid, str(a.get("waf") or "waf"),
                                source=str(a.get("source") or parsed.tool))
         run_id = str((context or {}).get("action_id") or "")
         run_status = self.writer.tool_run_status(run_id) if run_id else None
@@ -599,8 +599,9 @@ class Orchestrator:
             fid = self._ingest_finding(f)
             if fid and fid not in finding_ids:
                 finding_ids.append(fid)
-            if f.get("waf") and f.get("asset_id"):
-                self._note_waf(str(f["asset_id"]), str(f["waf"]),
+            if f.get("waf_blocked") and f.get("asset_id"):
+                self._note_waf(str(f["asset_id"]),
+                               str(f.get("waf") or "waf"),
                                source=str(f.get("detector") or parsed.tool))
         self.writer.update_observation_evidence(obs_id, asset_ids,
                                                 finding_ids)
@@ -708,14 +709,7 @@ class Orchestrator:
             "host": origin, "action": "origin_cooled" if origin else "noted"})
 
     def _note_waf(self, asset_id: str, vendor: str, *, source: str) -> None:
-        """React to a WAF fact landing on an asset.
-
-        The ``waf`` vendor is already merged onto the asset row by
-        ``_merge_asset`` (that's what activates R-CTX-WAF-001 in _fact_view);
-        this is the reaction half: cool the whole origin down and log one
-        ``waf_detected`` event per (asset, vendor). Re-observations extend
-        the cooldown silently instead of spamming the event log.
-        """
+        'React to a BLOCK-evidence WAF fact landing on an asset.'
         ent = self.writer.get_entity(asset_id)
         host = ""
         if ent:
@@ -1266,6 +1260,10 @@ class Orchestrator:
         tech = asset.get("tech") or []
         facts["tech"] = tech
         facts["waf"] = bool(asset.get("waf"))
+        # Block evidence, distinct from presence (opsec.classify_waf): a
+        # CDN brand in front is a fact; an interception layer is why an
+        # origin cools. Same split the parsers stamp.
+        facts["waf_blocked"] = bool(asset.get("waf_blocked"))
         facts["cloud"] = bool(asset.get("cloud"))
         facts["http2"] = bool(asset.get("http2"))
         facts["has_param"] = bool(asset.get("has_param"))
