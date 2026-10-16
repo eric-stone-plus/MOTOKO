@@ -1,0 +1,46 @@
+{
+  "id": "R-SCAN-VSPHERE-SDK-001",
+  "name": "vCenter / ESXi SOAP SDK endpoint exposure (/sdk)",
+  "category": "scan",
+  "when": {
+    "all": [
+      {
+        "fact": "url",
+        "op": "matches",
+        "value": "^https://[^/?#:]+(?::[0-9]+)?/sdk(?:/|$|\\?|#)"
+      },
+      {
+        "fact": "status",
+        "op": "in",
+        "value": [
+          200,
+          201,
+          204,
+          301,
+          302,
+          307,
+          401,
+          403,
+          405
+        ]
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "The vSphere SOAP API endpoint is exposed at /sdk on this host: one unauthenticated RetrieveServiceContent read against the host root fingerprints the hypervisor - the response carries productLineId (esx for ESXi, vpx for vCenter) plus version and build; read-only version disclosure, a hit is an exposed management API to triage",
+    "detection_risk": "low",
+    "actions": [
+      {
+        "tool": "nuclei",
+        "cmd": "nuclei -u https://{host}:{port}/ -jsonl -duc -id vmware-detect -rl 2 -c 1 -bs 2 -timeout 10 -H 'User-Agent: {ua}'",
+        "cmd_stealth": "nuclei -u https://{host}:{port}/ -jsonl -duc -id vmware-detect -rl 1 -c 1 -bs 1 -timeout 15 -H 'User-Agent: {ua}'",
+        "timeout": 300
+      }
+    ],
+    "on_hit_class": null,
+    "priority": {
+      "impact": 0.9,
+      "cost": 0.15
+    }
+  }
+}

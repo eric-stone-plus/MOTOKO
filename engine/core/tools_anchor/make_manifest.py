@@ -161,6 +161,9 @@ def verify(manifest: dict) -> list[str]:
                     problems.append(f"bin/{b}: MISSING")
                 elif nb["sha256"] != anchor["sha256"]:
                     problems.append(f"bin/{b}: sha256 drift")
+            for b in sorted(set(new["binaries"]) -
+                            set(old.get("binaries", {}))):
+                problems.append(f"bin/{b}: NEW binary not in manifest")
         elif old.get("type") in ("binaries", "containerfile"):
             for f, anchor in old.get("files", {}).items():
                 actual = new.get("files", {}).get(f)
@@ -168,6 +171,9 @@ def verify(manifest: dict) -> list[str]:
                     problems.append(f"{name}/{f}: MISSING")
                 elif actual != anchor:
                     problems.append(f"{name}/{f}: sha256/size drift")
+            for f in sorted(set(new.get("files", {})) -
+                            set(old.get("files", {}))):
+                problems.append(f"{name}/{f}: NEW file not in manifest")
         elif old.get("type") == "nuclei":
             for key in ("nuclei_sha256", "template_yaml_count"):
                 if old.get(key) != new.get(key):

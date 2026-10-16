@@ -38,6 +38,37 @@ _GATEWAY_RE = (r"(?P<host>[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?)"
                r":(?P<port>[0-9]+)")
 _RE_GATEWAY = re.compile(_GATEWAY_RE)
 
+# The execution-node annotation (M12): a bare host, optionally with a port.
+# Deliberately NOT the gateway regex: a gateway address is dialled, so a
+# port is mandatory there; an execution node is a place the traffic is
+# expected to leave from, and a bare host is the honest spelling. No
+# userinfo, no scheme, no path — see _validate_execution_node.
+_RE_EXEC_NODE = re.compile(
+    r"[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?(?::[0-9]{1,5})?")
+
+# The chain's second-leg protocol vocabulary (M1). Canonical in
+# core/egress.py — aliased, not re-declared: two copies of an allowed set
+# are two chances to widen one, and the forwarder that builds the chain is
+# judged by this same set.
+SECOND_HOP_PROTO_VALUES = egress.SECOND_HOP_PROTO_VALUES
+
+
+def _gateway_key(value: object) -> tuple[str, int] | None:
+    """(host, port) for a 'host:port' string, else None.
+
+    One parser for the two places a gateway-shaped address appears: the
+    class's own ``gateway`` and a chain's ``second_hop.addr``. The port is
+    judged numerically, so a zero-padded spelling of an address cannot enter
+    the dedup below as a second, distinct address.
+    """
+    m = _RE_GATEWAY.fullmatch(value) if isinstance(value, str) else None
+    if not m:
+        return None
+    port = int(m.group("port"))
+    if not 0 < port < 65536:
+        return None
+    return (m.group("host").lower(), port)
+
 
 class DeployConfigError(Exception):
     ''
@@ -187,21 +218,101 @@ def _validate_classes(classes: object) -> None:
             raise DeployConfigError(
                 "deploy config 'egress.classes' has a malformed class "
                 "name (expected a name like 'browser')")
-        if not isinstance(entry, dict) or set(entry) - {"gateway"}:
+        allowed = {"gateway", "second_hop", "execution_node"}
+        extra = sorted(set(entry) - allowed) if isinstance(entry, dict) else []
+        if not isinstance(entry, dict) or extra:
             raise DeployConfigError(
-                f"unknown deploy config key 'egress.classes.{name}."
-                f"{sorted(set(entry) - {'gateway'})[0]}' (a class entry "
-                "carries exactly 'gateway')")
+                f"unknown deploy config key 'egress.classes.{name}.{extra[0]}' "
+                "(a class entry carries 'gateway' and, optionally, "
+                "'second_hop' and 'execution_node')" if extra else
+                f"deploy config key 'egress.classes.{name}' must be an "
+                "object (a class entry carries 'gateway' and, optionally, "
+                "'second_hop' and 'execution_node')")
         gw = entry.get("gateway")
         if not isinstance(gw, str):
             raise DeployConfigError(
                 f"deploy config key 'egress.classes.{name}.gateway' must "
                 "be a 'host:port' string")
-        m = _RE_GATEWAY.fullmatch(gw)
-        if not m or not (0 < int(m.group("port")) < 65536):
+        if _gateway_key(gw) is None:
             raise DeployConfigError(
                 f"deploy config key 'egress.classes.{name}.gateway' is not "
                 "a 'host:port' gateway address")
+        _validate_second_hop(name, entry.get("second_hop"), gateway=gw)
+        _validate_execution_node(name, entry.get("execution_node"))
+
+
+def _validate_second_hop(name: str, hop2: object, *, gateway: str) -> None:
+    """The optional chain entry (M1), validated at load.
+
+    Absent (``None``) is the historical single-hop class and stays legal:
+    the whole feature is opt-in, so a deployment that declares nothing
+    cannot be broken by it. Present, it must be COMPLETE — the chain is
+    asserted at launch against these very fields, so a field the assertion
+    needs cannot be optional, and every shape is judged here, once, for both
+    consumers: the lane forwarder builds argv from them, the assertion
+    compares exits against them.
+    """
+    if hop2 is None:
+        return
+    prefix = f"egress.classes.{name}.second_hop"
+    if not isinstance(hop2, dict) or set(hop2) != {
+            "addr", "proto", "expect_exit_ip"}:
+        raise DeployConfigError(
+            f"deploy config key '{prefix}' must be an object carrying "
+            "exactly 'addr', 'proto' and 'expect_exit_ip' — the chain is "
+            "asserted at launch, so no field is optional")
+    key = _gateway_key(hop2.get("addr"))
+    if key is None:
+        raise DeployConfigError(
+            f"deploy config key '{prefix}.addr' is not a 'host:port' "
+            "address")
+    proto = hop2.get("proto")
+    if proto not in SECOND_HOP_PROTO_VALUES:
+        raise DeployConfigError(
+            f"deploy config key '{prefix}.proto' must be one of "
+            f"{sorted(SECOND_HOP_PROTO_VALUES)} — the lane forwarder builds "
+            "exactly those chains")
+    expect = hop2.get("expect_exit_ip")
+    if not isinstance(expect, str):
+        raise DeployConfigError(
+            f"deploy config key '{prefix}.expect_exit_ip' must be an IP "
+            "literal — the chain's exit is asserted against it at launch")
+    try:
+        ipaddress.ip_address(expect)
+    except ValueError:
+        raise DeployConfigError(
+            f"deploy config key '{prefix}.expect_exit_ip' is not an IP "
+            "literal — a shape that cannot be compared would pass every "
+            "probe") from None
+    if key == _gateway_key(gateway):
+        raise DeployConfigError(
+            f"deploy config key '{prefix}.addr' names the same address as "
+            f"this class's gateway — a second hop that IS the first is a "
+            "single hop claiming a chain")
+
+
+def _validate_execution_node(name: str, node: object) -> None:
+    """The optional execution-node annotation (M12), validated at load.
+
+    A host IDENTIFIER only. The control/execution split this names (the
+    Korean-engagement shape: the operator drives from one seat while the
+    traffic leaves from another) is a DEPLOYMENT, so the field says where
+    the class is expected to egress from — never how to get in. It
+    therefore carries no userinfo and no credential material: ``user@host``
+    is refused because the userinfo is the part that turns an address into
+    an account, and this file never carries accounts (SS6.8). Absent is the
+    default and stays legal: the engine runs where the control plane runs.
+    """
+    if node is None:
+        return
+    prefix = f"egress.classes.{name}.execution_node"
+    if not isinstance(node, str) or not _RE_EXEC_NODE.fullmatch(node):
+        raise DeployConfigError(
+            f"deploy config key '{prefix}' must be a bare host (or "
+            "'host:port') identifier — no userinfo, no scheme, no path: "
+            "the annotation names where traffic leaves from, never how to "
+            "get in")
+    _reject_secret(node, ("egress", "classes", name, "execution_node"))
 
 
 def _reject_secret(value: str, path: tuple[str, ...]) -> None:
@@ -243,6 +354,54 @@ class DeployConfig:
                 f"egress.classes.{egress_class}.gateway to {self.path} "
                 f"(shipped example: {SHIPPED_EXAMPLE})")
         return entry["gateway"]
+
+    def second_hop(self, egress_class: str) -> dict | None:
+        """The declared second leg for one class, or None (single hop).
+
+        None is the historical deployment and is not an error: the lane is
+        single-hop unless the file declares a chain, and nothing here
+        invents one. When a chain IS declared the entry was validated at
+        load (all three fields required, shapes judged), so this returns a
+        COPY — a caller that edits what it got must not edit the loaded
+        config the other consumers read.
+
+        The name's shape is validated first, exactly as ``gateway()`` does:
+        the string reaches gateway lookups, the forwarder's argv and
+        rotation regexes, so a shape this loader never sanctions must not
+        reach a second lookup unchecked either.
+        """
+        if not _RE_CLASS_NAME.fullmatch(egress_class):
+            raise DeployConfigError(
+                f"{egress_class!r} is not a valid egress class name "
+                "(expected a name like 'browser': alphanumerics and "
+                "dashes, no metacharacters — the name reaches gateway "
+                "lookups and rotation regexes)")
+        entry = self._data.get("egress", {}).get("classes", {}) \
+            .get(egress_class)
+        hop2 = entry.get("second_hop") if isinstance(entry, dict) else None
+        return dict(hop2) if isinstance(hop2, dict) else None
+
+    def execution_node(self, egress_class: str) -> str | None:
+        """The class's declared execution host, or None (run locally).
+
+        An ANNOTATION, not a routing rule: nothing in this repo dials it.
+        The two deployment shapes it names — motoko installed on the
+        executor, or a local motoko whose egress rides an SSH forward — are
+        the operator's, documented in credits/OPERATIONS.md SS3a. It is read
+        here so the annotation has exactly one definition, its shape is
+        judged at load, and a caller that prints the topology asks this
+        method rather than the raw file. The class NAME is shape-validated
+        first, the same order gateway()/second_hop() use.
+        """
+        if not _RE_CLASS_NAME.fullmatch(egress_class):
+            raise DeployConfigError(
+                f"{egress_class!r} is not a valid egress class name "
+                "(expected a name like 'browser': alphanumerics and "
+                "dashes, no metacharacters)")
+        entry = self._data.get("egress", {}).get("classes", {}) \
+            .get(egress_class)
+        node = entry.get("execution_node") if isinstance(entry, dict) else None
+        return node if isinstance(node, str) else None
 
     def env_map(self) -> dict[str, str]:
         ''
@@ -321,17 +480,19 @@ def defects(cfg: DeployConfig) -> list[str]:
 
 def _usage() -> str:
     return ("usage: python3 -m core.deploy_config "
-            "{gateway <class> [path] | env [path] | validate [path]}")
+            "{gateway <class> [path] | chain <class> [path] "
+            "| execution-node <class> [path] | env [path] | validate [path]}")
 
 
 def main(argv: list[str] | None = None) -> int:
     "The module CLI — the wrapper's gate-2 seam and ``motoko deploy``."
     argv = list(sys.argv[1:] if argv is None else argv)
-    if not argv or argv[0] not in ("gateway", "env", "validate"):
+    if not argv or argv[0] not in ("gateway", "chain", "execution-node",
+                                    "env", "validate"):
         print(_usage(), file=sys.stderr)
         return 2
     verb, rest = argv[0], argv[1:]
-    if verb == "gateway":
+    if verb in ("gateway", "chain", "execution-node"):
         if not rest or len(rest) > 2:
             print(_usage(), file=sys.stderr)
             return 2
@@ -339,9 +500,15 @@ def main(argv: list[str] | None = None) -> int:
         print(_usage(), file=sys.stderr)
         return 2
     try:
-        cfg = load(Path(rest[-1]) if rest and verb != "gateway" else
-                   Path(rest[1]) if verb == "gateway" and len(rest) > 1
-                   else None)
+        # gateway/chain take a class plus an optional path; env/validate
+        # take a path alone. Spelled as a branch, not one nested
+        # conditional: the two shapes were a single expression that
+        # already needed a comment to be read.
+        if verb in ("gateway", "chain", "execution-node"):
+            path_arg = rest[1] if len(rest) > 1 else None
+        else:
+            path_arg = rest[0] if rest else None
+        cfg = load(Path(path_arg) if path_arg else None)
         if verb == "gateway":
             if cfg.path is None:
                 if not _RE_CLASS_NAME.fullmatch(rest[0]):
@@ -357,6 +524,30 @@ def main(argv: list[str] | None = None) -> int:
                       file=sys.stderr)
                 return 3
             print(cfg.gateway(rest[0]))
+            return 0
+        if verb == "chain":
+            # The lane forwarder's seam (M1). Silent zero stdout means
+            # "single hop" — the same shape `env` uses for a feature-off
+            # file — so the forwarder keeps its historical ncat bridge
+            # byte-for-byte. The class NAME is validated inside
+            # second_hop() on both paths, including no file at all.
+            hop2 = cfg.second_hop(rest[0])
+            if hop2 is None:
+                return 0
+            print(f"SECOND_HOP_ADDR={hop2['addr']}")
+            print(f"SECOND_HOP_PROTO={hop2['proto']}")
+            print(f"SECOND_HOP_EXPECT_IP={hop2['expect_exit_ip']}")
+            return 0
+        if verb == "execution-node":
+            # The topology annotation (M12). Silent zero stdout means "runs
+            # where the control plane runs" — the same shape `chain` uses
+            # for a single-hop class, so a caller can branch on emptiness
+            # without a second vocabulary. The class NAME is validated
+            # inside the accessor on every path.
+            node = cfg.execution_node(rest[0])
+            if node is None:
+                return 0
+            print(f"EXECUTION_NODE={node}")
             return 0
         if verb == "env":
             for var, value in sorted(cfg.env_map().items()):

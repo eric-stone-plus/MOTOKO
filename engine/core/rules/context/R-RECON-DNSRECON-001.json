@@ -1,0 +1,36 @@
+{
+  "id": "R-RECON-DNSRECON-001",
+  "name": "DNS record enumeration (dnsrecon)",
+  "category": "context",
+  "when": {
+    "all": [
+      {
+        "fact": "url",
+        "op": "matches",
+        "value": "^https?://"
+      },
+      {
+        "fact": "domain_enumerated",
+        "op": "eq",
+        "value": false
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "The domain's DNS records (SOA/NS/MX/TXT/SRV) map its mail, service and delegation surface before enumeration tools close the window; the AXFR attempt is the one active query and drops from the stealth variant",
+    "detection_risk": "low",
+    "actions": [
+      {
+        "tool": "dnsrecon",
+        "runtime": "container",
+        "cmd": "dnsrecon -d {domain} -t std -a --threads 1 --disable_check_recursion --disable_check_bindversion",
+        "cmd_stealth": "dnsrecon -d {domain} -t std --threads 1 --disable_check_recursion --disable_check_bindversion"
+      }
+    ],
+    "on_hit_class": "info_disclosure.dns_zone_transfer",
+    "priority": {
+      "impact": 0.35,
+      "cost": 0.2
+    }
+  }
+}

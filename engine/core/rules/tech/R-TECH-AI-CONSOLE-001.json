@@ -1,0 +1,51 @@
+{
+  "id": "R-TECH-AI-CONSOLE-001",
+  "name": "AI-agent / LLM console on a non-default port (panel fingerprint)",
+  "category": "tech",
+  "when": {
+    "all": [
+      {
+        "fact": "url",
+        "op": "matches",
+        "value": "^https?://"
+      },
+      {
+        "fact": "url",
+        "op": "matches",
+        "value": ":(1234|3001|3080|4000|7860|8786|8787|8788|8789|11434|18899)(/|\\?|#|$)"
+      },
+      {
+        "fact": "status",
+        "op": "in",
+        "value": [
+          200,
+          201,
+          204,
+          301,
+          302,
+          307,
+          401,
+          403,
+          405
+        ]
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "An AI-agent / LLM console port answered (8787/8788, their neighbours and the other conventional AI-tooling ports): one fingerprint pass over the AI panel templates; a hit is an exposure to triage, never an exploit",
+    "detection_risk": "low",
+    "actions": [
+      {
+        "tool": "nuclei",
+        "cmd": "nuclei -u {url} -jsonl -duc -id ollama-llm-panel,vllm-api-detect,lmstudio-panel,localgpt-panel,koboldai-panel,openllm-panel,privategpt-detect,openhands-panel,agentgpt-panel,superagi-panel,letta-panel,cognita-panel,flowise-panel,dify-panel,anythingllm-panel,chatbot-ui-panel,fastgpt-panel,librechat-login-panel,ragflow-panel -rl 2 -c 1 -bs 2 -timeout 10 -H 'User-Agent: {ua}'",
+        "cmd_stealth": "nuclei -u {url} -jsonl -duc -id ollama-llm-panel,vllm-api-detect,lmstudio-panel,localgpt-panel,koboldai-panel,openllm-panel,privategpt-detect,openhands-panel,agentgpt-panel,superagi-panel,letta-panel,cognita-panel,flowise-panel,dify-panel,anythingllm-panel,chatbot-ui-panel,fastgpt-panel,librechat-login-panel,ragflow-panel -rl 1 -c 1 -bs 1 -timeout 15 -H 'User-Agent: {ua}'",
+        "timeout": 300
+      }
+    ],
+    "on_hit_class": null,
+    "priority": {
+      "impact": 0.6,
+      "cost": 0.4
+    }
+  }
+}

@@ -149,7 +149,7 @@ def parse_tool(tool: str, stdout: str, stderr: str = "",
 
 
 # Import parser modules so they self-register.
-from . import arjun, curl, dalfox, enum4linux, ffuf, git_dumper, graphw00f, h2csmuggler, httpx, jsluice, jwt_tool, katana, kr, lines, nmap, nuclei, sqlmap, strix, trufflehog, uncover, wpscan
+from . import arjun, curl, dalfox, dnsrecon, enum4linux, ffuf, git_dumper, graphw00f, h2csmuggler, httpx, jsluice, jwt_tool, katana, kr, lines, nmap, nuclei, sqlmap, strix, trufflehog, uncover, whois, wpscan
 
 __all__ = [
     "ParsedObservation", "Parser", "register", "get_parser", "parse_tool",

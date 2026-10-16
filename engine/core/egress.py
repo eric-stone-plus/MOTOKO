@@ -1,4 +1,4 @@
-"Three code paths used to decide egress separately, reading two env vars with\ndifferent semantics and no shared truth:\n\nTwo axes, and they are not the same claim:\n\nSo this module answers the questions and reports both axes together\n(``summary()``); callers keep doing the IO. Nothing here sends traffic,\nresolves a name or reads a target.\n\nA third axis lives here too, still IO-free: the exit fingerprint's env\nnames and its rotation deadline math. The one sanctioned network read — a\nsingle GET against the operator-configured IP echo — is a separate module,\n``core/egress_probe.py``; this one only computes when that read is allowed\nto happen."
+"Three code paths used to decide egress separately, reading two env vars with\ndifferent semantics and no shared truth:\n\nTwo axes, and they are not the same claim:\n\nSo this module answers the questions and reports both axes together\n(``summary()``); callers keep doing the IO. Nothing here sends traffic,\nresolves a name or reads a target.\n\nA third axis lives here too, still IO-free: the exit fingerprint's env\nnames and its rotation deadline math. The one sanctioned network read — a\nsingle GET against the operator-configured IP echo — is a separate module,\n``core/egress_probe.py``; this one only computes when that read is allowed\nto happen.\n\nA fifth is the second-hop chain (M1): ``chain_legs_defect()`` judges the two\nmeasured exits — through the full chain and through hop1 alone — against\nthe deployment's declared second hop. Still pure: the caller owns the\nsockets, and a chain whose exit cannot be compared must refuse rather than\nlaunch on the single-hop fallback the chain exists to replace.\n"
 
 from __future__ import annotations
 
@@ -48,6 +48,8 @@ MODE_VALUES = frozenset({LANE, DIRECT})
 # MODE doctrine carries over whole: a non-blank value outside the set is a
 # configuration error, never a silent read of the fail-closed default.
 REPLAY_VIA_VALUES = frozenset({LANE})
+
+SECOND_HOP_PROTO_VALUES = frozenset({"socks5", "http"})
 
 TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 
@@ -299,6 +301,44 @@ def expected_exit_ip() -> str:
     must fail closed, never silently read as unset.
     """
     return os.environ.get(EXPECT_IP_ENV, "").strip()
+
+
+def chain_legs_defect(*, chain_exit: str, hop1_exit: str,
+                      expect_hop2: str, home_ip: str = "") -> str | None:
+    "None when a declared second-hop chain asserts both of its legs.\n\n    The chain (deploy config ``second_hop``) exists so the target sees the\n    second hop's exit: local -> hop1 -> hop2 -> target. Two measurements\n    decide whether that is what the deployment actually built, and neither\n    is trusted on its own:"
+    want = plausible_ip(expect_hop2)
+    if want is None:
+        return ("the declared second-hop exit is not an IP literal — the "
+                "chain's exit is asserted against it at launch, so a shape "
+                "that cannot be compared would pass every probe")
+    got = plausible_ip(chain_exit)
+    if got is None:
+        return ("the chain's exit could not be measured — no exit came "
+                "back through the full chain (hop1 -> hop2), so the target's "
+                "view is unknown; refusing rather than launching on the "
+                "single-hop fallback the chain exists to replace")
+    if got != want:
+        return (f"the chain's exit {got} is not the declared second hop "
+                f"{want} — the chain is broken, or the second hop's "
+                "address resolves to a different exit")
+    hop1 = plausible_ip(hop1_exit)
+    if hop1 is None:
+        return ("the first leg's exit could not be measured — without it "
+                "the chain cannot be told from a single hop")
+    if hop1 == want:
+        return (f"the first leg's exit IS the declared second hop {want} — "
+                "the chain collapsed into one hop and the second hop is not "
+                "in the path")
+    if home_ip:
+        home = plausible_ip(home_ip)
+        if home is None:
+            return ("the declared home-line address is not an IP literal — "
+                    "the comparison it exists for cannot be made")
+        if hop1 == home:
+            return (f"the first leg's exit {hop1} is the host's own "
+                    "address — hop1 fell back to the home line and the "
+                    "chain starts on the bare uplink")
+    return None
 
 
 def launch_gate() -> str | None:

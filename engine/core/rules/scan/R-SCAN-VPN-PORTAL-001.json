@@ -1,0 +1,46 @@
+{
+  "id": "R-SCAN-VPN-PORTAL-001",
+  "name": "Vendor SSL-VPN portal exposure (conventional login paths)",
+  "category": "scan",
+  "when": {
+    "all": [
+      {
+        "fact": "url",
+        "op": "matches",
+        "value": "^https://[^/?#:]+(?::[0-9]+)?/(?:remote/login|dana-na/|global-protect/|\\+CSCOE\\+/|vpn/index\\.html|logon/LogonPoint/|cgi-bin/welcome)"
+      },
+      {
+        "fact": "status",
+        "op": "in",
+        "value": [
+          200,
+          201,
+          204,
+          301,
+          302,
+          307,
+          401,
+          403,
+          405
+        ]
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "A vendor SSL-VPN login portal is exposed at a conventional path on this host (Fortinet /remote/login, Ivanti/Pulse /dana-na/, Palo Alto /global-protect/, Cisco /+CSCOE+/, Citrix /vpn/index.html and /logon/LogonPoint/, SonicWall /cgi-bin/welcome): one panel-fingerprint pass against the host root; a hit is an exposed VPN entry plane to triage (fingerprint only - this corpus ships no credential attempt)",
+    "detection_risk": "low",
+    "actions": [
+      {
+        "tool": "nuclei",
+        "cmd": "nuclei -u https://{host}:{port}/ -jsonl -duc -id citrix-adc-gateway-panel,netscaler-gateway,netscaler-aaa-login,ivanti-connect-secure-panel,pulse-secure-panel,globalprotect-panel,cisco-asa-panel,sonicwall-sslvpn-panel,fortinet-fortigate-panel,fortios-panel -rl 2 -c 1 -bs 2 -timeout 10 -H 'User-Agent: {ua}'",
+        "cmd_stealth": "nuclei -u https://{host}:{port}/ -jsonl -duc -id citrix-adc-gateway-panel,netscaler-gateway,netscaler-aaa-login,ivanti-connect-secure-panel,pulse-secure-panel,globalprotect-panel,cisco-asa-panel,sonicwall-sslvpn-panel,fortinet-fortigate-panel,fortios-panel -rl 1 -c 1 -bs 1 -timeout 15 -H 'User-Agent: {ua}'",
+        "timeout": 300
+      }
+    ],
+    "on_hit_class": null,
+    "priority": {
+      "impact": 0.85,
+      "cost": 0.25
+    }
+  }
+}

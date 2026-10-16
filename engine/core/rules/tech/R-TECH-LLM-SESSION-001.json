@@ -1,0 +1,46 @@
+{
+  "id": "R-TECH-LLM-SESSION-001",
+  "name": "LLM session/agent artifacts exposed on a web root (Claude Code, MCP, llms.txt)",
+  "category": "tech",
+  "when": {
+    "all": [
+      {
+        "fact": "url",
+        "op": "matches",
+        "value": "^https?://[^/]+/?$"
+      },
+      {
+        "fact": "status",
+        "op": "in",
+        "value": [
+          200,
+          201,
+          204,
+          301,
+          302,
+          307,
+          401,
+          403,
+          405
+        ]
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "A web root answered: one pass over the LLM-agent artifact paths (.claude/agents, .claude/settings.json, .mcp.json, .vscode/mcp.json, MCP endpoints, llms.txt, /.well-known/agent.json); a hit is a docroot misconfiguration exposing agent configuration and session-adjacent files",
+    "detection_risk": "low",
+    "actions": [
+      {
+        "tool": "nuclei",
+        "cmd": "nuclei -u {url} -jsonl -duc -id claude-code-agents,claude-settings-exposure,vscode-mcp-json,exposed-mcp-server,exposed-mcp-sse-server,llms-file-enum,a2a-agent-card-enum -rl 2 -c 1 -bs 2 -timeout 10 -H 'User-Agent: {ua}'",
+        "cmd_stealth": "nuclei -u {url} -jsonl -duc -id claude-code-agents,claude-settings-exposure,vscode-mcp-json,exposed-mcp-server,exposed-mcp-sse-server,llms-file-enum,a2a-agent-card-enum -rl 1 -c 1 -bs 1 -timeout 15 -H 'User-Agent: {ua}'",
+        "timeout": 300
+      }
+    ],
+    "on_hit_class": null,
+    "priority": {
+      "impact": 0.55,
+      "cost": 0.35
+    }
+  }
+}

@@ -3,7 +3,15 @@
     "default_class": "browser",
     "echo_url": "https://echo.example.invalid/",
     "classes": {
-      "browser": { "gateway": "203.0.113.10:18881" }
+      "browser": {
+        "gateway": "203.0.113.10:18881",
+        "second_hop": {
+          "addr": "hop2.example.invalid:1080",
+          "proto": "socks5",
+          "expect_exit_ip": "203.0.113.99"
+        },
+        "execution_node": "exec-node-1.example.invalid"
+      }
     }
   },
   "dns": {

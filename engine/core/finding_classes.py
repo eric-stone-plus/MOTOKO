@@ -141,6 +141,13 @@ _REGISTRY: dict[str, tuple[str, str]] = {
     "info_disclosure.key": (TERMINAL, "key material found is reported and "
                                      "rotated by the operator; the engine never "
                                      "spends it (the internal doctrine)"),
+    "info_disclosure.dns_zone_transfer": (TERMINAL,
+                                          "a successful AXFR is the whole "
+                                          "finding — the zone dump is the "
+                                          "report line, and the names it "
+                                          "carries enter the graph as assets "
+                                          "from the same parse, so no rule "
+                                          "gates on the class"),
     "info_disclosure.sensitive_file": (TERMINAL, "the file answered; reading "
                                                  "further is exfiltration, "
                                                  "which the internal doctrine forbids"),

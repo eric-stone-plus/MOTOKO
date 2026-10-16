@@ -1,0 +1,35 @@
+{
+  "id": "R-RECON-WHOIS-001",
+  "name": "Domain registration record (whois)",
+  "category": "context",
+  "when": {
+    "all": [
+      {
+        "fact": "url",
+        "op": "matches",
+        "value": "^https?://"
+      },
+      {
+        "fact": "domain_enumerated",
+        "op": "eq",
+        "value": false
+      }
+    ]
+  },
+  "then": {
+    "hypothesis": "The registration record is the domain's public identity — registrar, age, status and name servers — and whois queries registrars, not the target's own services",
+    "detection_risk": "low",
+    "actions": [
+      {
+        "tool": "whois",
+        "runtime": "container",
+        "cmd": "whois {domain}"
+      }
+    ],
+    "on_hit_class": "fingerprint",
+    "priority": {
+      "impact": 0.3,
+      "cost": 0.1
+    }
+  }
+}

@@ -1197,19 +1197,22 @@ class Orchestrator:
                         continue
                     if a.get("value") and a["value"].startswith(("http://", "https://")):
                         hyp.setdefault("url", a["value"])
-                        # host for {host} placeholders (subfinder/nmap/gau…);
-                        # port is kept separately so {host}:{port} targets stay
-                        # correct (https://h:8443 must scan 8443, not 443).
-                        hostport = a["value"].split("://", 1)[1].split("/", 1)[0]
+                        hostport = (a["value"].split("://", 1)[1]
+                                    .split("/", 1)[0].rsplit("@", 1)[-1])
                         hyp.setdefault("host", hostport.split(":", 1)[0])
                         hyp.setdefault("domain",
                                        util.registrable_domain(hostport.split(":", 1)[0]))
                         if ":" in hostport:
                             hyp.setdefault("port", hostport.split(":", 1)[1])
+                        else:
+                            hyp.setdefault(
+                                "port",
+                                "443" if a["value"].startswith("https://") else "80")
                     elif a.get("value") and a.get("type") == "host":
                         hyp.setdefault("host", a["value"])
                         hyp.setdefault("domain", util.registrable_domain(a["value"]))
                         hyp.setdefault("url", f"https://{a['value']}")
+                        hyp.setdefault("port", str(a.get("port") or "443"))
                     if facts.get("param"):
                         hyp.setdefault("param", facts["param"])
                     if facts.get("token"):
