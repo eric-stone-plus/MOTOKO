@@ -18,7 +18,7 @@
 | Interest | <claim> | <...> |
 
 Identifiers (operator-provided, <date>): <handle>; <phone>. Record them, then
-check them only through the public indexes (see the internal doctrine); never use them to log in
+check them only through the public indexes (see section 4); never use them to log in
 or to query private services.
 
 ## 2. Verified public traces

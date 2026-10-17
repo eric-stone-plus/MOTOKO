@@ -16,10 +16,10 @@
 
 | Dimension | Claim | Public-source check |
 | --- | --- | --- |
-| Education | Graduated from a foreign-language faculty | **Partial**: a 2022 graduation notice lists the name (see the internal doctrine); the degree date is inferred |
+| Education | Graduated from a foreign-language faculty | **Partial**: a 2022 graduation notice lists the name (see section 2.1); the degree date is inferred |
 | Employment | A translation role at a state-owned enterprise, then a telecom vendor | Not found |
 | Posting | An overseas posting in a French-speaking country | Not found |
-| Interest | Ballet | Not found (a same-name novel mentions ballet — the internal doctrine #3) |
+| Interest | Ballet | Not found (a same-name novel mentions ballet — section 3, entry 3) |
 
 Identifiers (operator-provided, 2024-03-01): `example_handle`; `+86 138****0000`.
 
@@ -63,7 +63,7 @@ Identifiers (operator-provided, 2024-03-01): `example_handle`; `+86 138****0000`
 - High: the 2022-05-20 notice lists the name in the translation track.
 - Medium: the graduation date (inferred from the notice).
 - Low / unproven: the employment trajectory, the posting, the interest.
-- Not connected (same name): the internal doctrine entries 1–3.
+- Not connected (same name): section 3, entries 1–3.
 - Not connected (handle): `example_handle` — operator-provided and
   semantically consistent, with no public-source evidence.
 
