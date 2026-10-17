@@ -33,6 +33,10 @@ identity assertions.
    indexes held on the collection date, not a standing fact: the subject may
    have changed employer, city, or handle since.
 
+A campaign skeleton and a fictional worked example live in
+`templates/campaign/`; copy the skeleton into the campaign repository and keep
+its `profile.md` a lead working document.
+
 ## Stage 1 — the name sweep
 
 Run the engine checkout's name-sweep tool (`name-search.py`; stdlib-only, no
@@ -147,16 +151,23 @@ Public-page collection still makes requests visible to the selected sites.
 3. Read the returned evidence path. Report `candidate`, `unknown`, and `failed`
    separately. Upstream percentages are heuristic rule-match rates, not
    identity probabilities. Unknown is not evidence of absence. Report blocked,
-   redirected, throttled, and failed observations without retrying around
-   them. Evidence records source/data/adapter/dependency hashes and per-page
-   response digests; raw pages, biography, contact fields, and cookies are not
-   retained.
+   unfollowed redirects, throttled, and failed observations without retrying
+   around them. Evidence records source/data/adapter/dependency hashes and
+   per-page response digests; raw pages, biography, contact fields, and cookies
+   are not retained.
+4. Review every `candidate` before treating it as a lead: a generic shell whose
+   title is the platform's own name (a login wall) and that names the handle
+   only in the URL is a false positive; a profile page names the handle in its
+   title or metadata. Record the review with the candidate.
 
-Limits are enforced: sequential requests, one GET per selected site, no
-redirects/retries, 512 KiB per page, and a 90-second overall deadline. A 429
-stops the remaining requests. Exit 0 means observations completed (including
-unknowns); 1 means some collection failed; 2 means preflight refused/failed.
-Expired deadlines produce no completed report. Never label them a clean result.
+Limits are enforced: sequential requests, one GET per selected site plus at
+most two same-service normalization hops (a bare host to its `www.` form, a
+`mobile.` host to the bare one, Twitter to `x.com`, or an added trailing
+slash; the scheme, query and path stay), no other redirects or retries, 2 MiB
+per page, and a 90-second overall deadline. A 429 stops the remaining
+requests. Exit 0 means observations completed (including unknowns); 1 means
+some collection failed; 2 means preflight refused/failed. Expired deadlines
+produce no completed report. Never label them a clean result.
 
 If absent, install from the engine checkout with
 `python3 core/tools_anchor/social_analyzer/install.py --skill-dir <skill root>`

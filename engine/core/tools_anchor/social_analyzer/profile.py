@@ -21,16 +21,20 @@ import subprocess
 import sys
 import time
 from types import SimpleNamespace
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit, urlunsplit
 from uuid import uuid4
 from datetime import datetime, timezone
 
 HERE = Path(__file__).resolve().parent
 PIN = json.loads((HERE / "pin.json").read_text())
 MAX_SITES = 10
-MAX_BODY = 512 * 1024
+MAX_BODY = 2 * 1024 * 1024
 MAX_SECONDS = 90
 USERNAME = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,63}\Z")
+# The only host moves the wrapper makes: the pinned catalog addresses some
+# sites by a host that answers with the service's canonical one.
+_NORMALIZING_HOST_PAIRS = {("twitter.com", "x.com"), ("mobile.twitter.com", "x.com")}
+_MAX_NORMALIZATION_HOPS = 2
 
 
 class Refused(ValueError):
@@ -122,9 +126,17 @@ def select_sites(catalog, ids, username):
 def campaign_root(path, forbidden):
     root = Path(path).expanduser().resolve(strict=True)
     own_tree = HERE.parents[3]
-    if (root == forbidden or forbidden in root.parents
-            or root == own_tree or own_tree in root.parents):
-        raise Refused("evidence belongs in a campaign repository, outside MOTOKO")
+    # The checkout's gitignored tasks/ workspace (`.gitignore`: `/tasks/`)
+    # is the one in-tree exception: demo campaigns live there, never enter
+    # git and never ship in the export. Everything else inside the checkout
+    # (engine/, the repo root) stays refused.
+    local = forbidden / "tasks"
+    inside = (root == forbidden or forbidden in root.parents
+              or root == own_tree or own_tree in root.parents)
+    if inside and not (root == local or local in root.parents):
+        raise Refused("evidence belongs in a campaign repository, outside "
+                      "MOTOKO (the checkout's gitignored tasks/ workspace is "
+                      "the only in-tree exception)")
     if Path(git(root, "rev-parse", "--show-toplevel")).resolve() != root:
         raise Refused("campaign-dir must be the root of its own git repository")
     evidence = root / "evidence"
@@ -156,13 +168,57 @@ def egress_config(env):
     return lane, echo, expected
 
 
-def fetch(session, url, *, limit=MAX_BODY):
-    """Exactly one GET. Environment lanes, netrc, cookies and redirects are off."""
+def normalized_hop(url, location):
+    """One same-service normalization hop, or None.
+
+    The pinned catalog addresses some sites by a host that answers with a
+    redirect to the service's canonical one — a bare host to ``www.``, a
+    ``mobile.`` host to the bare one, Twitter to ``x.com`` — and some
+    canonical hosts add a trailing slash. A hop must keep the scheme and the
+    query, keep the path (a trailing slash may be added), and change nothing
+    but the host within the same service, or add that slash. Anything else is
+    refused, never followed.
+    """
+    try:
+        source, target = urlsplit(url), urlsplit(urljoin(url, location))
+    except ValueError:
+        return None
+    if (source.scheme, target.scheme) != ("https", "https"):
+        return None
+    if source.query != target.query:
+        return None
+    if source.path != target.path and source.path + "/" != target.path:
+        return None
+    if not target.hostname or target.username or target.password or target.port:
+        return None
+    host, moved = source.hostname or "", target.hostname
+    same_service = (moved == host
+                    or moved == "www." + host
+                    or moved == host.removeprefix("www.")
+                    or (host.count(".") > 1 and host.split(".", 1)[1] == moved)
+                    or (host, moved) in _NORMALIZING_HOST_PAIRS)
+    if not same_service or (host, source.path) == (moved, target.path):
+        return None
+    return urlunsplit(target)
+
+
+def _header(headers, name):
+    """Case-insensitive header lookup (``dict(response.headers)`` loses it)."""
+    for key, value in headers.items():
+        if key.lower() == name:
+            return value
+    return ""
+
+
+def _fetch_once(session, url, limit):
     session.cookies.clear()
     with session.get(url, timeout=(5, 8), verify=True,
                      allow_redirects=False, stream=True) as response:
         if 300 <= response.status_code < 400:
-            raise Refused("redirect_not_followed")
+            return SimpleNamespace(content=b"", text="", encoding="utf-8",
+                                   headers=dict(response.headers),
+                                   location=_header(response.headers, "location"),
+                                   status_code=response.status_code, url=url)
         parts, size = [], 0
         for block in response.iter_content(16384):
             size += len(block)
@@ -173,7 +229,30 @@ def fetch(session, url, *, limit=MAX_BODY):
         encoding = response.encoding or "utf-8"
         return SimpleNamespace(content=body, text=body.decode(encoding, "replace"),
                                encoding=encoding, headers=dict(response.headers),
-                               status_code=response.status_code)
+                               status_code=response.status_code, url=url)
+
+
+def fetch(session, url, *, limit=MAX_BODY):
+    """One GET, plus at most two same-service normalization hops.
+
+    Environment lanes, netrc, cookies and cross-site redirects stay off: the
+    session never follows a redirect, and the only further requests the
+    wrapper makes are the normalized URLs of the same page (see
+    ``normalized_hop``).
+    """
+    response = _fetch_once(session, url, limit)
+    hops = []
+    while 300 <= response.status_code < 400:
+        if len(hops) >= _MAX_NORMALIZATION_HOPS:
+            raise Refused("redirect_not_followed")
+        target = normalized_hop(response.url, response.location)
+        if target is None:
+            raise Refused("redirect_not_followed")
+        hops.append(target)
+        response = _fetch_once(session, target, limit)
+    response.hop = hops[-1] if hops else None
+    response.hops = hops
+    return response
 
 
 def load_detector(source):
@@ -244,6 +323,8 @@ def collect_observations(module, selected, username, shared, session):
             try:
                 response = fetch(session, url)
                 row["http_status"] = response.status_code
+                if response.hops:
+                    row["normalized_urls"] = response.hops
                 row["response_sha256"] = hashlib.sha256(response.content).hexdigest()
                 if response.status_code == 429:
                     stopped = True
@@ -341,7 +422,7 @@ def main(argv=None):
               "egress": {"mode": "lane", "echo_matches_expected": True},
               "interpretation": "Candidates are heuristic observations, not identity assertions. "
                                 "The heuristic rate is not an identity probability. Unknown is not absence.",
-              "limits": {"requests_max": len(selected) + 1, "body_bytes": MAX_BODY,
+              "limits": {"requests_max": 3 * len(selected) + 1, "body_bytes": MAX_BODY,
                          "seconds": MAX_SECONDS, "redirects": 0, "retries": 0},
               "observations": observations}
     print(json.dumps({"evidence": str(write_evidence(root, report)),
