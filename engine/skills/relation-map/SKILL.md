@@ -13,10 +13,11 @@ edge is the investigator's assertion and carries the citations that back it.
 Never present a co-mention as a tie, never present an unasserted declared edge
 as sourced, and never treat a name match as an identity assertion.
 
-1. Collect first. Run the `name-search` skill (one sweep per name, evidence in
-   the campaign repo). The map is derived from those observation files — the
-   tool records each input's sha256 so the map can be re-derived and checked
-   later.
+1. Collect first. Run `social-profile` Stage 1 (the name sweep; one sweep per
+   name, evidence in the campaign repo). The map is derived from those
+   observation files — the tool records each input's sha256 so the map can be
+   re-derived and checked later. Native-search and crawl-client hits are leads,
+   not observations; re-observe them with the sweep before they enter the map.
 2. Write the tracked entity list: a plain text file with one name per line
    (`#` comments allowed), or JSON — either a bare list of names, or
    `{"entities": [{"name": ..., "type": ..., "aliases": [...]}]}` with
@@ -70,6 +71,10 @@ which is what makes the verify comparison meaningful.
 Limits: refusals (missing or malformed inputs, duplicate names, self-relation,
 an existing `--out`, a map inside the MOTOKO tree) exit 2; a verify mismatch
 exits 1; success exits 0. Co-mention evidence is capped at 20 refs per edge
-with the full count kept. The tool never fetches anything: it reads local
-files only, so all network discipline stays in `name-search`. No installation
-is required — stdlib-only, runs from the engine checkout.
+with the full count kept. The map counts rows, not articles, and it does not
+dedupe across observation files: pass each file once; if you pass more than one
+lane, merge by identity for counts and keep the raw files for the map. A row
+with neither title nor snippet is dropped silently, so keep the title or
+snippet on every observation. The tool never fetches anything: it reads local
+files only, so all network discipline stays with the collection step. No
+installation is required — stdlib-only, runs from the engine checkout.

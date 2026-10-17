@@ -2,6 +2,8 @@
 
 - Authorization / case: <grant reference, date>
 - Collection: <start>–<end> UTC, <N> sweeps (<M> requests), <K> observations
+- Discovery backends: <native search, self-hosted crawl client, or none>;
+  their hits are leads, not observations.
 - Evidence: `evidence/name-search/<run>/observations.json` (each run carries
   `SHA256SUMS`); relation map: `evidence/relation-map/<run>/`
 - Discipline: this file is a lead working document, not an identification.
@@ -57,6 +59,7 @@ or to query private services.
 
 ## 7. Method and limits
 
-- <tools, engines, page limits, exit semantics>
+- <tools, engines/backends, page limits, exit semantics>
+- <discovery backends, their rendered queries, and what stayed a lead>
 - <blocked sources and why>
 - <what "verified" and "not found" mean here>

@@ -45,8 +45,9 @@ Identifiers (operator-provided, 2024-03-01): `example_handle`; `+86 138****0000`
 ## 4. Negative conclusions (equally important)
 
 - Employment, posting and interest: zero traces tied to the person across the
-  five default indexes (search, news, encyclopedia, wikidata, article index),
-  four narrowing-term sets, two pages per paginating engine.
+  keyless sweep's five default engines (search, news, encyclopedia, entity
+  index, article index), four narrowing-term sets, two pages per paginating
+  engine.
 - Variant round: the traditional spelling returned a legitimate empty; the
   romanized spelling returned two same-name encyclopedia pages only.
 - Identifier round: the handle and the phone number, as narrowing terms,
@@ -77,6 +78,9 @@ Identifiers (operator-provided, 2024-03-01): `example_handle`; `+86 138****0000`
 
 ## 7. Method and limits
 
+- This example shows the keyless-sweep lane only. A run that also used native
+  discovery records those queries as leads, not observations; the sweep counts
+  above are unchanged.
 - `name-search.py` v2: five default engines, two pages on the paginating ones,
   a per-run deadline and request budget; every run writes its evidence
   directory.
