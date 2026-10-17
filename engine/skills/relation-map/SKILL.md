@@ -37,7 +37,7 @@ as sourced, and never treat a name match as an identity assertion.
 4. Build:
 
    ```bash
-   python3 relation-map.py build \
+   relation-map.py build \
      --entities entities.txt \
      --observations /path/to/campaign/evidence/name-search/<run>/observations.json \
      --relations relations.json \
@@ -55,7 +55,7 @@ as sourced, and never treat a name match as an identity assertion.
    tables, warnings, and the exact rebuild command), and `SHA256SUMS`.
    Warnings are part of the result: unlisted endpoints, merged duplicates,
    and unasserted edges are listed there and in the README.
-6. Verify before citing: `python3 relation-map.py verify --dir
+6. Verify before citing: `relation-map.py verify --dir
    <map-dir>` re-reads the recorded inputs, re-derives the map, and compares.
    `reproducible: true` (exit 0) means the artifact still matches its inputs;
    a mismatch is exit 1; a missing input is reported as `reproducible: null`
