@@ -1,4 +1,4 @@
-# Person profile (lead working document) — 林晓雨 (Lin Xiaoyu)
+# Person profile (lead working document) — John Smith
 
 > Fictional example. The person, the accounts, the dates and the numbers are
 > invented; only the shape is the skill's.
