@@ -1249,12 +1249,19 @@ def _check_actions(r: Rule, model: CorpusModel, report: RuleReport,
                        fix="split into one action per binary, or run it "
                            "through a real interpreter action")
         elif a.get("runtime") == _CONTAINER_RUNTIME:
-            # A2-7: container binaries are not on the host, so resolve_tool
-            # cannot see them — skipping host resolution is the whole check.
-            # The old container_tool_unverified advisory needed a
-            # container_tools manifest no caller ever passed (dead since day
-            # one); image contents are verified by `motoko doctor`, live.
-            pass
+            from . import egress as _egress
+            if _egress.lane_mechanism(tool) == "":
+                report.add("LOW", "container_tool_unclassified", r.id,
+                           f"{where} runs {tool!r} in the container and "
+                           "egress.LANE_MECHANISMS does not classify how it "
+                           "reaches a target in lane mode — the executor "
+                           "refuses it there (exit 126, no evidence), so the "
+                           "rule only fires in direct mode until it is "
+                           "classified",
+                           evidence=_rel(r),
+                           fix="add it to egress.LANE_MECHANISMS "
+                               "(gateway/dns/refused) after measuring how it "
+                               "reaches a target")
         elif resolve_tools:
             from . import executor
             if not executor.resolve_tool(tool):

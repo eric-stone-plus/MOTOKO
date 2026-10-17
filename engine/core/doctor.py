@@ -586,46 +586,127 @@ def _check_key_envs() -> list[tuple[str, str]]:
 
 
 def _check_reflector() -> tuple[str, str]:
-    protocol = os.environ.get("MOTOKO_REFLECTOR_PROTOCOL", "anthropic").strip().lower()
-    if protocol not in {"anthropic", "openai"}:
-        return FAIL, ("MOTOKO_REFLECTOR_PROTOCOL must be 'anthropic' or "
-                      "'openai'")
-    have = [v for v in ("MOTOKO_REFLECTOR_MODEL", "MOTOKO_REFLECTOR_BASE_URL")
-            if os.environ.get(v)]
-    key_env = os.environ.get("MOTOKO_REFLECTOR_KEY_ENV")
+    from . import reflector as reflector_mod
+
+    try:
+        values, notes, sources = reflector_mod.reflector_env()
+    except ValueError as exc:
+        return FAIL, f"reflector env: {exc}"
+    key_env = values["key_env"]
     if key_env:
         level, msg = _credential_line("reflector key env", key_env)
         if level != OK:
+            if notes:
+                msg += " — " + "; ".join(notes)
             return level, msg
+    have = [name for name in ("model", "base_url") if values[name]]
     if len(have) == 2:
         if not key_env:
-            # reflector_from_env() requires MOTOKO_REFLECTOR_KEY_ENV (it names
-            # the variable holding the key); without it the reflector is None
-            # and `motoko run --reflector` silently continues with no
-            # reflector. Optional stays optional — WARN, not FAIL — but it
-            # must not read as configured.
-            return WARN, ("reflector env incomplete (MOTOKO_REFLECTOR_KEY_ENV "
-                          "unset — `motoko run --reflector` needs it; the "
-                          "reflector stays disabled without it)")
-        base = os.environ.get("MOTOKO_REFLECTOR_BASE_URL", "").rstrip("/")
+            # reflector_from_env() requires the key variable NAME (it names the
+            # variable holding the key); without it the reflector is None and
+            # `motoko run --reflector` silently continues with no reflector.
+            # Optional stays optional — WARN, not FAIL — but it must not read
+            # as configured.
+            return WARN, ("reflector env incomplete (no key variable NAME — "
+                          "MOTOKO_LLM_KEY or the legacy "
+                          "MOTOKO_REFLECTOR_KEY_ENV; `motoko run --reflector` "
+                          "needs it and the reflector stays disabled without "
+                          "it)")
+        base = values["base_url"].rstrip("/")
+        protocol = values["protocol"]
         if protocol == "anthropic" and base.endswith("/v1"):
-            return FAIL, ("MOTOKO_REFLECTOR_BASE_URL must not end in /v1 — "
+            return FAIL, (f"{sources['base_url']} must not end in /v1 — "
                           "the reflector appends /v1/messages (one "
                           "convention across every anthropic adapter); a "
                           "doubled segment 404s at launch")
         if protocol == "anthropic" and base.endswith("/v1/messages"):
-            return FAIL, ("MOTOKO_REFLECTOR_BASE_URL must not carry the full "
+            return FAIL, (f"{sources['base_url']} must not carry the full "
                           "endpoint path — the reflector appends "
                           "/v1/messages; the paste doubles the segment and "
                           "404s at launch")
         if protocol == "openai" and base.endswith("/chat/completions"):
-            return FAIL, ("MOTOKO_REFLECTOR_BASE_URL must not carry the full "
+            return FAIL, (f"{sources['base_url']} must not carry the full "
                           "endpoint path — the reflector appends "
                           "/chat/completions for openai; the paste doubles "
                           "the segment and 404s at launch")
+        if notes:
+            return WARN, ("reflector env: configured (" + protocol + "); "
+                          + "; ".join(notes))
         return OK, f"reflector env: configured ({protocol})"
     return WARN, ("reflector env incomplete (optional — "
-                  "`motoko run --reflector` needs MOTOKO_REFLECTOR_*)")
+                  "`motoko run --reflector` needs MOTOKO_LLM_* (or the "
+                  "legacy MOTOKO_REFLECTOR_*)")
+
+
+def _check_reflector_vs_loop() -> tuple[str, str]:
+    ''
+    from . import reflector as reflector_mod
+    from .loop import default_config_path, load_loop_config
+
+    try:
+        values, _notes, sources = reflector_mod.reflector_env()
+    except ValueError:
+        # The reflector's own check reports the unresolvable pair; repeating
+        # the same FAIL here would print it twice.
+        return OK, "reflector env not resolvable — its own check reports it"
+    base = values["base_url"].rstrip("/")
+    if not base:
+        return OK, "reflector base_url unset — not comparable"
+    path = default_config_path()
+    if not path.exists():
+        return OK, "no loop config to compare"
+    try:
+        cfg = load_loop_config(path)
+    except ValueError:
+        # The loop config's own check reports the expansion problem; comparing
+        # against a half-expanded config would report noise.
+        return OK, "loop config does not expand — its own check reports it"
+    legs = [leg for leg in cfg.get("auditors", [])
+            if isinstance(leg, dict) and leg.get("protocol") != "cli"]
+    adj = cfg.get("adjudicator")
+    if isinstance(adj, dict) and adj.get("protocol") != "cli":
+        legs.append(adj)
+    elif isinstance(adj, list):
+        legs.extend(leg for leg in adj
+                    if isinstance(leg, dict) and leg.get("protocol") != "cli")
+    if not legs:
+        return OK, "no non-cli loop legs to compare"
+    label = sources["base_url"] or "the reflector's base_url"
+    mismatched = [leg.get("name", "?") for leg in legs
+                  if str(leg.get("base_url") or "").rstrip("/") != base]
+    if mismatched:
+        return FAIL, (
+            f"{label} differs from the loop legs' base_url ({', '.join(mismatched)}) "
+            "— one substrate, one spelling (the internal design notes/a recorded pitfall); align the "
+            "reflector's substrate variables with engine/loop/loop.yaml")
+    proto_legs = [leg.get("name", "?") for leg in legs
+                  if str(leg.get("protocol") or "").strip()
+                  and str(leg.get("protocol")).strip().lower()
+                  != values["protocol"]]
+    if proto_legs:
+        return FAIL, (
+            "reflector protocol differs from the loop legs' protocol ("
+            + ", ".join(proto_legs) + ") on the same base_url — one "
+            "substrate, one wire dialect: the reflector would POST the other "
+            "dialect's path and 404 at launch; align MOTOKO_LLM_PROTOCOL "
+            "with engine/loop/loop.yaml (2026-10-17 attack round)")
+    warnings = []
+    key_legs = [leg for leg in legs
+                if str(leg.get("api_key_env") or "") != values["key_env"]]
+    if key_legs and values["key_env"]:
+        warnings.append(
+            "key variable name differs from the loop legs' api_key_env ("
+            + ", ".join(leg.get("name", "?") for leg in key_legs) + ")")
+    model_legs = [leg for leg in legs
+                  if str(leg.get("model") or "") != values["model"]]
+    if model_legs and values["model"]:
+        warnings.append("model differs from the loop legs' model ("
+                        + ", ".join(leg.get("name", "?") for leg in model_legs)
+                        + ")")
+    if warnings:
+        return WARN, ("reflector vs loop legs: " + "; ".join(warnings))
+    return OK, ("reflector vs loop legs: same base_url, protocol, key "
+                "variable name and model")
 
 
 def _container_rules(rules_dir: Path | None = None) -> set[str]:
@@ -1395,7 +1476,8 @@ def check_environment(scope: str = "full") -> list[tuple[str, list[tuple[str, st
         checks.extend([("audit_config", [_check_loop_config()]),
                        ("deploy_config", _check_deploy_config()),
                        ("linter", [_check_pyflakes()]), ("credentials", _check_key_envs()),
-                       ("reflector", [_check_reflector()])])
+                       ("reflector", [_check_reflector(),
+                                      _check_reflector_vs_loop()])])
     return checks
 
 

@@ -7,7 +7,8 @@ is present once every prosthesis is named — is [GHOST.md](GHOST.md). This file
 is only the connective tissue.
 
 This is not a new scanner and not a new agent runtime. The operator-facing
-seat is codewhale (since 2026-10-07), driving the `motoko` CLI directly.
+seat is opencode again (re-seated 2026-10-17; the codewhale seat retired),
+driving the `motoko` CLI directly.
 Strix remains the proof-seeking pentest agent. Nuclei and Kali remain tools.
 LangGraph is the instrument that *names* nodes, edges, and interrupts so
 the composition is inspectable. This file is still the contract, not a

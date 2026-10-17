@@ -230,6 +230,20 @@ def lane_tools() -> frozenset:
                                   if n.strip()}
 
 
+LANE_MECHANISMS: dict[str, str] = {
+    "nmap": "gateway",
+    "sqlmap": "gateway",
+    "dnsrecon": "dns",
+    "enum4linux": "refused",
+    "whois": "refused",
+}
+
+
+def lane_mechanism(tool: str) -> str:
+    """The declared lane mechanism for `tool` ("" when unclassified)."""
+    return LANE_MECHANISMS.get(tool, "")
+
+
 def tool_keeps_forwarding(tool: str) -> bool:
     """Whether `tool` may keep the host's lane environment."""
     if mode() == LANE:

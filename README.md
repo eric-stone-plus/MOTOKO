@@ -123,8 +123,9 @@ exploit product: the destructive-edge interrupt is specified in
   the next wave. Failures reduce rank; duplicate evidence earns no discovery
   credit. Completed and interrupted wave policy persists across runs. Category reservations and
   serial batches bound dispatch; producer failures block dependent actions.
-- **Host adapter and remote operation**: the codewhale seat drives the engine
-  directly through the `motoko` CLI; the engine-side `motoko/1` adapter serves
+- **Host adapter and remote operation**: the seat (opencode, re-seated
+  2026-10-17) drives the engine directly through the `motoko` CLI; the
+  engine-side `motoko/1` adapter serves
   interface collectors over
   local pipes or encrypted SSH, with pinned host keys, bounded frames and
   disconnect cancellation. Raw evidence stays on the engine host. See
@@ -309,7 +310,7 @@ export by policy.
 on every push and pull request, on Python 3.11 / 3.12 / 3.13: a clean
 `uv` venv install of `engine/`, `motoko --help`, `motoko doctor`, an
 assertion from the *installed* site-packages tree that the rule packs
-actually shipped (a floor of 31 beneath the current 40-pack corpus — it
+actually shipped (a floor of 31 beneath the current 48-pack corpus — it
 guards accidental shrinkage, and a deliberate retirement lowers it on purpose),
 and a check that no build artifacts are tracked. A second job enforces the
 public-tree language policy in [AGENTS.md](AGENTS.md).

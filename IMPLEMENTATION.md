@@ -33,8 +33,9 @@ runtime dependencies, and a packaging manifest (`pyproject.toml` with a
   bounded heuristic scheduling, without automatic rule generation or parallel
   resource allocation. Missing parser/producer support remains visible in
   `motoko rules --report`; installed binaries alone do not prove a working chain.
-- **Host adapter**: the codewhale seat drives the `motoko` CLI directly —
-  read-side status, gated `motoko strix`, `systemctl --user` shepherd control
+- **Host adapter**: the seat (opencode, re-seated 2026-10-17) drives the
+  `motoko` CLI directly — read-side status, gated `motoko strix`,
+  `systemctl --user` shepherd control
   and report ingest. The engine-side
   `motoko/1` JSONL adapter (local pipes or SSH) remains for interface
   collectors: strict SSH host-key/identity settings, finite deadlines and

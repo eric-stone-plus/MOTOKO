@@ -135,14 +135,18 @@ def cmd_run(args) -> int:
     reflector = None
     if args.reflector:
         try:
+            notes = reflector_mod.reflector_env_notes()
             reflector = reflector_mod.reflector_from_env()
         except ValueError as exc:
             print(f"--reflector configuration error: {exc}",
                   file=_sys.stderr)
             return 2
+        for note in notes:
+            print(f"--reflector: {note}", file=_sys.stderr)
         if reflector is None:
-            print("--reflector requested but MOTOKO_REFLECTOR_MODEL, "
-                  "MOTOKO_REFLECTOR_BASE_URL or the key env is unset; "
+            print("--reflector requested but MOTOKO_LLM_MODEL, "
+                  "MOTOKO_LLM_BASE_URL or MOTOKO_LLM_KEY (or the legacy "
+                  "MOTOKO_REFLECTOR_* names) leave it unconfigured; "
                   "continuing without a reflector",
                   file=_sys.stderr)
     canary = orchestrator.default_canary(args.engagement_id)
@@ -1045,6 +1049,13 @@ def cmd_adapter(args) -> int:
     return int(result.get("exit_code") or 0)
 
 
+def cmd_bare(args) -> int:
+    ''
+    print("bare `motoko` (the standalone status view) was retired; use "
+          "`motoko status` for the read-only snapshot", file=sys.stderr)
+    return 2
+
+
 def cmd_interface(args) -> int:
     """Print the read-only status snapshot against the engine runtime."""
     from interface.cli import run
@@ -1081,8 +1092,9 @@ def _interface_options(parser: argparse.ArgumentParser, *,
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="motoko", description="MOTOKO attack-graph orchestrator",
-        epilog="Without a command, print the read-only status snapshot.")
-    p.set_defaults(func=cmd_interface, root=None, demo=False)
+        epilog="Bare `motoko` (the standalone status view) was retired; use "
+               "`motoko status` for the read-only snapshot.")
+    p.set_defaults(func=cmd_bare, root=None, demo=False)
     _interface_options(p)
     sub = p.add_subparsers(dest="command")
 
@@ -1145,7 +1157,9 @@ def build_parser() -> argparse.ArgumentParser:
                          "engine/rules checkout, else the installed core/rules "
                          "package data — see util.default_rules_dir)")
     pr.add_argument("--reflector", action="store_true",
-                    help="enable the LLM reflector (MOTOKO_REFLECTOR_* env)")
+                    help="enable the LLM reflector (MOTOKO_LLM_* + "
+                         "MOTOKO_REFLECTOR_PROTOCOL; legacy "
+                         "MOTOKO_REFLECTOR_* still read)")
     pr.set_defaults(func=cmd_run)
 
     pq = sub.add_parser("query", help="list entities")

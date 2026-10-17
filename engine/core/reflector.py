@@ -230,23 +230,98 @@ def make_reflector(*, model: str, base_url: str, api_key: str,
     return _reflect
 
 
-def reflector_from_env():
-    'Config from the environment (no hardcoded model/endpoint/key).'
-    protocol = os.environ.get("MOTOKO_REFLECTOR_PROTOCOL", "anthropic").strip().lower()
+_FIELD_VARS = {
+    "model": ("MOTOKO_LLM_MODEL", "MOTOKO_REFLECTOR_MODEL"),
+    "base_url": ("MOTOKO_LLM_BASE_URL", "MOTOKO_REFLECTOR_BASE_URL"),
+    "key_env": ("MOTOKO_LLM_KEY", "MOTOKO_REFLECTOR_KEY_ENV"),
+}
+_REFUSING_FIELDS = {"base_url", "key_env", "protocol"}
+
+
+def _pick_field(label, unified, legacy, notes, sources):
+    unified_value = os.environ.get(unified, "").strip()
+    legacy_value = os.environ.get(legacy, "").strip()
+    if unified_value and legacy_value:
+        if label == "base_url":
+            same = unified_value.rstrip("/") == legacy_value.rstrip("/")
+        elif label == "protocol":
+            same = unified_value.lower() == legacy_value.lower()
+        else:
+            same = unified_value == legacy_value
+        if not same:
+            if label in _REFUSING_FIELDS:
+                # Names only — never the values: doctor and cli output is
+                # session-visible.
+                raise ValueError(
+                    f"{unified} and {legacy} are both set and disagree — one "
+                    "substrate, one spelling (the internal design notes); unset one of "
+                    "them")
+            notes.append(f"{label}: {unified} and {legacy} both set and "
+                         f"disagree — {unified} wins; unset {legacy}")
+            sources[label] = unified
+            return unified_value
+        notes.append(f"{label}: {unified} and {legacy} both set (same value)")
+        sources[label] = unified
+        return unified_value
+    if unified_value:
+        sources[label] = unified
+        return unified_value
+    if legacy_value:
+        notes.append(f"{label}: legacy {legacy} in use — migrate to "
+                     f"{unified} (credits/TODO.md the internal doctrine)")
+        sources[label] = legacy
+        return legacy_value
+    sources[label] = ""
+    return ""
+
+
+def reflector_env():
+    """Resolve the reflector's settings from the environment.
+
+    Returns ``(values, notes, sources)``: ``values`` carries
+    protocol/model/base_url/key_env (empty string = unset), ``notes`` is the
+    operator-facing migration list, ``sources`` names the variable each field
+    came from. Raises ValueError on a contradicting pair of a REFUSING field
+    (base_url, key variable name, protocol) or an invalid protocol; a
+    contradicting model pair resolves to the unified value with a note. No
+    message ever carries a value.
+    """
+    notes, sources = [], {}
+    values = {label: _pick_field(label, unified, legacy, notes, sources)
+              for label, (unified, legacy) in _FIELD_VARS.items()}
+    protocol = _pick_field("protocol", "MOTOKO_LLM_PROTOCOL",
+                           "MOTOKO_REFLECTOR_PROTOCOL", notes, sources)
+    if not protocol:
+        protocol, sources["protocol"] = "anthropic", ""
+    else:
+        protocol = protocol.lower()
     if protocol not in {"anthropic", "openai"}:
-        raise ValueError(
-            "MOTOKO_REFLECTOR_PROTOCOL must be 'anthropic' or 'openai'")
-    model = os.environ.get("MOTOKO_REFLECTOR_MODEL", "").strip()
-    if not model:
+        raise ValueError(f"{sources['protocol']} must be 'anthropic' or "
+                         "'openai'")
+    values["protocol"] = protocol
+    return values, notes, sources
+
+
+def reflector_env_notes():
+    """Migration notes for the resolved reflector env (raises on conflict)."""
+    _values, notes, _sources = reflector_env()
+    return notes
+
+
+def reflector_from_env():
+    """Build the reflector from the environment, or None when disabled.
+
+    Reads the unified MOTOKO_LLM_* set with the legacy MOTOKO_REFLECTOR_*
+    names as a compat fallback (per field, unified wins; a contradicting pair
+    refuses). Returns None when the model, the base_url, the key variable NAME
+    or the key value is missing — the established optional-leg posture, the
+    same fail-closed shape as a missing key.
+    """
+    values, _notes, _sources = reflector_env()
+    if not (values["model"] and values["base_url"] and values["key_env"]):
         return None
-    base_url = os.environ.get("MOTOKO_REFLECTOR_BASE_URL", "").strip()
-    if not base_url:
-        return None
-    key_env = os.environ.get("MOTOKO_REFLECTOR_KEY_ENV", "").strip()
-    if not key_env:
-        return None
-    api_key = os.environ.get(key_env, "").strip()
+    api_key = os.environ.get(values["key_env"], "").strip()
     if not api_key:
         return None
-    return make_reflector(model=model, base_url=base_url, api_key=api_key,
-                          protocol=protocol)
+    return make_reflector(model=values["model"], base_url=values["base_url"],
+                          api_key=api_key, protocol=values["protocol"])

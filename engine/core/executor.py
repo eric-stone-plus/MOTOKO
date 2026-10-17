@@ -418,24 +418,65 @@ class SubprocessExecutor:
                     url=url, host=host)
                 self._finish_tool_run(action, status="error", exit_code=126)
                 return
-            # A container tool still needs its own gateway flag to REACH a
-            # target: inside the lane netns only DNS and the lane bridge are
-            # routed, so a tool that never speaks the HTTP CONNECT gateway
-            # (enum4linux — SMB has no such transport) connects nowhere.
-            # Refused rather than spent as a dead 600s no-op.
-            if egress.mode() == egress.LANE \
-                    and tool not in _EXPLICIT_LANE_FLAGS:
-                self._record_observation(
-                    tool=tool, engagement_id=self.engagement_id, raw_path=None,
-                    parsed_summary=(
-                        f"refusing container tool {tool!r} in lane mode: no "
-                        "explicit gateway flag — the lane netns routes only "
-                        "DNS and the gateway, so it could not reach any "
-                        "target"),
-                    exit_code=126, action_id=action.get("_tool_run_id"),
-                    url=url, host=host)
-                self._finish_tool_run(action, status="error", exit_code=126)
-                return
+            # A container tool still needs a declared way to REACH a target:
+            # inside the lane netns only DNS and the lane bridge are routed, so
+            # a tool with neither a CONNECT-gateway flag nor resolver injection
+            # connects nowhere. The mechanism comes from ONE declaration
+            # (egress.LANE_MECHANISMS) rather than being inferred from an
+            # omission; an unclassified tool is refused, never launched as a
+            # dead 600s no-op.
+            if egress.mode() == egress.LANE:
+                mechanism = egress.lane_mechanism(tool)
+                problem = None
+                if mechanism == "gateway":
+                    if tool not in _EXPLICIT_LANE_FLAGS:
+                        problem = ("declared gateway but no flag spelling is "
+                                   "registered for it (executor."
+                                   "_EXPLICIT_LANE_FLAGS)")
+                    elif egress.lane_address() is None:
+                        problem = ("declared gateway, but the lane address "
+                                   "is not usable (the lane env is malformed "
+                                   "or missing) — it would launch with no "
+                                   "forwarding flag and produce false "
+                                   "negatives")
+                elif mechanism == "dns":
+                    if tool in dns_channel.RESOLVER_FLAGS:
+                        injectable = True
+                    elif tool in dns_channel.RESOLVER_FILE_FLAGS:
+                        injectable = False
+                        problem = ("declared dns but its flag takes a "
+                                   "resolver FILE and the container route "
+                                   "supplies none (inject_args is called "
+                                   "without resolver_file) — it would run "
+                                   "with no resolver at all")
+                    else:
+                        injectable = False
+                        problem = ("rides resolver injection, but its resolver "
+                                   "flag is not a measured one (dns_channel."
+                                   "RESOLVER_FLAGS) — measure it in the image "
+                                   "(`podman exec <container> <tool> --help`) "
+                                   "before allowing the lane")
+                    if injectable and not dns_channel.configured():
+                        problem = ("rides resolver injection, but no resolver "
+                                   "is configured (MOTOKO_DNS_RESOLVER)")
+                elif mechanism == "refused":
+                    problem = ("no lane transport: its protocol cannot ride "
+                               "the HTTP CONNECT bridge or DNS injection")
+                else:
+                    problem = ("unclassified in egress.LANE_MECHANISMS — "
+                               "declare how it reaches a target before "
+                               "running it in lane mode")
+                if problem is not None:
+                    self._record_observation(
+                        tool=tool, engagement_id=self.engagement_id,
+                        raw_path=None,
+                        parsed_summary=(
+                            f"refusing container tool {tool!r} in lane mode: "
+                            f"{problem}"),
+                        exit_code=126, action_id=action.get("_tool_run_id"),
+                        url=url, host=host)
+                    self._finish_tool_run(action, status="error", exit_code=126)
+                    return
             env_clears = egress.container_env_clears(tool)
             argv = [podman, "exec", *env_clears, container,
                     "timeout", "-k", "5",
